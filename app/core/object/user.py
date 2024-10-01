@@ -55,7 +55,7 @@ def create_user(db: Session, user: UserCreate) -> UserReadDB:
 def update_user(db: Session, uuid: str, user: UserUpdate) -> UserReadDB:
     db_user = get_user(db, uuid)
     email_to_verify = False
-    if user.email != db_user.email:
+    if user.email and user.email != db_user.email:
         user.email_verified = False
         email_to_verify = True
     user_data = user.model_dump(exclude_unset=True)
@@ -89,10 +89,20 @@ def delete_user(db: Session, uuid: str) -> bool:
 
 # ----- Helper Functions ----- #
 
-def get_current_user(db: Session, token: str = Depends(oauth2_scheme)) -> UserReadDB:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> UserReadDB:
     claims = decode_access_token(token)
-    sub: TokenData = claims["sub"]
-    return get_user(db, sub.uuid)
+    sub: TokenData = TokenData(**claims["sub"])
+    db = next(get_db())
+    try:
+        user = get_user(db, sub.uuid)
+        if sub.permission in list(sub.model_dump().keys()):
+            if user.permission != sub.permission:
+                raise HTTPException(status_code=401, detail="Unauthorized")
+    except HTTPException as e:
+        raise e
+    finally:
+        db.close()
+    return user
 
 
 def get_user_files_id(db: Session, user_uuid: str) -> list[int]:
@@ -138,7 +148,7 @@ def init_default_user():
             db.add(default_user)
             db.commit()
             db.refresh(default_user)
-            logger.info(
+            logger.critical(
                 "\nDefault user created:\n\n"
                 "    Username: %s\n"
                 "    Email: %s\n"

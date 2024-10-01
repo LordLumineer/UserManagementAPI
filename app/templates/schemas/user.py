@@ -120,7 +120,7 @@ class UserUpdate(UserBase):
 
     @computed_field
     def hashed_password(self) -> str:
-        return hash_password(self.password)
+        return hash_password(self.password) if self.password else None
 
     @computed_field
     def profile_picture_id(self) -> int:
