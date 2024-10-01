@@ -8,9 +8,10 @@ from app.api.router import api_router
 from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
-from app.templates import models
+from app.core.object.user import init_default_user
+from app.templates.base import Base
 
-models.Base.metadata.create_all(bind=database.engine)
+Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 
@@ -21,7 +22,8 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
     logger.info("Starting up...")
     # Alembic
     run_migrations()
-    # Database
+    # Init Default User Database
+    init_default_user()
     # if len(users in database) == 0: create default user (username: admin@example.com, password: changeme)
     # Scheduler
     # scheduler = BackgroundScheduler()

@@ -1,17 +1,20 @@
+from email.policy import default
 from fastapi import Depends, HTTPException
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from app.core.config import logger
+from app.core.db import get_db
 from app.core.object.file import delete_file, get_file_users_uuid
-from app.core.security import TokenData, decode_access_token, oauth2_scheme
+from app.core.security import TokenData, decode_access_token, hash_password, oauth2_scheme
 from app.templates.models import User as User_Model
 from app.templates.models import users_files_links
 from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
 
 
 def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[UserReadDB]:
-    return db.query(UserReadDB).offset(skip).limit(limit).all()
+    return db.query(User_Model).offset(skip).limit(limit).all()
 
 
 def get_user(db: Session, uuid: str) -> UserReadDB:
@@ -118,3 +121,36 @@ def delete_user_file(db: Session, user_uuid: str, file_id: int) -> list[int]:
     if not get_file_users_uuid(db, file_id):
         delete_file(db, file_id)
     return get_user_files_id(db, user_uuid)
+
+
+def init_default_user():
+    db = next(get_db())
+    try:
+        if len(get_users(db)) == 0:
+            
+            default_user = User_Model(
+                    username="admin",
+                    email="admin@example.com",
+                    hashed_password = hash_password("changeme"),
+                    permission="admin",
+                    email_verified=True
+                )
+            db.add(default_user)
+            db.commit()
+            db.refresh(default_user)
+            logger.info(
+                "\nDefault user created:\n\n"
+                "    Username: %s\n"
+                "    Email: %s\n"
+                "    Password: changeme\n"
+                "    Permission: %s\n\n"
+                "Please change the default password and email after first login.\n",
+                default_user.username,
+                default_user.email,
+                default_user.permission,
+            )
+    except IntegrityError as e:
+        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+    finally:
+        db.close()
+    # return default_user

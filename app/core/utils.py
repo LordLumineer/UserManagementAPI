@@ -19,7 +19,10 @@
 #     """
 #     return int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
 
+import time
+import random
 import re
+import string
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException
@@ -72,3 +75,35 @@ def validate_password(password: str) -> str:
         detail="Password must be at least 10 characters long, contain at least one uppercase letter, \
             one lowercase letter, one number, and one special character."
     )
+
+# ----- GENERATORS ----- #
+
+
+def generate_random_letters(length: int, seed: int | str = None) -> str:
+    """
+    Generates a string of random letters of a given length.
+
+    :param length: Length of the random letter string.
+    :param seed: Optional seed for reproducibility. Defaults to current time.
+    :return: A string of random letters.
+    """
+    if seed is None:
+        seed = int(time.time())  # Use current time if no seed is provided
+    random.seed(seed)
+
+    letters = string.ascii_letters
+    return ''.join(random.choice(letters) for _ in range(length))
+
+
+def generate_random_digits(length: int, seed: int | str = None) -> str:
+    """
+    Generates a string of random digits of a given length.
+
+    :param length: Length of the random digit string.
+    :param seed: Optional seed for reproducibility. Defaults to current time.
+    :return: A string of random digits.
+    """
+    if seed is None:
+        seed = int(time.time())  # Use current time if no seed is provided
+    random.seed(seed)
+    return ''.join(str(random.randint(0, 9)) for _ in range(length))

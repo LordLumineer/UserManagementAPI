@@ -1,7 +1,6 @@
 from typing import Literal
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from app.core.object.user import get_user_files_id
 from app.core.object.file import get_files_list
 from app.core.config import settings
 from app.core.db import get_db
@@ -18,7 +17,10 @@ class UserBase(BaseModel):
         max_length=32
     )
     email: str  # EmailStr
-    permition: Literal["user", "manager", "admin"] = Field(
+    otp_enabled: bool = Field(
+        default=False
+    )
+    permission: Literal["user", "manager", "admin"] = Field(
         default="user",
     )
     description: str | None = Field(
@@ -44,12 +46,14 @@ class UserReadDB(UserBase):
     uuid: str
     email_verified: bool
     hashed_password: str = Field(exclude=True)
+    otp_secret: str | None = Field(exclude=True)
     profile_picture_id: int | None
     created_at: int
     updated_at: int
 
     @computed_field
     def files_id(self) -> list[int]:
+        from app.core.object.user import get_user_files_id   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
             files_id_list = get_user_files_id(db, self.uuid)
@@ -101,7 +105,9 @@ class UserUpdate(UserBase):
     email: str | None = None
     email_verified: bool | None = None
     password: str | None = None
-    permition: Literal["user", "manager", "admin"] | None = None
+    otp_enabled: bool | None = None
+    otp_secret: str | None = None
+    permission: Literal["user", "manager", "admin"] | None = None
     isActive: bool | None = None
     profile_picture: FileReadDB | None = None
 

@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.base import Base
+from app.templates.base import Base
 # from app.core.config import settings
 
 # pylint: disable=R0903
@@ -37,7 +37,13 @@ class User(Base):
         String,
         nullable=False
     )
-    permition: Mapped[str] = mapped_column(
+    otp_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False
+    )
+    otp_secret: Mapped[str | None]
+    
+    permission: Mapped[str] = mapped_column(
         String,
         default="user"
     )

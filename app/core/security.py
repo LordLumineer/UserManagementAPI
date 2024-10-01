@@ -4,8 +4,10 @@ import bcrypt
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
+import pyotp
 
 from app.core.config import settings
+from app.core.utils import generate_random_letters
 
 
 ALGORITHM = settings.JWT_ALGORITHM
@@ -27,7 +29,7 @@ class TokenData(BaseModel):
         role (str): The user's role.
     """
     uuid: str
-    permition: str
+    permission: str
 
 
 def hash_password(password: str) -> str:
@@ -71,3 +73,47 @@ def decode_access_token(token: str, key: str = SECRET_KEY):
         **dict(item.split("=") for item in claims["sub"].replace("'", "").split())
     )
     return claims
+
+
+# import pyotp
+# import qrcode
+
+
+# secret = "Q3OBRIQFU4YMF6SR6SOJXLQA3ZIQWRF4"
+# # print(secret)
+
+# totp = pyotp.TOTP(
+#     s=secret,
+#     name="accountName",
+#     issuer="issuerName"
+# )
+# print("Current OTP:", totp.now())
+
+# uri = totp.provisioning_uri()
+# print("URI:", uri)
+
+# qrcode.make(uri).save("qrcode.png")
+
+def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str) -> tuple[str, str]:
+    if not user_otp_secret:
+        secret = generate_random_letters(length=32, seed=user_uuid)
+        # TODO: save secret in database
+    totp = pyotp.TOTP(
+        s=user_otp_secret,
+        name=user_username,
+        issuer=settings.PROJECT_NAME
+    )
+    uri = totp.provisioning_uri()
+    secret = totp.secret
+    return uri, secret
+
+
+def validate_otp(user_username: str, user_otp_secret: str, otp: str) -> bool:
+    if not user_otp_secret:
+        return False
+    totp = pyotp.TOTP(
+        s=user_otp_secret,
+        name=user_username,
+        issuer=settings.PROJECT_NAME
+    )
+    return totp.verify(otp)
