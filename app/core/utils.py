@@ -32,6 +32,8 @@ def validate_email(email: str) -> str:
     :raises HTTPException: If the email address is invalid.
     """
     try:
+        if email == "admin@example.com":
+            return email
         email_info = email_validation(email, check_deliverability=True)
     except EmailNotValidError as e:
         raise HTTPException(
@@ -88,6 +90,20 @@ def generate_random_digits(length: int, seed: int | str = None) -> str:
     random.seed(seed)
     return ''.join(str(random.randint(0, 9)) for _ in range(length))
 
+
+def extract_initials_from_text(text: str) -> str:
+    result = []
+    capitalize_next = True
+    for char in text:
+        if char.isalpha():
+            if capitalize_next:
+                result.append(char.upper())
+                capitalize_next = False
+            else:
+                capitalize_next = False
+        elif char.isdigit() or char == '_'or char == ' ':
+            capitalize_next = True
+    return ''.join(result)
 
 async def generate_profile_picture(letters: str = 'OS') -> Response:
     """

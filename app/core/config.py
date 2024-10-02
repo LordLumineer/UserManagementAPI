@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     PROJECT_NAME: str = Field(default="OpenShelf")
-    BASE_URL: str = Field(default="http://localhost:8000")  # .env
+    BASE_URL: str = Field(default="http://127.0.0.1:8000")  # .env
     API_STR: str = Field(default="/api")
 
     JWT_ALGORITHM: str = Field(default="HS256")

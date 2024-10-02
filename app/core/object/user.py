@@ -59,7 +59,7 @@ def update_user(db: Session, uuid: str, user: UserUpdate) -> UserReadDB:
     if user.email and user.email != db_user.email:
         user.email_verified = False
         email_to_verify = True
-    user_data = user.model_dump(exclude_unset=True)
+    user_data = user.model_dump(exclude_unset=True, exclude_none=True)
     for key, value in user_data.items():
         setattr(db_user, key, value)
     try:
@@ -111,7 +111,7 @@ def get_users_list(db: Session, id_list: list[str]) -> list[UserReadDB]:
 
 
 def get_user_files_id(db: Session, user_uuid: str) -> list[int]:
-    stmt = select(users_files_links.c.attachement_id).where(
+    stmt = select(users_files_links.c.file_id).where(
         users_files_links.c.user_uuid == user_uuid)
     result = db.execute(stmt)
     return [row[0] for row in result]
@@ -149,7 +149,6 @@ def init_default_user() -> None:
                 permission="admin",
                 email_verified=True
             )
-            print(default_user)
             db.add(default_user)
             db.commit()
             db.refresh(default_user)

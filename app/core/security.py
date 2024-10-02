@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import json
+from tkinter import E
 from authlib.jose import jwt
 from authlib.jose.errors import DecodeError
 import bcrypt
@@ -98,7 +99,13 @@ def decode_access_token(token: str, key: str = SECRET_KEY):
             status_code=401,
             detail="Token expired",
         )
-    claims["sub"] = json.loads(claims["sub"].replace("'", '"'))
+    try:
+        claims["sub"] = json.loads(str(claims["sub"]).replace("'", '"'))
+    except Exception as e:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid token. {e}",
+        ) from e
     return claims
 
 
@@ -113,7 +120,6 @@ def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str) -> tu
                 otp_secret=secret
             )
             user = update_user(db=db, uuid=user_uuid, user=updated_user)
-            print("SECRET", user.otp_secret)
         finally:
             db.close()
     totp = pyotp.TOTP(

@@ -1,15 +1,20 @@
-from email.policy import HTTP
-from fastapi import APIRouter, Depends, File, HTTPException, Header, Response, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, UploadFile, Depends, File, Header, Query
+from fastapi.background import P
+from fastapi.exceptions import HTTPException
+from fastapi.responses import Response, FileResponse
 from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.core.object.file import create_file, get_file
-from app.core.object.user import create_user, delete_user, get_current_user, get_user, get_users, get_users_list, link_file_to_user, update_user
+from app.core.object.file import create_file, delete_file, get_file
+from app.core.object.user import (
+    create_user, get_user, update_user, delete_user,
+    get_users, get_users_list, get_current_user,
+    link_file_to_user,
+)
 from app.core.security import decode_access_token
-from app.core.utils import generate_profile_picture
+from app.core.utils import extract_initials_from_text, generate_profile_picture
 from app.templates.schemas.file import FileCreate, FileReadDB
 from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate
 
@@ -19,7 +24,7 @@ router = APIRouter()
 # ------- Create ------- #
 
 
-@router.post("/")#, response_model=UserReadDB)
+@router.post("/", response_model=UserReadDB)  # , response_model=UserReadDB)
 def new_user(
     user: UserCreate,
     token: str | None = Header(None),
@@ -46,16 +51,23 @@ async def new_user_image(
         raise HTTPException(
             status_code=400, detail="File must be a valid image format")
     img = Image.open(file.file)
-    if img.width > 500 or img.height > 500:
+    if img.width > 512 or img.height > 512:
         raise HTTPException(
-            status_code=400, detail="Image must be below 500x500 px")
-
+            status_code=400, detail=f"Image must be below 512x512 px ({img.width}x{img.height}px)")
+    file.file.seek(0)  # Reset pointer to the beginning of the file
+    
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
     new_file = FileCreate(
         file_name=file.filename,
         created_by=current_user.uuid
     )
+    db_user = get_user(db, uuid)
+    if db_user.profile_picture_id:
+        delete_file(db, db_user.profile_picture_id)
+    
     file_db = await create_file(db, new_file, file)
     link_file_to_user(db, uuid, file_db.id)
     update_user(db, uuid, UserUpdate(profile_picture_id=file_db.id))
@@ -95,7 +107,7 @@ def read_users(
 
 @router.get("/users", response_model=list[UserReadDB])
 def read_users_list(
-    users_ids: list[str],
+    users_ids: list[str] = Query(default=[]),
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -117,10 +129,19 @@ def read_user(uuid: str, db: Session = Depends(get_db)):
 @router.get("/{uuid}/image", response_class=FileResponse)
 async def read_user_image(uuid: str, db: Session = Depends(get_db)):
     user = get_user(db, uuid)
-    file = get_file(db, user.profile_picture_id)
+    try:
+        file = get_file(db, user.profile_picture_id)
+    except HTTPException as e:
+        if e.status_code == 404:
+            file = None
     if not file:
-        return await generate_profile_picture(user.username)
-    return FileResponse(file.picture_path, filename=file.file_name, media_type=file.file_type)
+        letters = extract_initials_from_text(user.username)
+        return await generate_profile_picture(letters)
+    return FileResponse(
+        file.file_path,
+        # filename=file.file_name,
+        # media_type=f"image/{file.file_type.replace('.', '')}"
+    )
 
 # ------- Update ------- #
 
