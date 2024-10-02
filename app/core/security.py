@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 from authlib.jose import jwt
+from authlib.jose.errors import DecodeError
 import bcrypt
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
@@ -18,6 +19,7 @@ ALGORITHM = settings.JWT_ALGORITHM
 SECRET_KEY = settings.JWT_SECRET_KEY
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXP
 
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.BASE_URL}{settings.API_STR}/login/",
     auto_error=True
@@ -25,26 +27,11 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 
 class Token(BaseModel):
-    """
-    Represents an access token.
-
-    Attributes:
-        access_token (str): The access token.
-        token_type (str): The type of the access token.
-    """
-
     access_token: str
     token_type: str
 
 
 class TokenData(BaseModel):
-    """
-    Represents a user's token data.
-
-    Attributes:
-        uuid (str): The user's uuid.
-        permission (str): The user's permission.
-    """
     uuid: str
     permission: str
 
@@ -83,11 +70,16 @@ def create_access_token(
 def decode_access_token(token: str, key: str = SECRET_KEY):
     try:
         claims = jwt.decode(token, key)
-    except (Exception, not claims) as e:
+    except DecodeError as e:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid token. {e}",
+        ) from e
+    if not claims:
         raise HTTPException(
             status_code=401,
             detail="Could not validate credentials",
-        ) from e
+        )
     if claims["iss"] != settings.PROJECT_NAME:
         raise HTTPException(
             status_code=401,
@@ -109,25 +101,6 @@ def decode_access_token(token: str, key: str = SECRET_KEY):
     claims["sub"] = json.loads(claims["sub"].replace("'", '"'))
     return claims
 
-
-# import pyotp
-# import qrcode
-
-
-# secret = "Q3OBRIQFU4YMF6SR6SOJXLQA3ZIQWRF4"
-# # print(secret)
-
-# totp = pyotp.TOTP(
-#     s=secret,
-#     name="accountName",
-#     issuer="issuerName"
-# )
-# print("Current OTP:", totp.now())
-
-# uri = totp.provisioning_uri()
-# print("URI:", uri)
-
-# qrcode.make(uri).save("qrcode.png")
 
 def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str) -> tuple[str, str]:
     if not user_otp_secret:
@@ -185,6 +158,8 @@ def authenticate_user(db: Session, username: str, password: str):
         user = get_user_by_username(db=db, username=username)
     if not user:
         raise error_msg
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user, please contact admin")
 
     if verify_password(password, user.hashed_password):
         if user.otp_enabled:

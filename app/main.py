@@ -24,7 +24,6 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
     run_migrations()
     # Init Default User Database
     init_default_user()
-    # if len(users in database) == 0: create default user (username: admin@example.com, password: changeme)
     # Scheduler
     # scheduler = BackgroundScheduler()
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)

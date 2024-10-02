@@ -27,6 +27,7 @@ class UserBase(BaseModel):
         default=None,
         max_length=256
     )
+    profile_picture_id: int | None = None
     is_active: bool = Field(
         default=True
     )
@@ -84,7 +85,6 @@ class UserRead(UserReadDB):
 class UserCreate(UserBase):
     email_verified: bool = Field(default=False)
     password: str = Field(exclude=True)
-    profile_picture: FileReadDB | None = None
 
     @field_validator("password")
     @classmethod
@@ -94,10 +94,6 @@ class UserCreate(UserBase):
     @computed_field
     def hashed_password(self) -> str:
         return hash_password(self.password)
-
-    @computed_field
-    def profile_picture_id(self) -> int | None:
-        return self.profile_picture.id if self.profile_picture else None
 
 
 class UserUpdate(UserBase):
@@ -109,7 +105,6 @@ class UserUpdate(UserBase):
     otp_secret: str | None = None
     permission: Literal["user", "manager", "admin"] | None = None
     isActive: bool | None = None
-    profile_picture: FileReadDB | None = None
 
     @field_validator('password')
     @classmethod
@@ -121,7 +116,3 @@ class UserUpdate(UserBase):
     @computed_field
     def hashed_password(self) -> str:
         return hash_password(self.password) if self.password else None
-
-    @computed_field
-    def profile_picture_id(self) -> int:
-        return self.profile_picture.id if self.profile_picture else None

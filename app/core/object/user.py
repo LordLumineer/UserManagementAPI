@@ -1,4 +1,5 @@
 from email.policy import default
+from re import U
 from fastapi import Depends, HTTPException
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
@@ -105,6 +106,10 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UserReadDB:
     return user
 
 
+def get_users_list(db: Session, id_list: list[str]) -> list[UserReadDB]:
+    return db.query(User_Model).filter(User_Model.uuid.in_(id_list)).all()
+
+
 def get_user_files_id(db: Session, user_uuid: str) -> list[int]:
     stmt = select(users_files_links.c.attachement_id).where(
         users_files_links.c.user_uuid == user_uuid)
@@ -133,18 +138,18 @@ def delete_user_file(db: Session, user_uuid: str, file_id: int) -> list[int]:
     return get_user_files_id(db, user_uuid)
 
 
-def init_default_user():
+def init_default_user() -> None:
     db = next(get_db())
     try:
         if len(get_users(db)) == 0:
-            
             default_user = User_Model(
-                    username="admin",
-                    email="admin@example.com",
-                    hashed_password = hash_password("changeme"),
-                    permission="admin",
-                    email_verified=True
-                )
+                username="admin",
+                email="admin@example.com",
+                hashed_password=hash_password("changeme"),
+                permission="admin",
+                email_verified=True
+            )
+            print(default_user)
             db.add(default_user)
             db.commit()
             db.refresh(default_user)
@@ -159,8 +164,9 @@ def init_default_user():
                 default_user.email,
                 default_user.permission,
             )
+        else:
+            return None
     except IntegrityError as e:
         raise HTTPException(status_code=400, detail=str(e.orig)) from e
     finally:
         db.close()
-    # return default_user

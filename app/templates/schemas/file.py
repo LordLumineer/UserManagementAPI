@@ -33,7 +33,7 @@ class FileRead(FileReadDB):
 
 class FileCreate(FileBase):
     file_name: str
-    uploaded_by: str
+    created_by: str
 
     @computed_field
     def file_type(self) -> str:

@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from io import BytesIO
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import OAuth2PasswordRequestForm
+import qrcode
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.object.user import get_user
-from app.core.security import Token, TokenData, authenticate_user, create_access_token, decode_access_token, validate_otp
+from app.core.object.user import get_current_user, get_user
+from app.core.security import Token, TokenData, authenticate_user, create_access_token, decode_access_token, generate_otp, validate_otp
+from app.templates.schemas.user import UserReadDB
 
 
 router = APIRouter()
@@ -20,6 +23,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             permission=user.permission
         )
     )
+
 
 @router.post("/2FA", response_model=Token)
 def login_2FA(otp_code: str, otp_request_token: str, db: Session = Depends(get_db)):
@@ -40,4 +44,19 @@ def login_2FA(otp_code: str, otp_request_token: str, db: Session = Depends(get_d
             uuid=user.uuid,
             permission=user.permission
         )
+    )
+
+
+@router.get("/QR", response_class=Response)
+def test_QR(current_user: UserReadDB = Depends(get_current_user)):
+    uri, secret = generate_otp(
+        current_user.uuid, current_user.username, current_user.otp_secret)
+    qr = qrcode.make(uri)
+    img_io = BytesIO()
+    qr.save(img_io, 'PNG')
+    img_io.seek(0)
+    return Response(
+        content=img_io.getvalue(),
+        headers={'secret': secret},
+        media_type="image/png"
     )
