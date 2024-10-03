@@ -1,4 +1,3 @@
-from math import e
 import os
 from pydantic import BaseModel, Field, computed_field
 
@@ -12,7 +11,7 @@ class FileBase(BaseModel):
     )
 
 
-class FileReadDB(BaseModel):
+class FileReadDB(FileBase):
     id: int
     file_name: str
     file_type: str
@@ -37,7 +36,7 @@ class FileCreate(FileBase):
 
     @computed_field
     def file_type(self) -> str:
-        return os.path.splitext(self.file_name)[1]
+        return self.file_name.split('.')[-1].lower()
 
     @computed_field
     def file_path(self) -> str:

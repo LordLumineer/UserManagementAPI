@@ -1,4 +1,5 @@
 from io import BytesIO
+import os
 import time
 import random
 import re
@@ -7,6 +8,7 @@ from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Response
 from PIL import Image, ImageDraw, ImageFont
+
 
 def validate_username(username: str) -> str:
     """
@@ -101,9 +103,10 @@ def extract_initials_from_text(text: str) -> str:
                 capitalize_next = False
             else:
                 capitalize_next = False
-        elif char.isdigit() or char == '_'or char == ' ':
+        elif char.isdigit() or char == '_' or char == ' ':
             capitalize_next = True
     return ''.join(result)
+
 
 async def generate_profile_picture(letters: str = 'OS') -> Response:
     """
@@ -146,6 +149,16 @@ async def generate_profile_picture(letters: str = 'OS') -> Response:
     return Response(content=img_io.getvalue(), media_type="image/png")
 
 
+def remove_file(file_path: str):
+    """
+    Removes the file at the given path if it exists.
+
+    :param str file_path: The path to the file to remove.
+    """
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+
 # import uuid
 
 # def generate_uuid() -> str:
@@ -166,4 +179,3 @@ async def generate_profile_picture(letters: str = 'OS') -> Response:
 #     :return: The current timestamp as an integer in milliseconds.
 #     """
 #     return int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
-

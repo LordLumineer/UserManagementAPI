@@ -5,9 +5,10 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.utils import remove_file
 from app.templates.models import File as File_Model
 from app.templates.models import users_files_links
-from app.templates.schemas.file import FileCreate, FileReadDB
+from app.templates.schemas.file import FileCreate, FileReadDB, FileUpdate
 
 
 def get_files(db: Session, skip: int = 0, limit: int = 100) -> list[FileReadDB]:
@@ -36,7 +37,20 @@ async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> Fi
     link_file_to_user(db, new_file.created_by, new_db_file.id)
     return new_db_file
 
-# Update File
+
+def update_file(db: Session, file_id: int, file: FileUpdate) -> File_Model:
+    db_file = get_file(db, file_id)
+    file_data = file.model_dump(exclude_unset=True, exclude_none=True)
+    for field, value in file_data.items():
+        setattr(db_file, field, value)
+    try:
+        db.add(db_file)
+        db.commit()
+        db.refresh(db_file)
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+    return db_file
 
 
 def delete_file(db: Session, file_id: int) -> bool:
@@ -48,10 +62,10 @@ def delete_file(db: Session, file_id: int) -> bool:
         users_files_links.c.file_id == file_id
     ))
     # ... other links related to the file
-    
+
     # delete file from disk
     try:
-        os.remove(db_file.file_path)
+        remove_file(db_file.file_path)
         db.commit()
     except OSError as e:
         db.rollback()

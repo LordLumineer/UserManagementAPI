@@ -44,6 +44,7 @@ def new_user(
 @router.put("/{uuid}/image", response_model=FileReadDB)
 async def new_user_image(
     uuid: str,
+    description: str | None = Query(default=None),
     file: UploadFile = File(...),
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -62,6 +63,7 @@ async def new_user_image(
 
     file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
     new_file = FileCreate(
+        description=description,
         file_name=file.filename,
         created_by=current_user.uuid
     )
@@ -78,6 +80,7 @@ async def new_user_image(
 @router.put("/{uuid}/file", response_model=FileReadDB)
 async def new_user_file(
     uuid: str,
+    description: str | None = Query(default=None),
     file: UploadFile = File(...),
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -85,6 +88,7 @@ async def new_user_file(
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
     new_file = FileCreate(
+        description=description,
         file_name=file.filename,
         created_by=current_user.uuid
     )
@@ -141,7 +145,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
     return FileResponse(
         file.file_path,
         # filename=file.file_name,
-        # media_type=f"image/{file.file_type.replace('.', '')}"
+        # media_type=f"image/{file.file_type}"
     )
 
 # ------- Update ------- #
