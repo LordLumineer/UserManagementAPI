@@ -14,14 +14,14 @@ def get_files(db: Session, skip: int = 0, limit: int = 100) -> list[FileReadDB]:
     return db.query(File_Model).offset(skip).limit(limit).all()
 
 
-def get_file(db: Session, file_id: int) -> FileReadDB:
+def get_file(db: Session, file_id: int) -> File_Model:
     db_file = db.query(File_Model).filter(File_Model.id == file_id).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
     return db_file
 
 
-async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> FileReadDB:
+async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_Model:
     from app.core.object.user import link_file_to_user  # pylint: disable=import-outside-toplevel
     with open(new_file.file_path, "wb") as f:
         f.write(file.file.read())
@@ -42,7 +42,7 @@ async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> Fi
 def delete_file(db: Session, file_id: int) -> bool:
     db_file = get_file(db, file_id)
     db.delete(db_file)
-    
+
     # delete from links
     db.execute(delete(users_files_links).where(
         users_files_links.c.file_id == file_id
@@ -62,7 +62,7 @@ def delete_file(db: Session, file_id: int) -> bool:
 # ----- Helper functions ----- #
 
 
-def get_files_list(db: Session, id_list: list[int]) -> list[FileReadDB]:
+def get_files_list(db: Session, id_list: list[int]) -> list[File_Model]:
     return db.query(File_Model).filter(File_Model.id.in_(id_list)).all()
 
 

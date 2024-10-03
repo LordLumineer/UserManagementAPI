@@ -1,5 +1,3 @@
-from email.policy import default
-from re import U
 from fastapi import Depends, HTTPException
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
@@ -18,14 +16,14 @@ def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[UserReadDB]:
     return db.query(User_Model).offset(skip).limit(limit).all()
 
 
-def get_user(db: Session, uuid: str) -> UserReadDB:
+def get_user(db: Session, uuid: str) -> User_Model:
     db_user = db.query(User_Model).filter(User_Model.uuid == uuid).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
 
-def get_user_by_username(db: Session, username: str) -> UserReadDB:
+def get_user_by_username(db: Session, username: str) -> User_Model:
     db_user = db.query(User_Model).filter(
         User_Model.username == username).first()
     if not db_user:
@@ -33,14 +31,14 @@ def get_user_by_username(db: Session, username: str) -> UserReadDB:
     return db_user
 
 
-def get_user_by_email(db: Session, email: str) -> UserReadDB:
+def get_user_by_email(db: Session, email: str) -> User_Model:
     db_user = db.query(User_Model).filter(User_Model.email == email).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
 
-def create_user(db: Session, user: UserCreate) -> UserReadDB:
+def create_user(db: Session, user: UserCreate) -> User_Model:
     try:
         db_user = User_Model(**user.model_dump())
         db.add(db_user)
@@ -53,7 +51,7 @@ def create_user(db: Session, user: UserCreate) -> UserReadDB:
     return db_user
 
 
-def update_user(db: Session, uuid: str, user: UserUpdate) -> UserReadDB:
+def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
     db_user = get_user(db, uuid)
     email_to_verify = False
     if user.email and user.email != db_user.email:
@@ -80,7 +78,7 @@ def delete_user(db: Session, uuid: str) -> bool:
     db.delete(db_user)
     db.execute(delete(users_files_links).where(
         users_files_links.c.user_uuid == uuid))
-    for file_id in db_user.files_id():
+    for file_id in db_user.files_id:
         if get_file_users_uuid(db, file_id):
             continue
         delete_file(db, file_id)
@@ -90,7 +88,7 @@ def delete_user(db: Session, uuid: str) -> bool:
 
 # ----- Helper Functions ----- #
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserReadDB:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User_Model:
     claims = decode_access_token(token)
     sub: TokenData = TokenData(**claims["sub"])
     db = next(get_db())
@@ -106,7 +104,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UserReadDB:
     return user
 
 
-def get_users_list(db: Session, id_list: list[str]) -> list[UserReadDB]:
+def get_users_list(db: Session, id_list: list[str]) -> list[User_Model]:
     return db.query(User_Model).filter(User_Model.uuid.in_(id_list)).all()
 
 

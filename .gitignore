@@ -9,7 +9,8 @@ __pycache__/
 # Data files
 *.db 
 *.sqlite
-data/*.png
+data/*.*
+!data/__init__.py
 
 # Distribution / packaging
 .Python

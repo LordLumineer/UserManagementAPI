@@ -1,3 +1,4 @@
+from tkinter import N
 from fastapi import APIRouter, UploadFile, Depends, File, Header, Query
 from fastapi.background import P
 from fastapi.exceptions import HTTPException
@@ -55,10 +56,10 @@ async def new_user_image(
         raise HTTPException(
             status_code=400, detail=f"Image must be below 512x512 px ({img.width}x{img.height}px)")
     file.file.seek(0)  # Reset pointer to the beginning of the file
-    
+
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
+
     file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
     new_file = FileCreate(
         file_name=file.filename,
@@ -67,7 +68,7 @@ async def new_user_image(
     db_user = get_user(db, uuid)
     if db_user.profile_picture_id:
         delete_file(db, db_user.profile_picture_id)
-    
+
     file_db = await create_file(db, new_file, file)
     link_file_to_user(db, uuid, file_db.id)
     update_user(db, uuid, UserUpdate(profile_picture_id=file_db.id))
@@ -155,6 +156,8 @@ def patch_user(
 ):
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if current_user.uuid == uuid:
+        user.permission = None  # NOTE: A User can't change their own permission
     return update_user(db, uuid, user)
 
 
@@ -195,8 +198,8 @@ def remove_user(
 def remove_user_image():
     raise HTTPException(
         status_code=301,
-        detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}
-        {settings.API_STR}/files/`file_id` instead"""
+        detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}{
+            settings.API_STR}/files/`file_id` instead"""
     )
 
 
@@ -204,6 +207,6 @@ def remove_user_image():
 def remove_user_file():
     raise HTTPException(
         status_code=301,
-        detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}
-        {settings.API_STR}/files/`file_id` instead"""
+        detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}{
+            settings.API_STR}/files/`file_id` instead"""
     )
