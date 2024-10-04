@@ -9,39 +9,13 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 import pytest
 
-from app.templates.models import KofiTransaction, KofiUser
+from app.core.config import Settings
 from app.main import app
 # from app.core.db import get_db
 # from app.core import models
 
 
 # Mock settings
-basic_mock_transaction = KofiTransaction(
-    verification_token="test_token",
-    message_id="12345",
-    timestamp="2024-09-25T12:34:56",
-    type="Donation",
-    is_public=True,
-    from_name="John Doe",
-    message="Great work!",
-    amount="5.00",
-    url="https://ko-fi.com/some-url",
-    email="john.doe@example.com",
-    currency="USD",
-    is_subscription_payment=False,
-    is_first_subscription_payment=False,
-    kofi_transaction_id="txn_123",
-    shop_items=None,
-    tier_name=None,
-    shipping=None
-)
-
-basic_mock_user = KofiUser(
-    verification_token="test_token",
-    data_retention_days=30,
-    latest_request_at="2024-09-25T12:34:56",
-    prefered_currency="USD"
-)
 
 
 @pytest.fixture

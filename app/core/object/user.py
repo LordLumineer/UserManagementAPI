@@ -85,8 +85,8 @@ def delete_user(db: Session, uuid: str) -> bool:
     db.commit()
     return True
 
-
 # ----- Helper Functions ----- #
+
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User_Model:
     claims = decode_access_token(token)

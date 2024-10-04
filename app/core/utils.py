@@ -9,6 +9,8 @@ from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Response
 from PIL import Image, ImageDraw, ImageFont
 
+from app.core.config import logger, settings
+
 
 def validate_username(username: str) -> str:
     """
@@ -20,6 +22,9 @@ def validate_username(username: str) -> str:
     """
     username_pattern = r"^[a-z0-9_]{5,}$"
     if bool(re.match(username_pattern, username)):
+        return username
+    if settings.ENVIRONMENT == "local":
+        logger.warning("Invalid username format: %s", username)
         return username
     raise HTTPException(
         status_code=400, detail="Username must be at least 5 characters long, contain only lowercase letters, numbers, and underscores.")
@@ -38,6 +43,9 @@ def validate_email(email: str) -> str:
             return email
         email_info = email_validation(email, check_deliverability=True)
     except EmailNotValidError as e:
+        if settings.ENVIRONMENT == "local":
+            logger.warning("Invalid email format: %s", email)
+            return email
         raise HTTPException(
             status_code=400, detail="Email is not valid. " + str(e)) from e
     return email_info.normalized
@@ -53,6 +61,9 @@ def validate_password(password: str) -> str:
     """
     regex = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{10,}$"
     if bool(re.match(regex, password)):
+        return password
+    if settings.ENVIRONMENT == "local":
+        logger.warning("Invalid password format: %s", password)
         return password
     raise HTTPException(
         status_code=400,
