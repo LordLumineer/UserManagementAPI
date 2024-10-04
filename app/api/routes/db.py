@@ -43,7 +43,7 @@ async def db_recover(
         raise HTTPException(
             status_code=401, detail="Unauthorized")
     # Save the uploaded file temporarily
-    uploaded_db_path = f"./temp_{file.filename}"
+    uploaded_db_path = f"../data/temp_{file.filename}"
     with open(uploaded_db_path, "wb") as buffer:
         buffer.write(await file.read())
 
@@ -58,7 +58,6 @@ async def db_recover(
         status_code=200,
         content=f"Database recovered from {file.filename}"
     )
-
 
 @router.post("/import")
 async def db_import(

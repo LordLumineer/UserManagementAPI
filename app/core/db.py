@@ -1,10 +1,9 @@
 import logging
 import os
-from datetime import datetime, timedelta
 import shutil
 from typing import Generator
 from fastapi import HTTPException
-from sqlalchemy import Connection, Inspector, MetaData, Table, create_engine, inspect, select, text
+from sqlalchemy import Connection, Engine, Inspector, MetaData, Table, create_engine, insert, inspect, select, text, update
 from sqlalchemy.orm import Session, sessionmaker
 from alembic import command
 from alembic.config import Config
@@ -80,15 +79,14 @@ async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
             if table_name not in upload_inspector.get_table_names():
                 # Skip tables not present in the uploaded database
                 continue
-
             await process_table(session, table_name, upload_conn, inspector, mode)
 
-    await upload_conn.close()
-    await upload_engine.dispose()
+    upload_conn.close()
+    upload_engine.dispose()
     return True
 
 
-async def connect_to_uploaded_db(uploaded_db_path: str) -> Connection:
+async def connect_to_uploaded_db(uploaded_db_path: str) -> tuple[Connection, Engine]:
     """
     Connect to the uploaded SQLite database.
     """
@@ -139,7 +137,6 @@ async def process_table(
 
     rows_existing = {tuple(row[key] for key in primary_keys):
                      row for row in session.execute(stmt_existing).mappings()}
-
     rows_uploaded = {tuple(row[key] for key in primary_keys):
                      row for row in upload_conn.execute(stmt_uploaded).mappings()}
 
@@ -147,52 +144,35 @@ async def process_table(
         if pk not in rows_existing:
             # Row does not exist in the existing DB, add it
             new_row = {
-                key: row_uploaded[key] for key in inspector.get_columns(table_name)}
+                key["name"]: row_uploaded[key["name"]] for key in list(inspector.get_columns(table_name))}
             session.execute(
                 Table(table_name, MetaData(), autoload_with=engine).insert().values(new_row))
         else:
             # Row exists, check data differences
             row_existing = rows_existing[pk]
             for col in inspector.get_columns(table_name):
-                if col in row_uploaded and col in row_existing:
+                if col["name"] in list(row_uploaded) and col["name"] in list(row_existing):
                     if mode == "recover" and (
-                        row_uploaded[col] is not None and row_uploaded[col] != row_existing[col]
+                        row_uploaded[col["name"]] is not None and row_uploaded[col["name"]
+                                                                               ] != row_existing[col["name"]]
                     ):
                         # In 'recover', replace data if different
-                        session.execute(
-                            Table(table_name, MetaData(), autoload_with=engine).update().where(
-                                Table(table_name, MetaData(),
-                                      autoload_with=engine).c[primary_keys[0]]
-                                == pk[0]
-                            ).values({col: row_uploaded[col]}))
+                        # Insert missing rows
+                        table = Table(table_name, MetaData(), autoload_with=engine)
+                        stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
+                            {col["name"]: row_uploaded[col["name"]]}
+                        )
+                        session.execute(stmt)
                     elif mode == "import" and (
-                        row_existing[col] is None and row_uploaded[col] is not None
+                        row_existing[col["name"]
+                                     ] is None and row_uploaded[col["name"]] is not None
                     ):
                         # In 'import', do not replace existing data
-                        session.execute(
-                            Table(table_name, MetaData(), autoload_with=engine).update().where(
-                                Table(table_name, MetaData(),
-                                      autoload_with=engine).c[primary_keys[0]]
-                                == pk[0]
-                            ).values({col: row_uploaded[col]}))
-
-                    # if mode == "recover":
-                    #     # In 'recover', replace data if different
-                    #     if row_uploaded[col] is not None and row_uploaded[col] != row_existing[col]:
-                    #         session.execute(
-                    #             Table(table_name, MetaData(), autoload_with=engine).update().where(
-                    #                 Table(table_name, MetaData(), autoload_with=engine).c[primary_keys[0]]
-                    #                 == pk[0]
-                    #             ).values({col: row_uploaded[col]}))
-                    # elif mode == "import":
-                    #     # In 'import', do not replace existing data
-                    #     if row_existing[col] is None and row_uploaded[col] is not None:
-                    #         session.execute(
-                    #             Table(table_name, MetaData(), autoload_with=engine).update().where(
-                    #                 Table(table_name, MetaData(), autoload_with=engine).c[primary_keys[0]]
-                    #                 == pk[0]
-                    #             ).values({col: row_uploaded[col]}))
-
+                        table = Table(table_name, MetaData(), autoload_with=engine)
+                        stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
+                            {col["name"]: row_uploaded[col["name"]]}
+                        )
+                        session.execute(stmt)
     # Commit changes
     session.commit()
 
