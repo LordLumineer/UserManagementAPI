@@ -17,8 +17,8 @@ class UserBase(BaseModel):
         max_length=32
     )
     email: str  # EmailStr
-    otp_enabled: bool = Field(
-        default=False
+    otp_method: Literal["none", "authenticator", "email"] = Field(
+        default="none"
     )
     permission: Literal["user", "manager", "admin"] = Field(
         default="user",
@@ -102,7 +102,7 @@ class UserUpdate(UserBase):
     email: str | None = None
     email_verified: bool | None = None
     password: str | None = None
-    otp_enabled: bool | None = None
+    otp_method: Literal["none", "authenticator", "email"] | None = None
     otp_secret: str | None = None
     permission: Literal["user", "manager", "admin"] | None = None
     isActive: bool | None = None

@@ -1,3 +1,4 @@
+import string
 import time
 import uuid
 
@@ -37,9 +38,9 @@ class User(Base):
         String,
         nullable=False
     )
-    otp_enabled: Mapped[bool] = mapped_column(
-        Boolean,
-        default=False
+    otp_method: Mapped[bool] = mapped_column(
+        String,
+        default="none"
     )
     otp_secret: Mapped[str | None]
     

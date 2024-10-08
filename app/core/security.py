@@ -132,15 +132,35 @@ def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str) -> tu
     return uri, secret
 
 
-def validate_otp(user_username: str, user_otp_secret: str, otp: str) -> bool:
+def validate_otp(user_username: str, user_otp_secret: str, otp: str, method: str) -> bool:
     if not user_otp_secret:
         return False
-    totp = pyotp.TOTP(
-        s=user_otp_secret,
-        name=user_username,
-        issuer=settings.PROJECT_NAME
-    )
-    return totp.verify(otp)
+    match method:
+        case "none":
+            return True
+        case "authenticator":
+            totp = pyotp.TOTP(
+                s=user_otp_secret,
+                name=user_username,
+                interval=settings.OTP_AUTHENTICATOR_INTERVAL,
+                issuer=settings.PROJECT_NAME,
+                digits=settings.OTP_LENGTH
+            )
+            return totp.verify(otp)
+        case "email":
+            totp = pyotp.TOTP(
+                s=user_otp_secret,
+                name=user_username,
+                interval=settings.OTP_EMAIL_INTERVAL,
+                issuer=settings.PROJECT_NAME,
+                digits=settings.OTP_LENGTH
+            )
+            return totp.verify(otp)
+        case _:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid OTP method"
+            )
 
 
 def authenticate_user(db: Session, username: str, password: str):
@@ -151,7 +171,7 @@ def authenticate_user(db: Session, username: str, password: str):
         detail="Incorrect username/email or password or email not verified",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    # if username in ["user", "manager", "admin"]: # TODO: remove coments
+    # if username in ["user", "manager", "admin"]: # TODO: remove comments
     #     raise error_msg
     try:
         if username == "admin@example.com":
@@ -168,18 +188,28 @@ def authenticate_user(db: Session, username: str, password: str):
         raise HTTPException(status_code=400, detail="Inactive user, please contact admin")
 
     if verify_password(password, user.hashed_password):
-        if user.otp_enabled:
-            otp_request_token = create_access_token(
-                sub={
-                    "uuid": user.uuid,
-                })
-            raise HTTPException(
-                status_code=401,
-                detail=jsonable_encoder({
-                    "message": "Please enter OTP",
-                    "otp_request_token": otp_request_token,
-                }),
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return user
+        if user.otp_method == "none":
+            return user
+        
+        if user.otp_method == "email":
+            # TODO: Send OTP email
+            pass
+        
+        otp_request_token = create_access_token(
+            sub={
+                "uuid": user.uuid,
+            })
+        raise HTTPException(
+            status_code=401,
+            detail=jsonable_encoder({
+                "message": "Please enter OTP",
+                "method": user.otp_method,
+                "curl": {
+                    "-X": "POST",
+                    "url": f"{settings.BASE_URL}{settings.API_STR}/login/2FA?otp_code=",
+                    "-H": f"Authorization: {otp_request_token.token_type} {otp_request_token.access_token}",
+                    "-d": ""
+                }
+            }),
+        )
     raise error_msg

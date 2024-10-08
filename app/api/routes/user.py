@@ -38,7 +38,7 @@ def new_user(
                 return create_user(db, user)
     user.permission = "user"        # NOTE: Override to ensure default permission
     user.email_verified = False     # NOTE: Override to ensure email verification
-    return create_user(db, user)
+    return create_user(db, user)  # TODO: return token
 
 
 @router.put("/{uuid}/image", response_model=FileReadDB)

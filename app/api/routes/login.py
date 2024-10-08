@@ -1,5 +1,6 @@
 from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.params import Query, Header
 from fastapi.security import OAuth2PasswordRequestForm
 import qrcode
 from sqlalchemy.orm import Session
@@ -26,17 +27,24 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @router.post("/2FA", response_model=Token)
-def login_2FA(otp_code: str, otp_request_token: str, db: Session = Depends(get_db)):
-    otp_token_claims = decode_access_token(otp_request_token)
+def login_2FA(
+    otp_code: str = Query(),
+    authorization_header: str = Header(),
+    db: Session = Depends(get_db)
+):
+    if not authorization_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization")
+    otp_token_claims = decode_access_token(authorization_header.replace("Bearer ", ""))
     user = get_user(db, otp_token_claims["sub"]["uuid"])
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not user.otp_enabled:
+    if user.otp_method == "none":
         raise HTTPException(status_code=401, detail="2FA not enabled")
     if not validate_otp(
         user_username=user.username,
         user_otp_secret=user.otp_secret,
-        otp=otp_code
+        otp=otp_code,
+        method=user.otp_method
     ):
         raise HTTPException(status_code=401, detail="Invalid OTP code")
     return create_access_token(

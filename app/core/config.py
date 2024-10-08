@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = Field(default="changethis")
     JWT_EXP: int = Field(default=30)
 
+    OTP_LENGTH: int = Field(default=6)
+    OTP_AUTHENTICATOR_INTERVAL: int = Field(default=30)
+    OTP_EMAIL_INTERVAL: int = Field(default=600) # seconds
+
     ENVIRONMENT: Literal["local", "production"] = Field(
         default="local")  # "local" # .env
 

@@ -145,7 +145,8 @@ def init_default_user() -> None:
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
                 permission="admin",
-                email_verified=True
+                email_verified=True,
+                otp_secret="changeme",
             )
             db.add(default_user)
             db.commit()
