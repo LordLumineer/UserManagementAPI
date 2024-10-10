@@ -33,6 +33,18 @@ class Settings(BaseSettings):
     POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str | None = None
     POSTGRES_DB: str | None = None
+    
+    EMAIL_METHOD: Literal["none","smtp", "mj"] = Field(default="none")
+    
+    MJ_SENDER_EMAIL: str | None = None
+    MJ_APIKEY_PUBLIC: str | None = None
+    MJ_APIKEY_PRIVATE: str | None = None
+    
+    SMTP_TLS: bool = True
+    SMTP_PORT: int = 587
+    SMTP_HOST: str | None = None
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
 
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:

@@ -1,4 +1,5 @@
 from typing import Literal
+from fastapi import HTTPException
 from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.core.object.file import get_files_list
@@ -41,6 +42,13 @@ class UserBase(BaseModel):
     @classmethod
     def validate_email(cls, value: str) -> str:
         return validate_email(value)
+
+    @field_validator("otp_method")
+    @classmethod
+    def validate_otp_method(cls, value: str) -> str:
+        if settings.EMAIL_METHOD == "none" and value == "email":
+            raise ValueError("No EMAIL Method set")
+        return value
 
 
 class UserReadDB(UserBase):

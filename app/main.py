@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
 # from starlette.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
@@ -47,7 +48,7 @@ app = FastAPI(
 )
 
 app.include_router(api_router, prefix=settings.API_STR)
-
+app.mount(f"{settings.API_STR}/static", StaticFiles(directory="../assets"), name="Assets")
 # # app.add_middleware(
 # #     CORSMiddleware,
 # #     allow_origins=["*"],
@@ -62,3 +63,10 @@ def ping():
     """Simple healthcheck endpoint to check if the API is alive."""
     logger.info("Pong!")
     return "pong"
+
+from app.core.email import send_test_email
+@app.get("/send-test-email", tags=["DEBUG"])
+async def test_email(receiver: str = "lordlumineeralt@gmail.com"):
+    """Simple healthcheck endpoint to check if the API is alive."""
+    logger.info("Pong!")
+    return await send_test_email(receiver)
