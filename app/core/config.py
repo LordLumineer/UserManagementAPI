@@ -36,16 +36,17 @@ class Settings(BaseSettings):
     
     EMAIL_METHOD: Literal["none","smtp", "mj"] = Field(default="none")
     
-    MJ_SENDER_EMAIL: str | None = None
     MJ_APIKEY_PUBLIC: str | None = None
     MJ_APIKEY_PRIVATE: str | None = None
+    MJ_SENDER_EMAIL: str | None = None
     
     SMTP_TLS: bool = True
     SMTP_PORT: int = 587
     SMTP_HOST: str | None = None
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
-
+    SMTP_SENDER_EMAIL: str | None = None
+    
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:
         if not (self.POSTGRES_SERVER and self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB):

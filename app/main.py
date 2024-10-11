@@ -48,7 +48,8 @@ app = FastAPI(
 )
 
 app.include_router(api_router, prefix=settings.API_STR)
-app.mount(f"{settings.API_STR}/static", StaticFiles(directory="../assets"), name="Assets")
+app.mount(f"{settings.API_STR}/static",
+          StaticFiles(directory="../assets"), name="Assets")
 # # app.add_middleware(
 # #     CORSMiddleware,
 # #     allow_origins=["*"],
@@ -63,10 +64,3 @@ def ping():
     """Simple healthcheck endpoint to check if the API is alive."""
     logger.info("Pong!")
     return "pong"
-
-from app.core.email import send_test_email
-@app.get("/send-test-email", tags=["DEBUG"])
-async def test_email(receiver: str = "lordlumineeralt@gmail.com"):
-    """Simple healthcheck endpoint to check if the API is alive."""
-    logger.info("Pong!")
-    return await send_test_email(receiver)
