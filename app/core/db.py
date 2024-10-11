@@ -3,7 +3,10 @@ import os
 import shutil
 from typing import Generator
 from fastapi import HTTPException
-from sqlalchemy import Connection, Engine, Inspector, MetaData, Table, create_engine, insert, inspect, select, text, update
+from sqlalchemy import (
+    Connection, Engine, Inspector, MetaData, Table,
+    create_engine, inspect, select, text, update
+)
 from sqlalchemy.orm import Session, sessionmaker
 from alembic import command
 from alembic.config import Config
@@ -158,7 +161,8 @@ async def process_table(
                     ):
                         # In 'recover', replace data if different
                         # Insert missing rows
-                        table = Table(table_name, MetaData(), autoload_with=engine)
+                        table = Table(table_name, MetaData(),
+                                      autoload_with=engine)
                         stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
                             {col["name"]: row_uploaded[col["name"]]}
                         )
@@ -168,7 +172,8 @@ async def process_table(
                                      ] is None and row_uploaded[col["name"]] is not None
                     ):
                         # In 'import', do not replace existing data
-                        table = Table(table_name, MetaData(), autoload_with=engine)
+                        table = Table(table_name, MetaData(),
+                                      autoload_with=engine)
                         stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
                             {col["name"]: row_uploaded[col["name"]]}
                         )

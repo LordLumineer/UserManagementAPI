@@ -1,9 +1,90 @@
-<div style="background:#f7fbfa">
-  <div style="background-color:#f7fbfa;padding-top:80px">
+<!DOCTYPE html>
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
+
+<head>
+  <title></title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml><![endif]-->
+  <style>
+    .bg {
+      background-color: #ffffff;
+      background: #ffffff;
+    }
+
+    .bg-bis {
+      background-color: #f7fbfa;
+      background: #f7fbfa;
+    }
+
+    .text {
+      color: #0a1210;
+    }
+
+    .text-bis {
+      color: #485b56
+    }
+
+    .primary {
+      background-color: #1E342D;
+      background: #1E342D;
+    }
+
+    .secondary {
+      background-color: #9fd7c5;
+      background: #9fd7c5;
+    }
+
+    .accent {
+      background-color: #76cbb0;
+      background: #76cbb0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .bg {
+        background-color: #292929;
+        background: #292929;
+      }
+
+      .bg-bis {
+        background-color: #050f0c;
+        background: #050f0c;
+      }
+
+      .text {
+        color: hsl(168, 33%, 97%);
+      }
+
+      .text-bis {
+        color: hsl(168, 16%, 68%);
+      }
+
+      .primary {
+        background-color: #cbe1da;
+        background: #cbe1da;
+      }
+
+      .secondary {
+        background-color: #107f5c;
+        background: #107f5c;
+      }
+
+      .accent {
+        background-color: #07c085;
+        background: #07c085;
+      }
+    }
+  </style>
+  <!--[if mso ]><style>sup, sub { font-size: 100% !important; } sup { mso-text-raise:10% } sub { mso-text-raise:-10% }</style> <![endif]-->
+</head>
+
+<body class="bg">
+  <div class="bg" style="padding-top:80px">
     <!-- MAIN -->
-    <div style="margin:0 auto;max-width:600px;background:#ffffff">
-      <table role="presentation" cellpadding="0" cellspacing="0"
-        style="font-size:0px;width:100%;background:#ffffff;border-top:3px solid #1E342D" align="center" border="0">
+    <div class="bg-bis" style="margin:0 auto;max-width:600px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" class="bg-bis" style="font-size:0px;width:100%;"
+        align="center" border="0">
+        <div class="primary" style="height:4px"></div>
         <tbody>
           <tr>
             <td style="text-align:center;vertical-align:top;font-size:0px;padding:40px 30px 30px 30px">
@@ -19,12 +100,12 @@
                           <tbody>
                             <tr>
                               <td style="width:180px">
-                                <a href="{BASE_URL}" target="_blank"
-                                  data-saferedirecturl="https://www.google.com/url?q={BASE_URL}">
-                                  <img alt="{BASE_URL}/{API_URL}/{LOGO_ENDPOINT}" title="" height="auto"
-                                    src="{BASE_URL}/{API_URL}/{LOGO_ENDPOINT}"
-                                    style="border:none;display:block;outline:none;text-decoration:none;width:100%;height:auto"
-                                    width="180" class="CToWUd" data-bit="iit"></a>
+                                <a href="{{ BASE_URL }}" target="_blank"
+                                  data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}">
+                                  <img alt="{{ LOGO_URL }}" title="" height="auto"
+                                    src="{{ LOGO_URL }}"
+                                    style="border:none;display:block;outline:none;text-decoration:none;width:100%;height:auto;"
+                                    width="180" class="text" data-bit="iit"></a>
                               </td>
                             </tr>
                           </tbody>
@@ -34,8 +115,8 @@
                     <!-- TITLE -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:30px" align="center">
-                        <div
-                          style="color:#55575d;font-family:Open Sans,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;line-height:22px">
+                        <div class="text"
+                          style="font-family:Open Sans,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;line-height:22px">
                           Activate Your Account
                         </div>
                       </td>
@@ -43,11 +124,10 @@
                     <!-- SUBTITLE -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:35px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          We just need to validate your email address to activate your {PROJECT_NAME} account. Simply
-                          click the
-                          following button:
+                        <div class="text-bis"
+                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
+                          We just need to validate your email address to activate your {{ PROJECT_NAME }} account. <br>
+                          Simply click the "Activate my account" button:
                         </div>
                       </td>
                     </tr>
@@ -58,19 +138,12 @@
                           align="center" border="0">
                           <tbody>
                             <tr>
-                              <td style="border-radius:4px;color:#fff;padding:10px 25px" align="center" valign="middle"
-                                bgcolor="#195a6a">
-                                <a href="{BASE_URL}/{API_URL}/{EMAIL_VALIDATE_ENDPOINT}/{TOKEN}" style="
-                                  display:inline-block;
-                                  text-decoration:none;
-                                  background:#195a6a;
-                                  color:#fff;
-                                  font-family:Roboto,Helvetica,Arial,sans-serif,Helvetica,Arial,sans-serif;
-                                  font-size:14px;
-                                  font-weight:normal;
-                                  margin:0px
-                                  " target="_blank"
-                                  data-saferedirecturl="https://www.google.com/url?q={BASE_URL}/{API_URL}/{EMAIL_VALIDATE_ENDPOINT}/{TOKEN}">
+                              <td class="accent text" style="border-radius:4px;padding:10px 25px" align="center"
+                                valign="middle">
+                                <a href="{{ BASE_URL }}{{ API_URL }}{{ ENDPOINT }}{{ PARAMS }}" class="accent text"
+                                  style="display:inline-block;text-decoration:none;font-family:Roboto,Helvetica,Arial,sans-serif,Helvetica,Arial,sans-serif;font-size:14px;font-weight:normal;margin:0px"
+                                  target="_blank"
+                                  data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ API_URL }}{{ ENDPOINT }}{{ PARAMS }}">
                                   Activate my account
                                 </a>
                               </td>
@@ -82,8 +155,8 @@
                     <!-- LINK -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:8px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
+                        <div class="text-bis"
+                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
                           If the link doesn’t work, copy this URL into your browser:
                         </div>
                       </td>
@@ -93,10 +166,10 @@
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:35px" align="center">
                         <div
                           style="color:#3586ff;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          <a href="{BASE_URL}/{API_URL}/{ENDPOINT}/{TOKEN}"
+                          <a href="{{ BASE_URL }}{{ API_URL }}{{ ENDPOINT }}{{ PARAMS }}"
                             style="text-decoration:underline;color:inherit" target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={BASE_URL}/{API_URL}/{EMAIL_VALIDATE_ENDPOINT}/{TOKEN}">
-                            {BASE_URL}/{API_URL}/<wbr>{EMAIL_VALIDATE_ENDPOINT}/<wbr>{TOKEN}
+                            data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ API_URL }}{{ ENDPOINT }}{{ PARAMS }}">
+                            {{ BASE_URL }}{{ API_URL }}<wbr>{{ ENDPOINT }}<wbr>{{ PARAMS }}
                           </a>
                         </div>
                       </td>
@@ -104,17 +177,17 @@
                     <!-- SIGNATURE -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
+                        <div class="text-bis"
+                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
                           Welcome aboard!
                         </div>
                       </td>
                     </tr>
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          {PROJECT_NAME}
+                        <div class="text-bis"
+                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
+                          {{ PROJECT_NAME }}
                         </div>
                       </td>
                     </tr>
@@ -128,7 +201,7 @@
     </div>
 
     <!-- FOOTER -->
-    <div style="margin:0 auto;max-width:600px">
+    <div class="text-bis" style="margin:0 auto;max-width:600px">
       <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:0px;width:100%" align="center"
         border="0">
         <tbody>
@@ -142,12 +215,12 @@
                     <!-- FOOTER TEXT -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:10px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
+                        <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
                           <span>
-                            This email was sent to you by {PROJECT_NAME} because you signed up for a {PROJECT_NAME}
-                            account.
+                            This email was sent to you by {{ PROJECT_NAME }} because you 
+                            signed up for a {{ PROJECT_NAME }} account.
                           </span>
+                          <br>
                           <span>
                             Please let us know if you feel that this email was sent to you by error.
                           </span>
@@ -157,23 +230,23 @@
                     <!-- COPYRIGHT -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:15px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
-                          © {YEAR} {PROJECT_NAME}
+                        <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
+                          © {{ COPYRIGHT_YEAR }} {{ PROJECT_NAME }}
                         </div>
                       </td>
                     </tr>
                     <!-- LINK -->
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:10px" align="center">
-                        <div
-                          style="color:#8c8c8c;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
-                          <a href="" style="color:inherit;padding:0 7px" target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={BASE_URL}/{PRIVACY_ENDPOINT}">
+                        <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
+                          <a href="{{ BASE_URL }}{{ PRIVACY_ENDPOINT }}" style="color:inherit;padding:0 7px"
+                            target="_blank"
+                            data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ PRIVACY_ENDPOINT }}">
                             Privacy Policy
                           </a>
-                          <a href="" style="color:inherit;padding:0 7px" target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={BASE_URL}/{TERMS_ENDPOINT}">
+                          <a href="{{ BASE_URL }}{{ TERMS_ENDPOINT }}" style="color:inherit;padding:0 7px"
+                            target="_blank"
+                            data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ TERMS_ENDPOINT }}">
                             Terms &amp; Conditions
                           </a>
                         </div>
@@ -188,4 +261,6 @@
       </table>
     </div>
   </div>
-</div>
+</body>
+
+</html>

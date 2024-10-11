@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 import smtplib
 import ssl
 from email.mime.text import MIMEText
 from fastapi.exceptions import HTTPException
+from fastapi.responses import HTMLResponse
 from jinja2 import Template
 from mailjet_rest import Client
 
@@ -38,7 +40,7 @@ async def send_MJ_email(recipient: str, subject: str, html_content: str):
     }
     result = mailjet.send.create(data=data)
     if result.status_code == 200:
-        logger.success(f"Email Sent to {recipient}")
+        logger.info(f"Email Sent to {recipient}")
         return True
     logger.error("Failed to send email to %s", recipient)
     logger.error(result.json())
@@ -74,7 +76,8 @@ async def send_smtp_email(receiver: str, subject: str, html_content: str):
         server.login(sender, sender_pwd)
         server.sendmail(sender, receiver, html_message.as_string())
         server.quit()
-    logger.success(f"Email Sent to {receiver}")
+    # TODO: check logguru logging.success
+    logger.info(f"Email Sent to {receiver}")
     return True
 
 
@@ -109,9 +112,23 @@ async def send_test_email(receiver: str):
     """
     with open("./templates/html/test_email.html", "r", encoding="utf-8") as f:
         template = Template(f.read())
-    context = {"project_name": settings.PROJECT_NAME,
-               "email": settings.MJ_SENDER_EMAIL}
+    # TODO: UPDATE CONTEXT
+    context = {
+        "ENDPOINT": "/send-test-email/test/todo",
+        "PARAMS": "?test=123456789&token=123456789",
+        # SAME on all emails
+        "PROJECT_NAME": settings.PROJECT_NAME,
+        "BASE_URL": settings.BASE_URL,
+        "API_URL": settings.API_STR,
+        # f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
+        "LOGO_URL": "https://picsum.photos/500/300",
+        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
+        "PRIVACY_ENDPOINT": "/privacy",
+        "TERMS_ENDPOINT": "/terms"
+    }
     html = template.render(context)
-    logger.info("Testing Email %s to %s", settings.MJ_SENDER_EMAIL, receiver)
+    logger.info("Testing Email %s to %s",
+                settings.MJ_SENDER_EMAIL, receiver)
+
     await send_email(receiver, "Test Email", html)
-    return True
+    return HTMLResponse(content="Test Email Sent", status_code=200)

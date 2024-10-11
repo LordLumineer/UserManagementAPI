@@ -75,7 +75,7 @@
       }
     }
   </style>
-  <!--[if mso ]><style>sup, sub { font-size: 100% !important;  } sup { mso-text-raise:10%  } sub { mso-text-raise:-10%  }</style> <![endif]-->
+  <!--[if mso ]><style>sup, sub { font-size: 100% !important; } sup { mso-text-raise:10% } sub { mso-text-raise:-10% }</style> <![endif]-->
 </head>
 
 <body class="bg">
@@ -117,7 +117,7 @@
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:30px" align="center">
                         <div class="text"
                           style="font-family:Open Sans,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;line-height:22px">
-                          TEST EMAIL
+                          Forgot your password?
                         </div>
                       </td>
                     </tr>
@@ -126,13 +126,9 @@
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:35px" align="center">
                         <div class="text-bis"
                           style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          <span>
-                            This is a test email to from {{ PROJECT_NAME }}.
-                          </span>
-                          <br>
-                          <span>
-                            Click the button below.
-                          </span>
+                          You recently requested to reset your password for your
+                          {{ PROJECT_NAME }} account. <br>
+                          Click the button below to reset it.
                         </div>
                       </td>
                     </tr>
@@ -149,7 +145,7 @@
                                   style="display:inline-block;text-decoration:none;font-family:Roboto,Helvetica,Arial,sans-serif,Helvetica,Arial,sans-serif;font-size:14px;font-weight:normal;margin:0px"
                                   target="_blank"
                                   data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ API_URL }}{{ ENDPOINT }}{{ PARAMS }}">
-                                  TEST BUTTON
+                                  RESET MY PASSWORD
                                 </a>
                               </td>
                             </tr>
@@ -184,7 +180,7 @@
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:8px" align="center">
                         <div class="text-bis"
                           style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          CONTENT FOOTER
+                          Didn’t request a password reset? You can ignore this message.
                         </div>
                       </td>
                     </tr>
@@ -215,7 +211,7 @@
                         <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
                           <span>
                             This email was sent to you by {{ PROJECT_NAME }} because you
-                            TESTED THE EMAIL.
+                            requested a reset of your {{ PROJECT_NAME }} password.
                           </span>
                           <br>
                           <span>
