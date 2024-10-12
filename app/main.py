@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
-# from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core import db as database
@@ -50,13 +50,13 @@ app = FastAPI(
 app.include_router(api_router, prefix=settings.API_STR)
 app.mount(f"{settings.API_STR}/static",
           StaticFiles(directory="../assets"), name="Assets")
-# # app.add_middleware(
-# #     CORSMiddleware,
-# #     allow_origins=["*"],
-# #     allow_credentials=True,
-# #     allow_methods=["*"],
-# #     allow_headers=["*"],
-# # )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/ping", tags=["DEBUG"])

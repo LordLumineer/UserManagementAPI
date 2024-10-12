@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 import json
-from tkinter import E
 from authlib.jose import jwt
 from authlib.jose.errors import DecodeError
 import bcrypt
+from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.email import send_otp_email
 from app.core.utils import generate_random_letters, validate_email
 
 
@@ -22,7 +23,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXP
 
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.BASE_URL}{settings.API_STR}/login/",
+    tokenUrl=f"{settings.BASE_URL}{settings.API_STR}/auth/login",
     auto_error=True
 )
 
@@ -163,7 +164,7 @@ def validate_otp(user_username: str, user_otp_secret: str, otp: str, method: str
             )
 
 
-def authenticate_user(db: Session, username: str, password: str):
+async def authenticate_user(db: Session, username: str, password: str, request: Request = None):
     from app.core.object.user import get_user_by_email, get_user_by_username  # pylint: disable=import-outside-toplevel
 
     error_msg = HTTPException(
@@ -185,16 +186,28 @@ def authenticate_user(db: Session, username: str, password: str):
     if not user:
         raise error_msg
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user, please contact admin")
+        raise HTTPException(
+            status_code=400, detail="Inactive user, please contact admin")
 
     if verify_password(password, user.hashed_password):
         if user.otp_method == "none":
             return user
-        
+
         if user.otp_method == "email":
             # TODO: Send OTP email
-            pass
-        
+            totp = pyotp.TOTP(
+                s=user.otp_secret,
+                name=user.username,
+                interval=settings.OTP_EMAIL_INTERVAL,
+                issuer=settings.PROJECT_NAME,
+                digits=settings.OTP_LENGTH
+            )
+            await send_otp_email(
+                recipient=user.email,
+                otp_code=totp.now(),
+                request=request
+            )
+
         otp_request_token = create_access_token(
             sub={
                 "uuid": user.uuid,

@@ -1,23 +1,25 @@
 from io import BytesIO
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.params import Query, Header
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 import qrcode
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.db import get_db
-from app.core.object.user import get_current_user, get_user
+from app.core.object.user import get_current_user, get_user, get_user_by_email, update_user
 from app.core.security import Token, TokenData, authenticate_user, create_access_token, decode_access_token, generate_otp, validate_otp
-from app.templates.schemas.user import UserReadDB
+from app.templates.schemas.user import UserReadDB, UserUpdate
 
 
 router = APIRouter()
 
 
-@router.post("/", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(
-        db=db, username=form_data.username, password=form_data.password)
+@router.post("/login", response_model=Token)
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = await authenticate_user(
+        db=db, username=form_data.username, password=form_data.password, request=request)
     return create_access_token(
         sub=TokenData(
             uuid=user.uuid,
@@ -34,10 +36,9 @@ def login_2FA(
 ):
     if not authorization_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization")
-    otp_token_claims = decode_access_token(authorization_header.replace("Bearer ", ""))
+    otp_token_claims = decode_access_token(
+        authorization_header.replace("Bearer ", ""))
     user = get_user(db, otp_token_claims["sub"]["uuid"])
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     if user.otp_method == "none":
         raise HTTPException(status_code=401, detail="2FA not enabled")
     if not validate_otp(
@@ -68,3 +69,13 @@ def test_QR(current_user: UserReadDB = Depends(get_current_user)):
         headers={'secret': secret},
         media_type="image/png"
     )
+
+
+@router.get("/email/verify", response_class=RedirectResponse)
+def verify_email(token: str, db: Session = Depends(get_db)):
+    token_claims = decode_access_token(token.replace("Bearer ", ""))
+    user = get_user_by_email(db, token_claims["sub"]["email"])
+    if user.uuid != token_claims["sub"]["uuid"]:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = update_user(db, user.uuid, UserUpdate(email_verified=True))
+    return RedirectResponse(url=settings.FRONTEND_URL)

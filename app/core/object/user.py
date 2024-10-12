@@ -5,8 +5,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import logger
 from app.core.db import get_db
+from app.core.email import send_validation_email
 from app.core.object.file import delete_file, get_file_users_uuid
-from app.core.security import TokenData, decode_access_token, hash_password, oauth2_scheme
+from app.core.security import TokenData, create_access_token, decode_access_token, hash_password, oauth2_scheme
 from app.templates.models import User as User_Model
 from app.templates.models import users_files_links
 from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
@@ -38,7 +39,7 @@ def get_user_by_email(db: Session, email: str) -> User_Model:
     return db_user
 
 
-def create_user(db: Session, user: UserCreate) -> User_Model:
+async def create_user(db: Session, user: UserCreate) -> User_Model:
     try:
         db_user = User_Model(**user.model_dump())
         db.add(db_user)
@@ -47,11 +48,16 @@ def create_user(db: Session, user: UserCreate) -> User_Model:
     except IntegrityError as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e.orig)) from e
-    # TODO: send verification email
+    email_token = create_access_token(create_access_token(
+        sub={
+            "uuid": user.uuid,
+            "email": user.email
+        }))
+    await send_validation_email(db_user.email, email_token)
     return db_user
 
 
-def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
+async def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
     db_user = get_user(db, uuid)
     email_to_verify = False
     if user.email and user.email != db_user.email:
@@ -68,8 +74,12 @@ def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e.orig)) from e
     if email_to_verify:
-        # TODO: send verification email
-        pass
+        email_token = create_access_token(create_access_token(
+            sub={
+                "uuid": user.uuid,
+                "email": user.email
+            }))
+        await send_validation_email(db_user.email, email_token)
     return db_user
 
 

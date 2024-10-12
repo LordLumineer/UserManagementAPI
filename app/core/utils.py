@@ -6,8 +6,9 @@ import re
 import string
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
-from fastapi import HTTPException, Response
+from fastapi import HTTPException, Request, Response
 from PIL import Image, ImageDraw, ImageFont
+import httpx
 
 from app.core.config import logger, settings
 
@@ -170,23 +171,65 @@ def remove_file(file_path: str):
         os.remove(file_path)
 
 
-# import uuid
+def extract_info(user_agent):
+    """
+    Extracts OS and browser information from the given user agent string.
 
-# def generate_uuid() -> str:
-#     """
-#     Generates a random UUID (Universally Unique Identifier).
+    :param str user_agent: The user agent string to parse.
+    :return tuple: A tuple containing the OS information and browser information as strings.
+    """
+    os_info = "Unknown OS"
+    browser_info = "Unknown Browser"
 
-#     :return: A string containing a random UUID.
-#     """
-#     return str(uuid.uuid4())
+    os_match = re.search(r'\((.*?)\)', user_agent)
+    if os_match:
+        os_info = os_match.group(1)
 
-# from datetime import datetime
+    if "Firefox" in user_agent:
+        browser_info = "Firefox"
+    elif "Edg" in user_agent:
+        browser_info = "Edge"
+    elif "Chrome" in user_agent and "Safari" in user_agent:
+        browser_info = "Chrome"
+    elif "Safari" in user_agent and "Chrome" not in user_agent:
+        browser_info = "Safari"
+
+    return os_info, browser_info
 
 
-# def generate_timestamp() -> int:
-#     """
-#     Generates the current timestamp in milliseconds.
+def get_location_from_ip(ip_address):
+    """
+    Gets the location information from an IP address using the ipinfo.io API.
 
-#     :return: The current timestamp as an integer in milliseconds.
-#     """
-#     return int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+    :param str ip_address: The IP address to lookup.
+    :return dict: A dictionary containing the location information. None if the lookup fails.
+    """
+    response = httpx.get(f"http://ipinfo.io/{ip_address}/json", timeout=5)
+    data = response.json()
+    if data.get("bogon"):
+        return None
+    elif response.status_code == 200:
+        return data
+    else:
+        return None
+
+
+def get_info_from_request(request: Request = None):
+    if not request:
+        return "Unknown Location", "Unknown Device", "Unknown Browser", "Unknown IP"
+    device, browser = extract_info(request.headers["User-Agent"])
+    location = "Unknown Location"
+    client_host = request.client.host
+    if client_host.startswith("127."):
+        location = "Loopback (localhost | 127.~.~.~)"
+    elif client_host.startswith("10."):
+        location = "Private (class A | 10.~.~.~)"
+    elif client_host.startswith("172.") and 16 <= client_host.split(".")[1] <= "31":
+        location = "Private (class B | 172.16.~.~ - 172.31.~.~)"
+    elif client_host.startswith("192.168."):
+        location = "Private (class C | 192.168.~.~ - 192.168.~.~)"
+    else:
+        data = get_location_from_ip(client_host)
+        if data:
+            location = f"{data['city']}, {data['region']}, {data['country']}"
+    return location, device, browser, request.client.host

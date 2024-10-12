@@ -14,7 +14,7 @@ from app.core.object.user import (
     get_users, get_users_list, get_current_user,
     link_file_to_user,
 )
-from app.core.security import decode_access_token
+from app.core.security import Token, TokenData, create_access_token, decode_access_token
 from app.core.utils import extract_initials_from_text, generate_profile_picture
 from app.templates.schemas.file import FileCreate, FileReadDB
 from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate
@@ -25,8 +25,8 @@ router = APIRouter()
 # ------- Create ------- #
 
 
-@router.post("/", response_model=UserReadDB)  # , response_model=UserReadDB)
-def new_user(
+@router.post("/", response_model=Token)  # , response_model=UserReadDB)
+async def new_user(
     user: UserCreate,
     token: str | None = Header(None),
     db: Session = Depends(get_db)
@@ -38,7 +38,8 @@ def new_user(
                 return create_user(db, user)
     user.permission = "user"        # NOTE: Override to ensure default permission
     user.email_verified = False     # NOTE: Override to ensure email verification
-    return create_user(db, user)  # TODO: return token
+    user_new = await create_user(db, user)
+    return create_access_token(sub=TokenData(uuid=user_new.uuid, permission=user_new.permission))
 
 
 @router.put("/{uuid}/image", response_model=FileReadDB)

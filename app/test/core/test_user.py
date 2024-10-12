@@ -120,7 +120,7 @@ def test_get_user_email_not_found(mock_db_session):
 # -------- Testing create_user -------- #
 
 
-def test_create_user(mock_db_session):
+async def test_create_user(mock_db_session):
     # Arrange
     user_data = UserCreate(
         username="testuser",
@@ -130,7 +130,7 @@ def test_create_user(mock_db_session):
     mock_db_session.commit.return_value = None
 
     # Act
-    result = create_user(mock_db_session, user_data)
+    result = await create_user(mock_db_session, user_data)
 
     # Assert
     mock_db_session.add.assert_called_once()
@@ -139,7 +139,7 @@ def test_create_user(mock_db_session):
     assert result.email == user_data.email
 
 
-def test_create_user_integrity_error(mock_db_session):
+async def test_create_user_integrity_error(mock_db_session):
     # Arrange
     user_data = UserCreate(
         username="testuser",
@@ -150,7 +150,7 @@ def test_create_user_integrity_error(mock_db_session):
 
     # Act / Assert
     with pytest.raises(HTTPException) as exc_info:
-        create_user(mock_db_session, user_data)
+        await create_user(mock_db_session, user_data)
     assert exc_info.value.status_code == 400
     mock_db_session.rollback.assert_called_once()
 

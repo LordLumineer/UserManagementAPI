@@ -100,8 +100,8 @@
                           <tbody>
                             <tr>
                               <td style="width:180px">
-                                <a href="{{ BASE_URL }}" target="_blank"
-                                  data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}">
+                                <a href="{{ FRONTEND_URL }}" target="_blank"
+                                  data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}">
                                   <img alt="{{ LOGO_URL }}" title="" height="auto"
                                     src="{{ LOGO_URL }}"
                                     style="border:none;display:block;outline:none;text-decoration:none;width:100%;height:auto;"
@@ -218,7 +218,7 @@
                         <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
                           <span>
                             This email was sent to you by {{ PROJECT_NAME }} because you 
-                            signed up for a {{ PROJECT_NAME }} account.
+                            signed up for a {{ PROJECT_NAME }} account or modified your email address.
                           </span>
                           <br>
                           <span>
@@ -239,14 +239,14 @@
                     <tr>
                       <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:10px" align="center">
                         <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
-                          <a href="{{ BASE_URL }}{{ PRIVACY_ENDPOINT }}" style="color:inherit;padding:0 7px"
+                          <a href="{{ PRIVACY_URL }}" style="color:inherit;padding:0 7px"
                             target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ PRIVACY_ENDPOINT }}">
+                            data-saferedirecturl="https://www.google.com/url?q={{ PRIVACY_URL }}">
                             Privacy Policy
                           </a>
-                          <a href="{{ BASE_URL }}{{ TERMS_ENDPOINT }}" style="color:inherit;padding:0 7px"
+                          <a href="{{ TERMS_URL }}" style="color:inherit;padding:0 7px"
                             target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ TERMS_ENDPOINT }}">
+                            data-saferedirecturl="https://www.google.com/url?q={{ TERMS_URL }}">
                             Terms &amp; Conditions
                           </a>
                         </div>

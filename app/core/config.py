@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field(default="OpenShelf")
     BASE_URL: str = Field(default="http://127.0.0.1:8000")  # .env
     API_STR: str = Field(default="/api")
+    FRONTEND_URL: str = Field(default="http://127.0.0.1:8000")
 
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_SECRET_KEY: str = Field(default="changethis")
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str | None = None
     POSTGRES_DB: str | None = None
     
+    CONTACT_EMAIL: str | None = None
     EMAIL_METHOD: Literal["none","smtp", "mj"] = Field(default="none")
     
     MJ_APIKEY_PUBLIC: str | None = None
