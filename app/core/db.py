@@ -1,3 +1,12 @@
+"""
+This module contains functions to interact with the database, including
+connection management, session creation, and database management using
+Alembic migrations.
+
+@file: ./app/core/db.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 import logging
 import os
 import shutil
@@ -19,14 +28,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db() -> Generator[Session, None, None]:
     """
-    Dependency to get a new database session.
+    Generator to provide a database session to FastAPI requests.
 
-    This function is a FastAPI dependency that returns a new database session
-    each time it is called. The session is properly closed after the generator
-    is exhausted.
-
-    Yields:
-        Session: A new database session.
+    This is a dependency that can be injected into FastAPI endpoints. It
+    provides a database session that is properly closed at the end of the
+    request.
     """
     db = SessionLocal()
     try:
@@ -134,14 +140,16 @@ async def process_table(
     primary_keys = inspector.get_pk_constraint(
         table_name).get('constrained_columns')
 
-    stmt_existing = select(Table(table_name, MetaData(), autoload_with=engine))
-    stmt_uploaded = select(
-        Table(table_name, MetaData(), autoload_with=upload_conn))
-
     rows_existing = {tuple(row[key] for key in primary_keys):
-                     row for row in session.execute(stmt_existing).mappings()}
+                     row for row in session.execute(
+                         select(Table(table_name, MetaData(),
+                                autoload_with=engine))
+    ).mappings()}
     rows_uploaded = {tuple(row[key] for key in primary_keys):
-                     row for row in upload_conn.execute(stmt_uploaded).mappings()}
+                     row for row in upload_conn.execute(
+                         select(Table(table_name, MetaData(),
+                                autoload_with=upload_conn))
+    ).mappings()}
 
     for pk, row_uploaded in rows_uploaded.items():
         if pk not in rows_existing:

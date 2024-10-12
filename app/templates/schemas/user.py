@@ -1,6 +1,13 @@
+"""
+This module contains the pydantic models for the users of the application.
+The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserReadWithFiles models.
+
+@file: ./app/templates/schemas/user.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 from typing import Literal
-from fastapi import HTTPException
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, computed_field, Field, field_validator
 
 from app.core.object.file import get_files_list
 from app.core.config import settings
@@ -13,6 +20,7 @@ from app.templates.schemas.file import FileReadDB
 
 
 class UserBase(BaseModel):
+    """Base model for user creation."""
     username: str = Field(
         min_length=1,
         max_length=32
@@ -35,23 +43,24 @@ class UserBase(BaseModel):
 
     @field_validator("username")
     @classmethod
-    def validate_username(cls, value: str) -> str:
+    def _validate_username(cls, value: str) -> str:
         return validate_username(value)
 
     @field_validator("email")
     @classmethod
-    def validate_email(cls, value: str) -> str:
+    def _email_validation(cls, value: str) -> str:
         return validate_email(value)
 
     @field_validator("otp_method")
     @classmethod
-    def validate_otp_method(cls, value: str) -> str:
+    def _validate_otp_method(cls, value: str) -> str:
         if settings.EMAIL_METHOD == "none" and value == "email":
             raise ValueError("No EMAIL Method set")
         return value
 
 
 class UserReadDB(UserBase):
+    """Model for a user in the database."""
     uuid: str
     email_verified: bool
     hashed_password: str = Field(exclude=True)
@@ -62,6 +71,7 @@ class UserReadDB(UserBase):
 
     @computed_field
     def files_id(self) -> list[int]:
+        """A list of file IDs associated with the user."""
         from app.core.object.user import get_user_files_id   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
@@ -70,19 +80,21 @@ class UserReadDB(UserBase):
             db.close()
         return files_id_list
 
-
     class Config:
         """ORM model configuration"""
         from_attributes = True
 
 
 class UserRead(UserReadDB):
+    """Model for a user in the API."""
     @computed_field
     def picture_url(self) -> str:
+        """The URL of the user's profile picture."""
         return f"{settings.BASE_URL}{settings.API_STR}/users/{self.uuid}/image"
 
     @computed_field
     def files(self) -> list[FileReadDB]:
+        """A list of files associated with the user."""
         db = next(get_db())
         try:
             files_list = get_files_list(db, self.files_id)
@@ -92,20 +104,23 @@ class UserRead(UserReadDB):
 
 
 class UserCreate(UserBase):
+    """Model for creating a new user."""
     email_verified: bool = Field(default=False)
     password: str = Field(exclude=True)
 
     @field_validator("password")
     @classmethod
-    def password_validation(cls, value: str) -> str:
+    def _password_validation(cls, value: str) -> str:
         return validate_password(value)
 
     @computed_field
     def hashed_password(self) -> str:
+        """The hashed password of the user."""
         return hash_password(self.password)
 
 
 class UserUpdate(UserBase):
+    """Model for updating an existing user."""
     username: str | None = None
     email: str | None = None
     email_verified: bool | None = None
@@ -117,11 +132,12 @@ class UserUpdate(UserBase):
 
     @field_validator('password')
     @classmethod
-    def password_validation(cls, v):
+    def _password_validation(cls, v):
         if v is not None:
             return validate_password(v)
         return v
 
     @computed_field
     def hashed_password(self) -> str:
+        """The hashed password of the user if provided, otherwise None."""
         return hash_password(self.password) if self.password else None

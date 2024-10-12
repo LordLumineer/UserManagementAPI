@@ -1,3 +1,10 @@
+"""
+This module contains the settings for the application. It also sets up the logger.
+
+@file: ./app/core/config.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 import logging
 import warnings
 from typing import Literal, Self
@@ -6,7 +13,7 @@ from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class _Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", env_ignore_empty=True, extra="ignore"
     )
@@ -16,13 +23,17 @@ class Settings(BaseSettings):
     API_STR: str = Field(default="/api")
     FRONTEND_URL: str = Field(default="http://127.0.0.1:8000")
 
+    LOG_LEVEL: Literal["debug", "info", "warning", "error", "critical"] = Field(
+        default="info"
+    )
+
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_SECRET_KEY: str = Field(default="changethis")
     JWT_EXP: int = Field(default=30)
 
     OTP_LENGTH: int = Field(default=6)
     OTP_AUTHENTICATOR_INTERVAL: int = Field(default=30)
-    OTP_EMAIL_INTERVAL: int = Field(default=600) # seconds
+    OTP_EMAIL_INTERVAL: int = Field(default=600)  # seconds
 
     ENVIRONMENT: Literal["local", "production"] = Field(
         default="local")  # "local" # .env
@@ -34,23 +45,27 @@ class Settings(BaseSettings):
     POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str | None = None
     POSTGRES_DB: str | None = None
-    
+
     CONTACT_EMAIL: str | None = None
-    EMAIL_METHOD: Literal["none","smtp", "mj"] = Field(default="none")
-    
+    EMAIL_METHOD: Literal["none", "smtp", "mj"] = Field(default="none")
+
     MJ_APIKEY_PUBLIC: str | None = None
     MJ_APIKEY_PRIVATE: str | None = None
     MJ_SENDER_EMAIL: str | None = None
-    
+
     SMTP_TLS: bool = True
     SMTP_PORT: int = 587
     SMTP_HOST: str | None = None
     SMTP_USER: str | None = None
     SMTP_PASSWORD: str | None = None
     SMTP_SENDER_EMAIL: str | None = None
-    
+
     @computed_field
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:
+    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:  # pylint: disable=C0103
+        """
+        If all the POSTGRES_* variables are set, return a PostgresDsn string with the
+        appropriate values. Otherwise, return the DATABASE_URI string.
+        """
         if not (self.POSTGRES_SERVER and self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB):
             return self.DATABASE_URI
         return MultiHostUrl.build(
@@ -64,15 +79,14 @@ class Settings(BaseSettings):
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         """
-        Check if the value of a secret variable is the default and warn/error accordingly.
+        Check if the given secret is "changethis" and
+        raise an error or warning depending on the environment.
 
-        Args:
-            var_name (str): The name of the secret variable.
-            value (str | None): The value of the secret variable.
+        :param str var_name: The name of the secret variable.
+        :param str, optional value: The value of the secret variable.
 
-        Raises:
-            ValueError: 
-                If the value of the secret variable is the default and the environment is not local.
+        :raises ValueError: If the value is "changethis".
+        :raises UserWarning: If the environment is local and the value is "changethis".
         """
         if value == "changethis":
             message = (
@@ -98,7 +112,7 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+settings = _Settings()
 
 logger = logging.getLogger("uvicorn")
 if not logger:
@@ -108,3 +122,5 @@ if not logger:
         handlers=[logging.StreamHandler()]  # Output to stdout
     )
     logger = logging.getLogger(__name__)
+
+logger.setLevel(str(settings.LOG_LEVEL).upper())

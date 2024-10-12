@@ -1,3 +1,15 @@
+"""
+This module contains miscellaneous utilities such as a generator for random strings,
+validators for different types of data (e.g. email addresses), functions to get information
+from a FastAPI Request object, a function to generate a profile picture from a string,
+functions to get information about a request, and a function to convert a FastAPI
+route to a URL.
+
+
+@file: ./app/core/utils.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 from io import BytesIO
 import os
 import time
@@ -7,6 +19,7 @@ import string
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
+from fastapi.routing import APIRoute
 from PIL import Image, ImageDraw, ImageFont
 import httpx
 
@@ -28,7 +41,11 @@ def validate_username(username: str) -> str:
         logger.warning("Invalid username format: %s", username)
         return username
     raise HTTPException(
-        status_code=400, detail="Username must be at least 5 characters long, contain only lowercase letters, numbers, and underscores.")
+        status_code=400,
+        detail="""
+        Username must be at least 5 characters long, contain only lowercase letters, numbers, and underscores.
+        """
+    )
 
 
 def validate_email(email: str) -> str:
@@ -106,6 +123,12 @@ def generate_random_digits(length: int, seed: int | str = None) -> str:
 
 
 def extract_initials_from_text(text: str) -> str:
+    """
+    Extracts the initials from a given string.
+
+    :param str text: The string from which to extract the initials.
+    :return str: The extracted initials.
+    """
     result = []
     capitalize_next = True
     for char in text:
@@ -161,6 +184,14 @@ async def generate_profile_picture(letters: str = 'OS') -> Response:
     return Response(content=img_io.getvalue(), media_type="image/png")
 
 
+def custom_generate_unique_id(route: APIRoute) -> str:
+    """Generate a unique ID for a route by combining its first tag with its name."""
+    return f"{route.tags[0]}-{route.name}"
+
+
+# ----- UTILS ----- #
+
+
 def remove_file(file_path: str):
     """
     Removes the file at the given path if it exists.
@@ -193,6 +224,10 @@ def extract_info(user_agent):
         browser_info = "Chrome"
     elif "Safari" in user_agent and "Chrome" not in user_agent:
         browser_info = "Safari"
+    elif "Opera" in user_agent:
+        browser_info = "Opera"
+    elif "Trident" in user_agent:
+        browser_info = "Internet Explorer"
 
     return os_info, browser_info
 
@@ -208,13 +243,18 @@ def get_location_from_ip(ip_address):
     data = response.json()
     if data.get("bogon"):
         return None
-    elif response.status_code == 200:
+    if response.status_code == 200:
         return data
-    else:
-        return None
+    return None
 
 
 def get_info_from_request(request: Request = None):
+    """
+    Gets the location, device type, browser type and IP address from the given request.
+
+    :param Request request: The request object to extract the information from. Defaults to None.
+    :return tuple: A tuple containing the location, device type, browser type and IP address as strings.
+    """
     if not request:
         return "Unknown Location", "Unknown Device", "Unknown Browser", "Unknown IP"
     device, browser = extract_info(request.headers["User-Agent"])

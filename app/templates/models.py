@@ -1,4 +1,12 @@
-import string
+"""
+Database models.
+
+This module contains the SQLAlchemy models for the application.
+
+@file: ./app/templates/models.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 import time
 import uuid
 
@@ -43,7 +51,7 @@ class User(Base):
         default="none"
     )
     otp_secret: Mapped[str | None]
-    
+
     permission: Mapped[str] = mapped_column(
         String,
         default="user"

@@ -1,3 +1,4 @@
+"""This module contains the SQLAlchemy base class."""
 from sqlalchemy.orm import DeclarativeBase
 
 # pylint: disable=R0903

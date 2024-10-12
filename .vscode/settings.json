@@ -8,5 +8,6 @@
         "**/Thumbs.db": true
     },
     "hide-files.files": [],
-    "pylint.cwd": "${workspaceFolder}/app"
+    "pylint.cwd": "${workspaceFolder}/app",
+    "todo-tree.tree.scanMode": "workspace only"
 }

@@ -1,3 +1,12 @@
+"""
+Database-related API endpoints.
+
+This module contains the API endpoints related to the database (e.g. export, import, recover).
+
+@file: ./app/api/routes/db.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Response, UploadFile, Depends, File
 from fastapi.exceptions import HTTPException
@@ -20,6 +29,23 @@ async def db_export(
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Export the current database to a file.
+
+    Parameters
+    ----------
+    background_tasks : BackgroundTasks
+        A list of tasks to run in the background.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    FileResponse
+        A response with a file attachment containing the database export.
+    """
     if current_user.permission != "admin":
         raise HTTPException(
             status_code=401, detail="Unauthorized")
@@ -39,6 +65,31 @@ async def db_recover(
     file: UploadFile = File(...),
     current_user: UserReadDB = Depends(get_current_user)
 ):
+    """
+    Recover the database from an uploaded SQLite file.
+
+    This function takes a SQLite file as input and recovers the database 
+    by replacing all existing data in the current database with the data from the uploaded database.
+
+    If a row does not exist in the current database, it will be added. 
+    If a row exists, its data will be replaced with the data from the uploaded database if the data is different.
+
+    The uploaded database file is removed after the recovery is complete.
+
+    Parameters
+    ----------
+    background_tasks : BackgroundTasks
+        A list of tasks to run in the background.
+    file : UploadFile
+        The uploaded SQLite file.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+
+    Returns
+    -------
+    Response
+        A response with a status code of 200 and a message indicating that the database recovery was successful.
+    """
     if current_user.permission != "admin":
         raise HTTPException(
             status_code=401, detail="Unauthorized")
@@ -59,11 +110,43 @@ async def db_recover(
         content=f"Database recovered from {file.filename}"
     )
 
+
 @router.post("/import")
 async def db_import(
     file: UploadFile = File(...),
     current_user: UserReadDB = Depends(get_current_user)
 ):
+    """
+    Import the database from an uploaded SQLite file.
+
+    This function takes a SQLite file as input and imports the database 
+    by adding any new rows from the uploaded database to the current database 
+    and updating any existing rows with different data.
+
+    Existing data in the current database will not be overwritten.
+
+    The uploaded database file is removed after the import is complete.
+
+    Parameters
+    ----------
+    file : UploadFile
+        The uploaded SQLite file.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+
+    Returns
+    -------
+    Response
+        A response with a status code of 200 and a message indicating that the database import was successful.
+
+    Notes
+    -----
+    This function takes a SQLite file as input and imports the database 
+    by adding any new rows from the uploaded database to the current database 
+    and updating any existing rows with different data.
+
+    The uploaded database file is removed after the import is complete.
+    """
     if current_user.permission != "admin":
         raise HTTPException(
             status_code=401, detail="Unauthorized")

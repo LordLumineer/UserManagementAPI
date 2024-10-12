@@ -1,8 +1,14 @@
-from tkinter import N
-from fastapi import APIRouter, UploadFile, Depends, File, Header, Query
-from fastapi.background import P
+"""
+This module contains the API endpoints related to the users (e.g. create, read, update, delete).
+
+@file: ./app/api/routes/user.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
+from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
-from fastapi.responses import Response, FileResponse
+from fastapi.params import Depends, File, Header, Query
+from fastapi.responses import FileResponse, Response
 from PIL import Image
 from sqlalchemy.orm import Session
 
@@ -31,15 +37,44 @@ async def new_user(
     token: str | None = Header(None),
     db: Session = Depends(get_db)
 ):
+    """
+    Create a new user.
+
+    Parameters
+    ----------
+    user : UserCreate
+        The user object to create.
+    token : str, optional
+        The token to decode (default is None).
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    Token
+        access token with user uuid and permission.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the token is invalid or does not belong to an admin user.
+    """
     if token:
         token_data = decode_access_token(token)
-        if "permission" in list(token_data.keys()):
-            if token_data["permission"] == "admin":
-                return create_user(db, user)
+        if token_data.purpose != "login":
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        admin_user = get_user(db, token_data.uuid)
+        if admin_user.permission == "admin" and token_data.permission == "admin":
+            return create_user(db, user)
     user.permission = "user"        # NOTE: Override to ensure default permission
     user.email_verified = False     # NOTE: Override to ensure email verification
     user_new = await create_user(db, user)
-    return create_access_token(sub=TokenData(uuid=user_new.uuid, permission=user_new.permission))
+    return create_access_token(
+        sub=TokenData(
+            purpose="login",
+            uuid=user_new.uuid,
+            permission=user_new.permission
+        ))
 
 
 @router.put("/{uuid}/image", response_model=FileReadDB)
@@ -50,6 +85,37 @@ async def new_user_image(
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Upload a new profile picture for the user with the given UUID.
+    - The file must be a valid image format (png, jpg, jpeg, gif, or bmp) and must be below 512x512 px.
+    - If the user is not the same as the current user and the current user does not have permission "admin", 
+        then a 401 error is raised.
+    - The file is saved with the name "pfp_{uuid}.{file_extension}" and is linked to the user.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to update.
+    description : str, optional
+        The description for the file (default is None).
+    file : UploadFile
+        The file to upload.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    FileReadDB
+        The new file object.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the user is not the same as the current user 
+        and the current user does not have permission "admin".
+    """
     if file.filename.split('.')[-1].lower() not in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
         raise HTTPException(
             status_code=400, detail="File must be a valid image format")
@@ -86,6 +152,27 @@ async def new_user_file(
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Upload a new file for a user.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to upload the file to.
+    description : str, optional
+        The description for the file (default is None).
+    file : UploadFile
+        The file to upload.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    FileReadDB
+        The new file object.
+    """
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
     new_file = FileCreate(
@@ -102,10 +189,29 @@ async def new_user_file(
 
 @router.get("/", response_model=list[UserReadDB])
 def read_users(
-    skip: int = 0, limit: int = 100,
+    skip: int = Query(default=0), limit: int = Query(default=100),
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Get a list of users
+
+    Parameters
+    ----------
+    skip : int, optional
+        The number of items to skip (default is 0).
+    limit : int, optional
+        The maximum number of items to return (default is 100).
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    list[UserReadDB]
+        A list of user objects.
+    """
     if current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return get_users(db, skip=skip, limit=limit)
@@ -117,6 +223,23 @@ def read_users_list(
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Get a list of users by their UUIDs
+
+    Parameters
+    ----------
+    users_ids : list[str]
+        A list of user UUIDs (default is an empty list)
+    current_user : UserReadDB
+        The user object of the user who is making the request
+    db : Session
+        The current database session
+
+    Returns
+    -------
+    list[UserReadDB]
+        A list of user objects
+    """
     if current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return get_users_list(db, users_ids)
@@ -124,16 +247,63 @@ def read_users_list(
 
 @router.get("/me", response_model=UserRead)
 def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
+    """
+    Get the current user.
+
+    Parameters
+    ----------
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+
+    Returns
+    -------
+    UserRead
+        The current user object.
+    """
     return current_user
 
 
 @router.get("/{uuid}", response_model=UserRead)
 def read_user(uuid: str, db: Session = Depends(get_db)):
+    """
+    Get a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to get.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    UserRead
+        The user object.
+    """
     return get_user(db, uuid)
 
 
 @router.get("/{uuid}/image", response_class=FileResponse)
 async def read_user_image(uuid: str, db: Session = Depends(get_db)):
+    """
+    Get the profile picture of a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to get the profile picture of.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    FileResponse
+        The profile picture of the user.
+
+    Notes
+    -----
+    If the user does not have a profile picture, a default profile picture is generated.
+    """
     user = get_user(db, uuid)
     try:
         file = get_file(db, user.profile_picture_id)
@@ -159,6 +329,25 @@ def patch_user(
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Update a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to update.
+    user : UserUpdate
+        The user object with the updated data.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    UserRead
+        The updated user object.
+    """
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
     if current_user.uuid == uuid:
@@ -168,6 +357,25 @@ def patch_user(
 
 @router.patch("/{uuid}/image")
 def patch_user_image():
+    """
+    Update the profile picture of a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to update.
+    file : File
+        The new profile picture.
+
+    Raises
+    ------
+    HTTPException
+        A 301 status code is raised with a detail message indicating that the endpoint should be used instead.
+
+    Notes
+    -----
+    This endpoint is invalid and should not be used.
+    """
     raise HTTPException(
         status_code=301,
         detail=f"""Invalid endpoint. Use PUT {settings.BASE_URL}{
@@ -177,6 +385,25 @@ def patch_user_image():
 
 @router.patch("/{uuid}/file")
 def patch_user_file():
+    """
+    Update the profile picture of a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to update.
+    file : File
+        The new profile picture.
+
+    Raises
+    ------
+    HTTPException
+        A 301 status code is raised with a detail message indicating that the endpoint should be used instead.
+
+    Notes
+    -----
+    This endpoint is invalid and should not be used.
+    """
     raise HTTPException(
         status_code=301,
         detail=f"""Invalid endpoint. Use PUT {settings.BASE_URL}{
@@ -192,6 +419,24 @@ def remove_user(
     current_user: UserReadDB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    Delete a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to delete.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    Response
+        A response with a status code of 200 if the user is deleted successfully, 
+        or a response with a status code of 400 or 401 if there is an error.
+    """
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not delete_user(db, uuid):
@@ -201,6 +446,23 @@ def remove_user(
 
 @router.delete("/{uuid}/image")
 def remove_user_image():
+    """
+    Delete the profile picture of a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to delete the profile picture of.
+
+    Raises
+    ------
+    HTTPException
+        A 301 status code is raised with a detail message indicating that the endpoint should be used instead.
+
+    Notes
+    -----
+    This endpoint is invalid and should not be used.
+    """
     raise HTTPException(
         status_code=301,
         detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}{
@@ -210,6 +472,23 @@ def remove_user_image():
 
 @router.delete("/{uuid}/file")
 def remove_user_file():
+    """
+    Delete the file of a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to delete the file of.
+
+    Raises
+    ------
+    HTTPException
+        A 301 status code is raised with a detail message indicating that the endpoint should be used instead.
+
+    Notes
+    -----
+    This endpoint is invalid and should not be used.
+    """
     raise HTTPException(
         status_code=301,
         detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}{
