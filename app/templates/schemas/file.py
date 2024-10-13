@@ -32,7 +32,7 @@ class FileReadDB(FileBase):
 
     class Config:
         """ORM model configuration"""
-        orm_mode = True
+        from_attributes = True
 
 
 class FileRead(FileReadDB):

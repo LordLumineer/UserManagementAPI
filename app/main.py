@@ -9,9 +9,12 @@ for creating the FastAPI application and setting up the routes and middleware.
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 from contextlib import asynccontextmanager
+import os
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from jinja2 import Template
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router, tags_metadata
@@ -19,7 +22,7 @@ from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
 from app.core.object.user import init_default_user
-from app.core.utils import custom_generate_unique_id
+from app.core.utils import custom_generate_unique_id, extract_initials_from_text, generate_profile_picture
 from app.templates.base import Base
 
 Base.metadata.create_all(bind=database.engine)
@@ -84,7 +87,37 @@ app.add_middleware(
 
 
 @app.get("/ping", tags=["DEBUG"])
-def ping():
-    """Simple healthcheck endpoint to check if the API is alive."""
+def _ping():
     logger.info("Pong!")
     return "pong"
+
+
+@app.get("/version", tags=["DEBUG"])
+def _version():
+    logger.info("Version!")
+    return settings.VERSION
+
+
+@app.get(
+    "/favicon.ico", tags=["DEBUG"],
+    response_class=FileResponse,
+    include_in_schema=False
+)
+async def _favicon():
+    if os.path.exists("../assets/favicon.ico"):
+        return FileResponse("../assets/favicon.ico")
+    if os.path.exists("../assets/logo.png"):
+        return FileResponse("../assets/logo.png")
+    letters = extract_initials_from_text(settings.PROJECT_NAME)
+    return await generate_profile_picture(letters)
+
+
+@app.get("/", tags=["DEBUG"], response_class=HTMLResponse)
+def _index():
+    with open("./templates/html/404.html", "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    context = {
+        "FRONTEND_URL": settings.FRONTEND_URL,
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html)

@@ -78,7 +78,6 @@ class TokenData(BaseModel):
     email: str | None = None
     username: str | None = None
 
-
     @model_validator(mode="after")
     def _enforce_data(self) -> Self:
         match self.purpose:
@@ -201,13 +200,6 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
             status_code=401,
             detail="Token expired",
         )
-    try:
-        claims["sub"] = json.loads(str(claims["sub"]).replace("'", '"'))
-    except Exception as e:
-        raise HTTPException(
-            status_code=401,
-            detail=f"Invalid token. {e}",
-        ) from e
     try:
         return TokenData(**claims["sub"])
     except ValidationError as e:

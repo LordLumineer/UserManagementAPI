@@ -53,7 +53,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         sub=TokenData(
             purpose="login",
             uuid=user.uuid,
-            username=user.username
+            permission=user.permission
         ))
 
 

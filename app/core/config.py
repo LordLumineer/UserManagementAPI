@@ -6,11 +6,20 @@ This module contains the settings for the application. It also sets up the logge
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 import logging
-import warnings
 from typing import Literal, Self
 from pydantic import Field, PostgresDsn, model_validator, computed_field
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+logger = logging.getLogger("uvicorn")
+if not logger:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s:     %(message)s",
+        handlers=[logging.StreamHandler()]  # Output to stdout
+    )
+    logger = logging.getLogger(__name__)
 
 
 class _Settings(BaseSettings):
@@ -78,49 +87,24 @@ class _Settings(BaseSettings):
         )
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
-        """
-        Check if the given secret is "changethis" and
-        raise an error or warning depending on the environment.
-
-        :param str var_name: The name of the secret variable.
-        :param str, optional value: The value of the secret variable.
-
-        :raises ValueError: If the value is "changethis".
-        :raises UserWarning: If the environment is local and the value is "changethis".
-        """
         if value == "changethis":
             message = (
                 f'The value of {var_name} is "changethis", '
                 "for security, please change it, at least for deployments."
             )
             if self.ENVIRONMENT == "local":
-                warnings.warn(message, stacklevel=1)
+                # warnings.warn(message, stacklevel=1)
+                logger.warning(message)
             else:
                 raise ValueError(message)
 
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:
-        """
-        Enforce that the default secrets are not used in non-local environments.
-
-        This model validator function will check if the default secrets are used and
-        warn/error accordingly. This is to ensure that the API is not deployed with
-        the default secrets.
-        """
         self._check_default_secret("JWT_SECRET_KEY", self.JWT_SECRET_KEY)
 
         return self
 
 
 settings = _Settings()
-
-logger = logging.getLogger("uvicorn")
-if not logger:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s:     %(message)s",
-        handlers=[logging.StreamHandler()]  # Output to stdout
-    )
-    logger = logging.getLogger(__name__)
 
 logger.setLevel(str(settings.LOG_LEVEL).upper())

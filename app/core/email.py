@@ -59,8 +59,12 @@ async def send_mj_email(recipients: list[str] | str, subject: str, html_content:
         )
     result = mailjet.send.create(data=data)
     if result.status_code == 200:
-        logger.debug("Email Sent to %s from %s",
-                     recipients, settings.MJ_SENDER_EMAIL)
+        logger.info(
+            """Email Sent with MailJet API
+            - To %s
+            - From %s
+            - Subject: %s""",
+            recipients, settings.MJ_SENDER_EMAIL, subject)
         return HTMLResponse(content="Test Email Sent", status_code=200)
     logger.error("Failed to send email to %s", recipients)
     logger.error(result.json())
@@ -97,8 +101,13 @@ async def send_smtp_email(recipients: list[str] | str, subject: str, html_conten
                 server.sendmail(settings.SMTP_USER, recipient,
                                 html_message.as_string())
             server.quit()
-        logger.debug("Email Sent to %s from %s",
-                     recipients, settings.SMTP_SENDER_EMAIL)
+        logger.info(
+            """Email Sent with SMTP Server
+                - Host: %s
+                - To %s
+                - From %s
+                - Subject: %s""",
+            settings.SMTP_HOST, recipients, settings.SMTP_SENDER_EMAIL, subject)
         return HTMLResponse(content="Test Email Sent", status_code=200)
     except Exception as e:
         logger.error("Failed to send email to %s", recipients)
@@ -158,7 +167,7 @@ async def send_test_email(recipient: str):
         "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
     html = template.render(context)
-    logger.info("Testing Email to %s", recipient)
+    logger.debug("Testing Email to %s", recipient)
     return await send_email(recipient, "Test Email", html)
 
 

@@ -226,7 +226,6 @@ async def reset_password_email(
             uuid=user.uuid,
             username=user.username
         ))
-    print(token)
     return await send_validation_email(recipient, token)
 
 
