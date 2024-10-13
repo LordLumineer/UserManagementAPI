@@ -22,7 +22,7 @@ from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
 from app.core.object.user import init_default_user
-from app.core.utils import custom_generate_unique_id, extract_initials_from_text, generate_profile_picture
+from app.core.utils import custom_generate_unique_id, extract_initials_from_text, generate_profile_picture, not_found_page
 from app.templates.base import Base
 
 Base.metadata.create_all(bind=database.engine)
@@ -114,10 +114,4 @@ async def _favicon():
 
 @app.get("/", tags=["DEBUG"], response_class=HTMLResponse)
 def _index():
-    with open("./templates/html/404.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
-    context = {
-        "FRONTEND_URL": settings.FRONTEND_URL,
-    }
-    html = template.render(context)
-    return HTMLResponse(content=html)
+    return not_found_page()

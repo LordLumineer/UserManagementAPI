@@ -19,9 +19,11 @@ import string
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from PIL import Image, ImageDraw, ImageFont
 import httpx
+from jinja2 import Template
 
 from app.core.config import logger, settings
 
@@ -190,6 +192,21 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 
 # ----- UTILS ----- #
+
+
+def not_found_page() -> Response:
+    """
+    Returns an HTTP 404 response with the content of the 404.html template.
+
+    :return Response: The 404 response.
+    """
+    with open("./templates/html/404.html", "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    context = {
+        "FRONTEND_URL": settings.FRONTEND_URL,
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html, status_code=404)
 
 
 def remove_file(file_path: str):
