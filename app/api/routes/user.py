@@ -40,24 +40,22 @@ async def new_user(
     """
     Create a new user.
 
+    If a token is provided, the user will be created with the "admin" permission
+    if the token is valid and the user has the "admin" permission.
+
     Parameters
     ----------
     user : UserCreate
-        The user object to create.
+        The user to create.
     token : str, optional
-        The token to decode (default is None).
+        The token to use to authorize the creation of the user.
     db : Session
         The current database session.
 
     Returns
     -------
-    Token
-        access token with user uuid and permission.
-
-    Raises
-    ------
-    HTTPException
-        401 Unauthorized if the token is invalid or does not belong to an admin user.
+    UserRead
+        The new user object.
     """
     if token:
         token_data = decode_access_token(token)

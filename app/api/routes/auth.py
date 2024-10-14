@@ -85,6 +85,27 @@ async def register(
     confirm_password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """
+    Register a new user and return an access token.
+
+    Parameters
+    ----------
+    username : str
+        The username of the user.
+    email : str
+        The email of the user.
+    password : str
+        The password of the user.
+    confirm_password : str
+        The confirmation of the password.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    Token
+        The access token with user uuid and permission.
+    """
     validate_password(password)
     if password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
