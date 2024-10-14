@@ -112,25 +112,43 @@ async def _favicon():
     return await generate_profile_picture(letters)
 
 
-@app.get("/", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+# RedirectResponse)
+@app.get("/", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _index():
     return not_found_page()
     # return RedirectResponse(url=settings.FRONTEND_URL)
 
 
-@app.get("/terms", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+# RedirectResponse)
+@app.get("/terms", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _terms():
     return not_found_page()
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/terms")
 
 
-@app.get("/privacy", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+# RedirectResponse)
+@app.get("/privacy", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _privacy():
     return not_found_page()
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/privacy")
 
 
-@app.get("/support", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+# RedirectResponse)
+@app.get("/support", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _support():
     return not_found_page()
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/support")
+
+
+@app.get("/reset-password", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _reset_password():
+    with open("./templates/html/reset_password_page.html", "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    context = {
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+        "ENDPOINT": "/auth/password/reset",
+        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html)

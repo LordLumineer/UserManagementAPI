@@ -12,7 +12,7 @@ and verifying the One-Time-Password (OTP) QR code.
 from io import BytesIO
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
-from fastapi.params import Depends, Header
+from fastapi.params import Depends, Form, Header
 from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 import qrcode
@@ -24,8 +24,9 @@ from app.core.object.user import get_current_user, get_user, get_user_by_email, 
 from app.core.security import (
     Token, TokenData,
     authenticate_user, decode_access_token, validate_otp,
-    create_access_token, generate_otp
+    create_access_token, generate_otp, verify_password
 )
+from app.core.utils import validate_password
 from app.templates.schemas.user import UserReadDB, UserUpdate
 
 
@@ -164,3 +165,65 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     user = await update_user(db, user.uuid, UserUpdate(email_verified=True))
     return RedirectResponse(url=settings.FRONTEND_URL)
+
+
+@router.patch("/password/reset", response_class=Response)
+async def reset_password(
+    old_password: str = Form(...), new_password: str = Form(...), confirm_password: str = Form(...),
+    db: Session = Depends(get_db), current_user: UserReadDB = Depends(get_current_user)
+):
+    """
+    Reset a user's password by its old password and new password.
+
+    Parameters
+    ----------
+    old_password : str
+        The old password of the user.
+    new_password : str
+        The new password of the user.
+    confirm_new_password : str
+        The confirmation of the new password.
+    db : Session
+        The current database session.
+    current_user : UserReadDB
+        The user object of the user who is making the request.
+
+    Returns
+    -------
+    RedirectResponse
+        A redirect to the frontend URL.
+
+    Raises
+    ------
+    HTTPException
+        400 Bad Request if the new password is the same as the old password or if the passwords do not match.
+        401 Unauthorized if the old password is invalid.
+    """
+    validate_password(new_password)
+    if new_password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    if old_password == new_password:
+        raise HTTPException(
+            status_code=400, detail="New password cannot be the same as old password")
+    if not verify_password(old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid password")
+    await update_user(db, current_user.uuid, UserUpdate(password=new_password))
+    return Response(content="Password reset successful", status_code=200)
+
+
+@router.get("/token/validate")
+def validate_token(current_user: UserReadDB = Depends(get_current_user)):
+    """
+    Validate the current user's token.
+
+    Parameters
+    ----------
+    current_user : UserReadDB
+        The current user object.
+
+    Returns
+    -------
+    Response
+        A response with the content "ValidToken" if the token is valid.
+    """
+    return Response(content="ValidToken | " + current_user.uuid)
