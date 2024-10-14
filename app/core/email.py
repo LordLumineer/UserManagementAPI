@@ -184,7 +184,7 @@ async def send_validation_email(recipient: str, token_str: str):
         template = Template(f.read())
     context = {
         "ENDPOINT": "/auth/email/verify",
-        "PARAMS": f"token={token_str}",
+        "PARAMS": f"?token={token_str}",
         # SAME on all emails
         "PROJECT_NAME": settings.PROJECT_NAME,
         "BASE_URL": settings.BASE_URL,
@@ -198,7 +198,7 @@ async def send_validation_email(recipient: str, token_str: str):
     }
     html = template.render(context)
     logger.debug("Sending Validation Email: %s", recipient)
-    return await send_email(recipient, "Test Email", html)
+    return await send_email(recipient, f"{settings.PROJECT_NAME} - Activate your account", html)
 
 
 async def send_otp_email(recipient: str, otp_code: str, request: Request = None):
@@ -240,7 +240,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     }
     html = template.render(context)
     logger.debug("Sending One-Time Password Email: %s", recipient)
-    return await send_email(recipient, "Test Email", html)
+    return await send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
 
 async def send_reset_password_email(recipient: str, token_str: str):
@@ -256,7 +256,7 @@ async def send_reset_password_email(recipient: str, token_str: str):
         template = Template(f.read())
     context = {
         "ENDPOINT": "/auth/password/reset",
-        "PARAMS": f"token={token_str}",
+        "PARAMS": f"?token={token_str}",
         # SAME on all emails
         "PROJECT_NAME": settings.PROJECT_NAME,
         "BASE_URL": settings.BASE_URL,
@@ -270,4 +270,4 @@ async def send_reset_password_email(recipient: str, token_str: str):
     }
     html = template.render(context)
     logger.debug("Sending Reset Password Email: %s", recipient)
-    return await send_email(recipient, "Test Email", html)
+    return await send_email(recipient, "{settings.PROJECT_NAME} - Reset your password", html)

@@ -107,7 +107,7 @@ def login_otp(
 
 
 @router.get("/QR", response_class=Response)
-def get_otp_qr(current_user: UserReadDB = Depends(get_current_user)):
+async def get_otp_qr(current_user: UserReadDB = Depends(get_current_user)):
     """
     Generate a QR code with the user's OTP URI and return it as an image.
 
@@ -121,7 +121,7 @@ def get_otp_qr(current_user: UserReadDB = Depends(get_current_user)):
     Response
         An HTTP response with the QR code image.
     """
-    uri, secret = generate_otp(
+    uri, secret = await generate_otp(
         current_user.uuid, current_user.username, current_user.otp_secret)
     qr = qrcode.make(uri)
     img_io = BytesIO()
@@ -135,7 +135,7 @@ def get_otp_qr(current_user: UserReadDB = Depends(get_current_user)):
 
 
 @router.get("/email/verify", response_class=RedirectResponse)
-def verify_email(token: str, db: Session = Depends(get_db)):
+async def verify_email(token: str, db: Session = Depends(get_db)):
     """
     Verify a user's email address by its verification token.
 
@@ -162,5 +162,5 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user = get_user_by_email(db, token_data.email)
     if user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user = update_user(db, user.uuid, UserUpdate(email_verified=True))
+    user = await update_user(db, user.uuid, UserUpdate(email_verified=True))
     return RedirectResponse(url=settings.FRONTEND_URL)

@@ -104,7 +104,7 @@ def generate_random_letters(length: int, seed: int | str = None) -> str:
     """
     if seed is None:
         seed = int(time.time())  # Use current time if no seed is provided
-    random.seed(seed)
+    random.seed(seed+str(int(time.time())))
 
     letters = string.ascii_letters
     return ''.join(random.choice(letters) for _ in range(length))
@@ -120,7 +120,7 @@ def generate_random_digits(length: int, seed: int | str = None) -> str:
     """
     if seed is None:
         seed = int(time.time())  # Use current time if no seed is provided
-    random.seed(seed)
+    random.seed(seed+str(int(time.time())))
     return ''.join(str(random.randint(0, 9)) for _ in range(length))
 
 

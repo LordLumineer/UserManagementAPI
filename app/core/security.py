@@ -10,7 +10,7 @@ the JSON Web Tokens (JWT) and the One-Time-Password (OTP) QR code.
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 from datetime import datetime, timedelta, timezone
-import json
+import re
 from typing import Literal, Self
 from authlib.jose import jwt
 from authlib.jose.errors import DecodeError
@@ -23,7 +23,7 @@ from pydantic import BaseModel, ValidationError, model_validator
 import pyotp
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.config import settings, logger
 from app.core.db import get_db
 from app.core.email import send_otp_email
 from app.core.utils import generate_random_letters, validate_email
@@ -53,6 +53,9 @@ class Token(BaseModel):
     """
     access_token: str
     token_type: str
+
+    def __str__(self) -> str:
+        return f"{self.token_type} {self.access_token}"
 
 
 class TokenData(BaseModel):
@@ -166,10 +169,12 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
     :raises HTTPException: If the token is invalid, expired, or has an invalid issuer.
     """
     if strict:
-        if not token.startswith("Bearer "):
+        # token.startswith("bearer "):
+        if not bool(re.match('bearer', token, re.I)):
             raise HTTPException(
                 status_code=401, detail="Invalid authorization")
-    token = token.replace("Bearer ", "")
+    insensitive_token = re.compile(re.escape("bearer "), re.IGNORECASE)
+    token = insensitive_token.sub("", token)  # token.replace("bearer ", "")
     try:
         claims = jwt.decode(token, key)
     except DecodeError as e:
@@ -209,7 +214,7 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
         ) from e
 
 
-def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str) -> tuple[str, str]:
+async def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str | None = None) -> list[str, str]:
     """
     Generate a new OTP URI and secret for a user.
 
@@ -225,11 +230,12 @@ def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str) -> tu
         from app.core.object.user import update_user  # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            secret = generate_random_letters(length=32, seed=user_uuid)
+            user_otp_secret = generate_random_letters(
+                length=32, seed=user_uuid)
             updated_user = UserUpdate(
-                otp_secret=secret
+                otp_secret=user_otp_secret
             )
-            update_user(db=db, uuid=user_uuid, user=updated_user)
+            await update_user(db=db, uuid=user_uuid, user=updated_user)
         finally:
             db.close()
     totp = pyotp.TOTP(
@@ -310,7 +316,9 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         user = get_user_by_email(db=db, email=email)
         if not user.email_verified:
             raise error_msg
-    except HTTPException:
+    except HTTPException as e:
+        if e.status_code != 404:
+            raise e
         user = get_user_by_username(db=db, username=username)
     if not user:
         raise error_msg
@@ -322,9 +330,14 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         if user.otp_method == "none":
             return user
 
+        if not user.otp_secret:
+            logger.debug("Generating OTP for user %s", user.username)
+            otp_secret = (await generate_otp(user_uuid=user.uuid, user_username=user.username))[1]
+        else:
+            otp_secret = user.otp_secret
         if user.otp_method == "email":
             totp = pyotp.TOTP(
-                s=user.otp_secret,
+                s=otp_secret,
                 name=user.username,
                 interval=settings.OTP_EMAIL_INTERVAL,
                 issuer=settings.PROJECT_NAME,

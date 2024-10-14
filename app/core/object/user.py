@@ -107,9 +107,9 @@ async def create_user(db: Session, user: UserCreate) -> User_Model:
         raise HTTPException(status_code=400, detail=str(e.orig)) from e
     email_token = create_access_token(
         sub=TokenData(
-            purpose="login",
+            purpose="email-verification",
             uuid=db_user.uuid,
-            permission=db_user.permission
+            email=db_user.email
         ))
     await send_validation_email(db_user.email, email_token)
     return db_user
