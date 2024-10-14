@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Template
 from starlette.middleware.cors import CORSMiddleware
@@ -112,6 +112,25 @@ async def _favicon():
     return await generate_profile_picture(letters)
 
 
-@app.get("/", tags=["DEBUG"], response_class=HTMLResponse)
+@app.get("/", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
 def _index():
     return not_found_page()
+    # return RedirectResponse(url=settings.FRONTEND_URL)
+
+
+@app.get("/terms", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+def _terms():
+    return not_found_page()
+    # return RedirectResponse(url=f"{settings.FRONTEND_URL}/terms")
+
+
+@app.get("/privacy", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+def _privacy():
+    return not_found_page()
+    # return RedirectResponse(url=f"{settings.FRONTEND_URL}/privacy")
+
+
+@app.get("/support", tags=["PAGE"], response_class=HTMLResponse | RedirectResponse)
+def _support():
+    return not_found_page()
+    # return RedirectResponse(url=f"{settings.FRONTEND_URL}/support")
