@@ -140,11 +140,57 @@ def _support():
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/support")
 
 
+@app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _login():
+    with open("./templates/html/login_page.html", "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    context = {
+        "FRONTEND_URL": settings.FRONTEND_URL,
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+        "ENDPOINT": "/auth/login",
+        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html)
+
+
+@app.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _register():
+    with open("./templates/html/register_page.html", "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    context = {
+        "FRONTEND_URL": settings.FRONTEND_URL,
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+        "ENDPOINT": "/auth/register",
+        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html)
+
+@app.get("/logout", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _logout():
+    with open("./templates/html/logout_page.html", "r", encoding="utf-8") as f:
+        template = Template(f.read())
+    context = {
+        "FRONTEND_URL": settings.FRONTEND_URL,
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+        "ENDPOINT": "/auth/logout",
+        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html)
+
 @app.get("/reset-password", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _reset_password():
     with open("./templates/html/reset_password_page.html", "r", encoding="utf-8") as f:
         template = Template(f.read())
     context = {
+        "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
         "ENDPOINT": "/auth/password/reset",

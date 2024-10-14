@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reset Password</title>
+  <title>Login</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
     body {
@@ -101,9 +101,11 @@
     }
 
     .move-button {
-      width: 100%;
       background-color: transparent;
-      color: rgb(64, 192, 255);
+      background: transparent;
+      color: #76cbb0;
+
+      width: 100%;
       font-weight: bold;
       padding: 8px;
       border: none;
@@ -115,11 +117,22 @@
 
     .move-button:hover {
       background-color: rgba(128, 128, 128, 0.25);
-      color: rgb(0, 0, 0);
+      background: rgba(128, 128, 128, 0.25);
+      color: #485b56;
     }
 
     .right-icon:hover {
       cursor: pointer;
+    }
+
+    .FooterText {
+      font-size: 12px;
+      margin-top: 20px;
+    }
+
+    .FooterLink {
+      color: hsl(192, 50%, 50%);
+      text-decoration: underline;
     }
 
     h1 {
@@ -163,6 +176,18 @@
         color: #a0bab5;
       }
 
+      .move-button {
+        background-color: transparent;
+        background: transparent;
+        color: #07c085;
+      }
+
+      .move-button:hover {
+        background-color: rgba(128, 128, 128, 0.25);
+        background: rgba(128, 128, 128, 0.25);
+        color: #a0bab5;
+      }
+
       .bg {
         background-color: #292929;
         background: #292929;
@@ -195,16 +220,18 @@
           },
         })
           .then((response) => {
-            if (!response.ok) {
-              //localStorage.removeItem("access_token");
-              //localStorage.removeItem("token_type");
+            if (response.ok) {
+              window.location.href = "{{ FRONTEND_URL }}";
+            } else {
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("token_type");
             }
             return;
           })
           .catch((error) => {
             console.error("Error:", error);
-            //localStorage.removeItem("access_token");
-            //localStorage.removeItem("token_type");
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("token_type");
           });
       }
     }
@@ -222,57 +249,44 @@
     }
 
     function checkInput() {
-      const old_password = document.getElementById("old_password").value;
+      const username = document.getElementById("username").value;
+      const email = document.getElementById("email").value;
       const new_password = document.getElementById("new_password").value;
       const confirm_password = document.getElementById("confirm_password").value;
-      const isValid = (
-        document.getElementById("PWDlengthError_old").style.display === "none" &&
-        document.getElementById("PWDnoUpError_old").style.display === "none" &&
-        document.getElementById("PWDnoSpeError_old").style.display === "none" &&
-        document.getElementById("PWDnoNumError_old").style.display === "none" &&
+      const isValid =
+        document.getElementById("lengthError").style.display === "none" &&
+        document.getElementById("charsError").style.display === "none" &&
         document.getElementById("PWDlengthError_new").style.display === "none" &&
         document.getElementById("PWDnoUpError_new").style.display === "none" &&
         document.getElementById("PWDnoSpeError_new").style.display === "none" &&
         document.getElementById("PWDnoNumError_new").style.display === "none" &&
-        document.getElementById("PWDnoMatch_conf").style.display === "none"
-      );
+        document.getElementById("PWDnoMatch_conf").style.display === "none";
       document.querySelector(".submit-button").disabled = !(
-        old_password &&
+        username &&
+        email &&
         new_password &&
         confirm_password &&
         isValid
       );
     }
 
-    function validateOldPassword() {
-      const password = document.getElementById("old_password").value;
-      const length = password.length >= 8;
-      const hasUpperCase = /[A-Z]/.test(password);
-      const hasNumber = /\d/.test(password);
-      const hasSpecialChar = /[^a-zA-Z0-9_]/.test(password);
-
-      document.getElementById("PWDlengthError_old").style.display = length
-        ? "none"
-        : "block";
-      document.getElementById("PWDnoUpError_old").style.display = hasUpperCase
-        ? "none"
-        : "block";
-      document.getElementById("PWDnoSpeError_old").style.display = hasNumber
-        ? "none"
-        : "block";
-      document.getElementById("PWDnoNumError_old").style.display = hasSpecialChar
-        ? "none"
-        : "block";
-
+    function validateUsername() {
+      const username = document.getElementById("username").value;
+      document.getElementById("lengthError").style.display =
+        username.length < 5 ? "block" : "none";
+      document.getElementById("charsError").style.display =
+        /[A-Z]/.test(username) || /[^a-zA-Z0-9_]/.test(username)
+          ? "block"
+          : "none";
       checkInput();
     }
 
     function validateNewPassword() {
-      const password = document.getElementById("new_password").value;
-      const length = password.length >= 8;
-      const hasUpperCase = /[A-Z]/.test(password);
-      const hasNumber = /\d/.test(password);
-      const hasSpecialChar = /[^a-zA-Z0-9_]/.test(password);
+      const new_password = document.getElementById("new_password").value;
+      const length = new_password.length >= 8;
+      const hasUpperCase = /[A-Z]/.test(new_password);
+      const hasNumber = /\d/.test(new_password);
+      const hasSpecialChar = /[^a-zA-Z0-9_]/.test(new_password);
 
       document.getElementById("PWDlengthError_new").style.display = length
         ? "none"
@@ -312,35 +326,28 @@
       submitButton.disabled = true;
       submitButton.innerHTML = 'Loading';
 
-      const old_password = document.getElementById("old_password").value;
+      const username = document.getElementById("username").value;
+      const email = document.getElementById("email").value;
       const new_password = document.getElementById("new_password").value;
       const confirm_password = document.getElementById("confirm_password").value;
 
       const formData = new URLSearchParams();
-      if (old_password && new_password && confirm_password) {
-        formData.append("old_password", old_password);
-        formData.append("new_password", new_password);
+      if (username && email && new_password && confirm_password) {
+        formData.append("username", username);
+        formData.append("email", email);
+        formData.append("password", new_password);
         formData.append("confirm_password", confirm_password);
       } else {
         isLoading.value = false;
         alert("Please fill in all fields");
       }
 
-      const access_token = localStorage.getItem("access_token");
-      const token_type = localStorage.getItem("token_type");
-      if (!(access_token && token_type)) {
-        submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
-        alert("You need to login first");
-        return;
-      }
       // Send a POST request with query parameters in the URL (no body content)
       fetch("{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}", {
-        method: "PATCH",
+        method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `${token_type} ${access_token}`,
         },
         body: formData,
       })
@@ -348,7 +355,11 @@
           if (response.ok) {
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
-            window.location.href = "{{ FRONTEND_URL }}/login";
+            response.json().then((data) => {
+              localStorage.setItem("access_token", data["access_token"]);
+              localStorage.setItem("token_type", data["token_type"]);
+              window.location.href = "{{ FRONTEND_URL }}";
+            });
           } else {
             return response.json().then((message) => {
               throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + message["detail"]);
@@ -359,8 +370,11 @@
           submitButton.disabled = false;
           submitButton.innerHTML = originalButtonText;
           console.error("Error:", error);
-          alert("Password Reset Failed: There was an issue while trying to reset your password.\n" + error);
+          alert("Signup Failed: There was an issue with the signup request.\n" + error);
         });
+    }
+    function redirectLogIn() {
+      window.location.href = "{{ FRONTEND_URL }}/login";
     }
   </script>
 </head>
@@ -368,26 +382,25 @@
 <body class="bg-bis">
   <div class="card bg">
     <form class="form" onsubmit="submitForm(event)">
-      <h1 class="text">Reset Password</h1>
-      <div class="old-password">
+      <h1 class="text">Register</h1>
+      <div class="username">
         <div class="input-field">
-          <span class="material-icons text-bis">lock</span>
-          <input class="input bg text" type="password" id="old_password" placeholder="Old Password" required
-            oninput="validateOldPassword()" />
-          <span class="material-icons text-bis right-icon" id="old_password-btn"
-            onclick="togglePasswordVisibility('old_password','old_password-btn')">visibility_off</span>
+          <span class="material-icons text-bis">person</span>
+          <input class="input bg text" type="text" id="username" placeholder="Username" required
+            oninput="validateUsername()" />
         </div>
-        <div id="PWDlengthError_old" class="validation-message">
-          * The password has to be 8 characters or longer.
+        <div id="lengthError" class="validation-message">
+          * The username has to be 5 characters or longer.
         </div>
-        <div id="PWDnoUpError_old" class="validation-message">
-          * The password has to contain at least 1 uppercase character.
+        <div id="charsError" class="validation-message">
+          * The username can't contain any uppercase or special characters,
+          only alphanumerical characters and _ are allowed.
         </div>
-        <div id="PWDnoSpeError_old" class="validation-message">
-          * The password has to contain at least 1 special character.
-        </div>
-        <div id="PWDnoNumError_old" class="validation-message">
-          * The password has to contain at least 1 number.
+      </div>
+      <div class="email">
+        <div class="input-field">
+          <span class="material-icons text-bis">person</span>
+          <input class="input bg text" type="text" id="email" placeholder="Email" required oninput="checkInput()" />
         </div>
       </div>
       <div class="new-password">
@@ -423,16 +436,27 @@
           * The passwords do not match.
         </div>
       </div>
-      <button type="submit" class="submit-button" disabled>Reset Password</button>
+      <p class="Footer text-bis">
+        By clicking Sign Up, you are agreeing to {{ PROJECT_NAME }}t's
+        <a class="FooterLink" rel="noopener noreferrer" target="_blank" href="{{ TERMS_URL }}">Terms
+          of Service</a> and you are acknowledging our
+        <a class="FooterLink" rel="noopener noreferrer" target="_blank" href="{{ PRIVACY_URL }}">Privacy
+          Notice</a>.
+      </p>
+      <button type="submit" class="submit-button" disabled>Register</button>
     </form>
+    <button class="move-button" onclick="redirectLogIn()">
+      Already have an account? Log In
+    </button>
   </div>
 </body>
 
 <script>
-  //document.getElementById("old_password").value = ""
-  //document.getElementById("new_password").value = ""
-  //document.getElementById("confirm_password").value = ""
-  //validateOldPassword()
+  //document.getElementById("username").value = "lordlumineer"
+  //document.getElementById("email").value = "lordlumineer@gmail.com"
+  //document.getElementById("new_password").value = "qQ1!1234qwer"
+  //document.getElementById("confirm_password").value = "qQ1!1234qwer"
+  validateUsername()
   //validateNewPassword()
   //validateConfPassword()
   checkInput()

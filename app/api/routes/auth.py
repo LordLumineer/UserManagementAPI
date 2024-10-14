@@ -20,14 +20,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.core.object.user import get_current_user, get_user, get_user_by_email, update_user
+from app.core.object.user import create_user, get_current_user, get_user, get_user_by_email, update_user
 from app.core.security import (
     Token, TokenData,
     authenticate_user, decode_access_token, validate_otp,
     create_access_token, generate_otp, verify_password
 )
 from app.core.utils import validate_password
-from app.templates.schemas.user import UserReadDB, UserUpdate
+from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
 
 
 router = APIRouter()
@@ -55,6 +55,45 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
             purpose="login",
             uuid=user.uuid,
             permission=user.permission
+        ))
+
+
+@router.post("/logout", response_class=Response)
+def logout(current_user: UserReadDB = Depends(get_current_user)):
+    """
+    Logout user and return a response.
+
+    Parameters
+    ----------
+    current_user : UserReadDB
+        The current user object.
+
+    Returns
+    -------
+    Response
+        A response with a status code of 200 if the user is logged out successfully, 
+        or a response with a status code of 401 if there is an error.
+    """
+    return Response(status_code=200)
+
+
+@router.post("/register", response_model=Token)
+async def register(
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_password(password)
+    if password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    user_new = await create_user(db, UserCreate(username=username, email=email, password=password))
+    return create_access_token(
+        sub=TokenData(
+            purpose="login",
+            uuid=user_new.uuid,
+            permission=user_new.permission
         ))
 
 

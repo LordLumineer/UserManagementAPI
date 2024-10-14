@@ -31,7 +31,7 @@ router = APIRouter()
 # ------- Create ------- #
 
 
-@router.post("/", response_model=Token)  # , response_model=UserReadDB)
+@router.post("/", response_model=UserRead)  # , response_model=UserReadDB)
 async def new_user(
     user: UserCreate,
     token: str | None = Header(None),
@@ -68,13 +68,7 @@ async def new_user(
             return create_user(db, user)
     user.permission = "user"        # NOTE: Override to ensure default permission
     user.email_verified = False     # NOTE: Override to ensure email verification
-    user_new = await create_user(db, user)
-    return create_access_token(
-        sub=TokenData(
-            purpose="login",
-            uuid=user_new.uuid,
-            permission=user_new.permission
-        ))
+    return await create_user(db, user)
 
 
 @router.put("/{uuid}/image", response_model=FileReadDB)

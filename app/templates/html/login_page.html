@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <style>
+    body {
+      font-family: "Roboto", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      padding: 20px;
+      width: 50%;
+      min-width: fit-content;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+    }
+
+    .form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-field {
+      display: flex;
+      min-width: fit-content;
+      align-items: center;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 1px;
+    }
+
+    .input-field:hover {
+      border-width: 2px;
+      padding: 0px;
+    }
+
+    .input-field .material-icons {
+      padding: 10px;
+    }
+
+    .input-field input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+    }
+
+    .input-field input:focus {
+      outline: none;
+    }
+
+    .input {
+      width: 100%;
+      min-width: 128px;
+    }
+
+    .validation-message {
+      color: red;
+      font-size: 14px;
+      height: auto;
+      /*20px;*/
+      display: none;
+      /* initially hidden */
+      margin-left: 10px;
+    }
+
+    .submit-button {
+      background-color: #76cbb0;
+      background: #76cbb0;
+      color: #0a1210;
+
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+    }
+
+    .submit-button:disabled {
+      background-color: #bbb;
+      background: #bbb;
+      color: #fff;
+
+      cursor: not-allowed;
+    }
+
+    .submit-button:hover:enabled {
+      background-color: #9fd7c5;
+      background: #9fd7c5;
+      color: #485b56;
+    }
+
+    .move-button {
+      background-color: transparent;
+      background: transparent;
+      color: #76cbb0;
+
+      width: 100%;
+      font-weight: bold;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .move-button:hover {
+      background-color: rgba(128, 128, 128, 0.25);
+      background: rgba(128, 128, 128, 0.25);
+      color: #485b56;
+    }
+
+    .right-icon:hover {
+      cursor: pointer;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .bg {
+      background-color: #ffffff;
+      background: #ffffff;
+    }
+
+    .bg-bis {
+      background-color: #f7fbfa;
+      background: #f7fbfa;
+    }
+
+    .text {
+      color: #0a1210;
+    }
+
+    .text-bis {
+      color: #485b56
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .submit-button {
+        background-color: #07c085;
+        background: #07c085;
+        color: #f5faf9;
+      }
+
+      .submit-button:disabled {
+        background-color: #bbb;
+        background: #bbb;
+        color: #000000;
+      }
+
+      .submit-button:hover:enabled {
+        background-color: #107f5c;
+        background: #107f5c;
+        color: #a0bab5;
+      }
+
+      .move-button {
+        background-color: transparent;
+        background: transparent;
+        color: #07c085;
+      }
+
+      .move-button:hover {
+        background-color: rgba(128, 128, 128, 0.25);
+        background: rgba(128, 128, 128, 0.25);
+        color: #a0bab5;
+      }
+
+      .bg {
+        background-color: #292929;
+        background: #292929;
+      }
+
+      .bg-bis {
+        background-color: #050f0c;
+        background: #050f0c;
+      }
+
+      .text {
+        color: #f5faf9;
+      }
+
+      .text-bis {
+        color: #a0bab5;
+      }
+    }
+  </style>
+  <script>
+    checkIfTokenExists();
+
+    function checkIfTokenExists() {
+      const access_token = localStorage.getItem("access_token");
+      const token_type = localStorage.getItem("token_type");
+      if (access_token && token_type) {
+        fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
+          headers: {
+            Authorization: `${token_type} ${access_token}`,
+          },
+        })
+          .then((response) => {
+            if (response.ok) {
+              window.location.href = "{{ FRONTEND_URL }}";
+            } else {
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("token_type");
+            }
+            return;
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("token_type");
+          });
+      }
+    }
+
+    function togglePasswordVisibility(id_input, id_icon) {
+      const passwordInput = document.getElementById(id_input);
+      const toggleIcon = document.getElementById(id_icon);
+      if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        toggleIcon.textContent = "visibility";
+      } else {
+        passwordInput.type = "password";
+        toggleIcon.textContent = "visibility_off";
+      }
+    }
+
+    function checkInput() {
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      document.querySelector(".submit-button").disabled = !(username && password);
+    }
+
+
+    function submitForm(event) {
+      event.preventDefault(); // Prevent default form submission behavior
+
+      const submitButton = document.querySelector(".submit-button");
+      const originalButtonText = submitButton.textContent;
+
+      submitButton.disabled = true;
+      submitButton.innerHTML = 'Loading';
+
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      const formData = new URLSearchParams();
+      if (username && password) {
+        formData.append("username", username);
+        formData.append("password", password);
+      } else {
+        isLoading.value = false;
+        alert("Please fill in all fields");
+      }
+
+      // Send a POST request with query parameters in the URL (no body content)
+      fetch("{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
+      })
+        .then((response) => {
+          if (response.ok) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            response.json().then((data) => {
+              localStorage.setItem("access_token", data["access_token"]);
+              localStorage.setItem("token_type", data["token_type"]);
+              window.location.href = "{{ FRONTEND_URL }}";
+            });
+          } else {
+            return response.json().then((message) => {
+              throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + message["detail"]);
+            });
+          }
+        })
+        .catch((error) => {
+          submitButton.disabled = false;
+          submitButton.innerHTML = originalButtonText;
+          console.error("Error:", error);
+          alert("Login Failed: There was an issue with the login request.\n" + error);
+        });
+    }
+    function redirectSignUp() {
+      window.location.href = "{{ FRONTEND_URL }}/register";
+    }
+  </script>
+</head>
+
+<body class="bg-bis">
+  <div class="card bg">
+    <form class="form" onsubmit="submitForm(event)">
+      <h1 class="text">Login</h1>
+      <div class="username">
+        <div class="input-field">
+          <span class="material-icons text-bis">person</span>
+          <input class="input bg text" type="text" id="username" placeholder="Username or Email" required
+            oninput="checkInput()" />
+        </div>
+      </div>
+      <div class="password">
+        <div class="input-field">
+          <span class="material-icons text-bis">lock</span>
+          <input class="input bg text" type="password" id="password" placeholder="Password" required
+            oninput="checkInput()" />
+          <span class="material-icons text-bis right-icon" id="password-btn"
+            onclick="togglePasswordVisibility('password','password-btn')">visibility_off</span>
+        </div>
+      </div>
+      <button type="submit" class="submit-button" disabled>Login</button>
+    </form>
+    <button class="move-button" onclick="redirectSignUp()">
+      Don't have an account? Sign up
+    </button>
+  </div>
+</body>
+
+<script>
+  //document.getElementById("username").value = ""
+  //document.getElementById("password").value = ""
+  checkInput()
+</script>
+
+</html>
