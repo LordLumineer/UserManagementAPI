@@ -101,7 +101,34 @@ class _Settings(BaseSettings):
     @model_validator(mode="after")
     def _enforce_non_default_secrets(self) -> Self:
         self._check_default_secret("JWT_SECRET_KEY", self.JWT_SECRET_KEY)
+        return self
 
+    @model_validator(mode="after")
+    def _verify_email_settings(self) -> Self:
+        if (
+            self.EMAIL_METHOD == "smtp" and
+            self.SMTP_TLS and
+            self.SMTP_PORT and
+            self.SMTP_HOST and
+            self.SMTP_USER and
+            self.SMTP_PASSWORD and
+            self.SMTP_SENDER_EMAIL
+        ):
+            logger.critical(
+                "Email Settings are set. EMAIL_METHOD will be set to 'none'")
+            self.EMAIL_METHOD = "none"
+            return self
+        if (
+            self.EMAIL_METHOD == "mj" and
+            self.MJ_APIKEY_PUBLIC and
+            self.MJ_APIKEY_PRIVATE and
+            self.MJ_SENDER_EMAIL
+        ):
+            logger.critical(
+                "Email Settings are set. EMAIL_METHOD will be set to 'none'")
+            self.EMAIL_METHOD = "none"
+            return self
+        self.EMAIL_METHOD = "none"
         return self
 
 
