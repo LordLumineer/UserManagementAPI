@@ -14,7 +14,11 @@ from app.core.config import logger
 from app.core.db import get_db
 from app.core.email import send_validation_email
 from app.core.object.file import delete_file, get_file_users_uuid
-from app.core.security import TokenData, create_access_token, decode_access_token, hash_password, oauth2_scheme
+from app.core.security import (
+    TokenData, create_access_token, decode_access_token,
+    generate_otp, hash_password, oauth2_scheme
+)
+from app.core.utils import generate_random_letters
 from app.templates.models import User as User_Model
 from app.templates.models import users_files_links
 from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
@@ -126,6 +130,8 @@ async def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
     :raises HTTPException: If the user is not found, or if the email is taken
     """
     db_user = get_user(db, uuid)
+    if db_user.email == "admin@example.com":
+        user.otp_secret = (await generate_otp(user_uuid=db_user.uuid, user_username=db_user.username))[1]
     email_to_verify = False
     if user.email and user.email != db_user.email:
         user.email_verified = False
@@ -281,14 +287,14 @@ def init_default_user() -> None:
     db = next(get_db())
     try:
         if len(get_users(db)) == 0:
+            # otp_secret = generate_random_letters(32)
             default_user = User_Model(
                 username="admin",
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
                 permission="admin",
                 email_verified=True,
-                # TODO: add in update user if it's the first user change (aka. this one), reset the OTP secret
-                otp_secret="changeme",
+                otp_secret="changeme"  # generate_random_letters(32),
             )
             db.add(default_user)
             db.commit()

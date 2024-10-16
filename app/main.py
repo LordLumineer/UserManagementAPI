@@ -12,9 +12,9 @@ from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from jinja2 import Template
+from jinja2 import DebugUndefined, Template
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router, tags_metadata
@@ -22,7 +22,12 @@ from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
 from app.core.object.user import init_default_user
-from app.core.utils import custom_generate_unique_id, extract_initials_from_text, generate_profile_picture, not_found_page
+from app.core.utils import (
+    custom_generate_unique_id,
+    extract_initials_from_text,
+    generate_profile_picture,
+    not_found_page
+)
 from app.templates.base import Base
 
 Base.metadata.create_all(bind=database.engine)
@@ -48,9 +53,9 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
 app = FastAPI(
     debug=settings.LOG_LEVEL == "DEBUG",
     title=settings.PROJECT_NAME,
-    summary="A short summary of the API.",  # TODO
+    # TODO: Write Summary and Description
+    summary="A short summary of the API.",
     description="""
-# TODO
 A description of the API. Supports Markdown (using [CommonMark syntax](https://commonmark.org/)).
 
 It will be added to the generated OpenAPI (e.g. visible at `/docs`).
@@ -143,13 +148,35 @@ def _support():
 @app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _login():
     with open("./templates/html/login_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
+        "ENDPOINT": "/auth/login",
+        # ----------
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
-        "ENDPOINT": "/auth/login",
         "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
+    }
+    html = template.render(context)
+    return HTMLResponse(content=html)
+
+
+@app.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _otp():
+    with open("./templates/html/otp_page.html", "r", encoding="utf-8") as f:
+        template = Template(f.read(), undefined=DebugUndefined)
+    context = {
+        "ENDPOINT": "/auth/OTP",
+        "OTP_LENGTH": settings.OTP_LENGTH,
+        # ----------
+        "FRONTEND_URL": settings.FRONTEND_URL,
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
     html = template.render(context)
     return HTMLResponse(content=html)
@@ -158,12 +185,13 @@ def _login():
 @app.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _register():
     with open("./templates/html/register_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
+        "ENDPOINT": "/auth/register",
+        # ----------
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
-        "ENDPOINT": "/auth/register",
         "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
         "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
         "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
@@ -171,30 +199,38 @@ def _register():
     html = template.render(context)
     return HTMLResponse(content=html)
 
+
 @app.get("/logout", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _logout():
     with open("./templates/html/logout_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
+        "ENDPOINT": "/auth/logout",
+        # ----------
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
-        "ENDPOINT": "/auth/logout",
         "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
     html = template.render(context)
     return HTMLResponse(content=html)
 
+
 @app.get("/reset-password", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _reset_password():
     with open("./templates/html/reset_password_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
+        "ENDPOINT": "/auth/password/reset",
+        # ----------
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
-        "ENDPOINT": "/auth/password/reset",
         "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
     html = template.render(context)
     return HTMLResponse(content=html)

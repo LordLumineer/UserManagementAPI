@@ -20,7 +20,7 @@ from app.core.object.user import (
     get_users, get_users_list, get_current_user,
     link_file_to_user,
 )
-from app.core.security import Token, TokenData, create_access_token, decode_access_token
+from app.core.security import decode_access_token
 from app.core.utils import extract_initials_from_text, generate_profile_picture
 from app.templates.schemas.file import FileCreate, FileReadDB
 from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate

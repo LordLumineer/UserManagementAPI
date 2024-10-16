@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login</title>
+  <title>One Time Password</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
     body {
@@ -198,9 +198,10 @@
     }
   </style>
   <script>
-    checkIfTokenExists();
+    checkIfOtpTokenExists()
+      .then(() => checkIfAuthTokenExists());
 
-    function checkIfTokenExists() {
+    function checkIfAuthTokenExists() {
       const auth_token = localStorage.getItem("auth_token");
       if (auth_token) {
         fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
@@ -223,6 +224,15 @@
       }
     }
 
+    function checkIfOtpTokenExists() {
+      return new Promise((resolve, reject) => {
+        const otp_token = localStorage.getItem("otp_token");
+        if (!otp_token) {
+          window.location.href = "{{ FRONTEND_URL }}/login";
+        }
+      });
+    }
+
     function togglePasswordVisibility(id_input, id_icon) {
       const passwordInput = document.getElementById(id_input);
       const toggleIcon = document.getElementById(id_icon);
@@ -236,9 +246,10 @@
     }
 
     function checkInput() {
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-      document.querySelector(".submit-button").disabled = !(username && password);
+      const otp = document.getElementById("otp").value;
+      const test_length = (otp.length === Number("{{ OTP_LENGTH }}"));
+      document.getElementById("lengthError").style.display = !(test_length) ? "block" : "none";
+      document.querySelector(".submit-button").disabled = !(test_length);
     }
 
     function submitForm(event) {
@@ -250,47 +261,34 @@
       submitButton.disabled = true;
       submitButton.innerHTML = 'Loading';
 
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
+      const otp = document.getElementById("otp").value;
+      const otp_token = localStorage.getItem("otp_token");
 
-      const formData = new URLSearchParams();
-      if (username && password) {
-        formData.append("username", username);
-        formData.append("password", password);
-      } else {
+      if (!otp) {
         isLoading.value = false;
         alert("Please fill in all fields");
       }
 
       // Send a POST request with query parameters in the URL (no body content)
-      fetch("{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}", {
+      fetch("{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}?otp_code=" + `${otp}`, {
         method: "POST",
         headers: {
           Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
+          "authorization-header": `${otp_token}`,
         },
-        body: formData,
       })
         .then((response) => {
           if (response.ok) {
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
             response.json().then((data) => {
-              console.log(data);
               localStorage.setItem("auth_token", data["token_type"] + " " + data["access_token"]);
-              checkIfTokenExists()
+              localStorage.removeItem("otp_token");
+              checkIfAuthTokenExists();
             });
           } else {
             return response.json().then((message) => {
-              // check if otp required -> set otp token in localStorage -> redirect to /otp
-              console.log(message);
-              if (message["detail"].message === "Please enter OTP") {
-                console.log(message["detail"].message);
-                localStorage.setItem("otp_token", message["detail"].token);
-                window.location.href = "{{ FRONTEND_URL }}/otp";
-              } else {
-                throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + message["detail"]);
-              }
+              throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + message["detail"]);
             });
           }
         })
@@ -301,44 +299,30 @@
           alert("Login Failed: There was an issue with the login request.\n" + error);
         });
     }
-
-    function redirectSignUp() {
-      window.location.href = "{{ FRONTEND_URL }}/register";
-    }
   </script>
 </head>
 
 <body class="bg-bis">
   <div class="card bg">
     <form class="form" onsubmit="submitForm(event)">
-      <h1 class="text">Login</h1>
-      <div class="username">
+      <h1 class="text">One Time Password</h1>
+      <div class="otp">
         <div class="input-field">
           <span class="material-icons text-bis">person</span>
-          <input class="input bg text" type="text" id="username" placeholder="Username or Email" required
-            oninput="checkInput()" />
+          <input class="input bg text" type="number" id="otp" onKeyPress="if(this.value.length==6) return false;"
+            placeholder="{{ OTP_LENGTH }} digit code" required oninput="checkInput()" />
+        </div>
+        <div id="lengthError" class="validation-message">
+          * The OTP has to be {{ OTP_LENGTH }} digits.
         </div>
       </div>
-      <div class="password">
-        <div class="input-field">
-          <span class="material-icons text-bis">lock</span>
-          <input class="input bg text" type="password" id="password" placeholder="Password" required
-            oninput="checkInput()" />
-          <span class="material-icons text-bis right-icon" id="password-btn"
-            onclick="togglePasswordVisibility('password','password-btn')">visibility_off</span>
-        </div>
-      </div>
-      <button type="submit" class="submit-button" disabled>Login</button>
+      <button type="submit" class="submit-button" disabled>Submit OTP</button>
     </form>
-    <button class="move-button" onclick="redirectSignUp()">
-      Don't have an account? Sign up
-    </button>
   </div>
 </body>
 
 <script>
-  //document.getElementById("username").value = ""
-  //document.getElementById("password").value = ""
+  document.getElementById("otp").value = ""
   checkInput()
 </script>
 

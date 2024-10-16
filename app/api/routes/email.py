@@ -226,7 +226,7 @@ async def reset_password_email(
             uuid=user.uuid,
             username=user.username
         ))
-    return await send_validation_email(recipient, token)
+    return await send_reset_password_email(recipient, token)
 
 
 @router.post("/send-validation-email")
@@ -252,13 +252,16 @@ async def validation_email(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    user = get_user_by_email(db, recipient)
-    token = create_access_token(
-        sub=TokenData(
-            purpose="email-verification",
-            uuid=user.uuid,
-            username=user.username
-        ))
-    return await send_reset_password_email(recipient, token)
+    try:
+        if current_user.permission != "admin":
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        user = get_user_by_email(db, recipient)
+        token = create_access_token(
+            sub=TokenData(
+                purpose="email-verification",
+                uuid=user.uuid,
+                email=user.email
+            ))
+        return await send_validation_email(recipient, token)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

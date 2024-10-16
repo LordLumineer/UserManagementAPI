@@ -16,6 +16,7 @@ import time
 import random
 import re
 import string
+import uuid
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
@@ -23,7 +24,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from PIL import Image, ImageDraw, ImageFont
 import httpx
-from jinja2 import Template
+from jinja2 import DebugUndefined, Template
 
 from app.core.config import logger, settings
 
@@ -124,6 +125,24 @@ def generate_random_digits(length: int, seed: int | str = None) -> str:
     return ''.join(str(random.randint(0, 9)) for _ in range(length))
 
 
+def generate_uuid() -> str:
+    """
+    Generates a random UUID.
+
+    :return: A random UUID.
+    """
+    return str(uuid.uuid4())
+
+
+def generate_timestamp() -> int:
+    """
+    Generates a timestamp representing the current time.
+
+    :return: An integer timestamp.
+    """
+    return int(time.time())
+
+
 def extract_initials_from_text(text: str) -> str:
     """
     Extracts the initials from a given string.
@@ -201,7 +220,7 @@ def not_found_page() -> Response:
     :return Response: The 404 response.
     """
     with open("./templates/html/404.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
         "FRONTEND_URL": settings.FRONTEND_URL,
     }

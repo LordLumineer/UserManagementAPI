@@ -10,9 +10,10 @@ and verifying the One-Time-Password (OTP) QR code.
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 from io import BytesIO
+from tkinter import E
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
-from fastapi.params import Depends, Form, Header
+from fastapi.params import Depends, Form, Header, Query
 from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 import qrcode
@@ -74,7 +75,7 @@ def logout(current_user: UserReadDB = Depends(get_current_user)):
         A response with a status code of 200 if the user is logged out successfully, 
         or a response with a status code of 401 if there is an error.
     """
-    return Response(status_code=200)
+    return Response(content=f"{current_user.username} | Logged out", status_code=200)
 
 
 @router.post("/register", response_model=Token)
@@ -108,7 +109,8 @@ async def register(
     """
     validate_password(password)
     if password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
+        raise HTTPException(
+            status_code=400, detail="Passwords do not match")
     user_new = await create_user(db, UserCreate(username=username, email=email, password=password))
     return create_access_token(
         sub=TokenData(
@@ -120,7 +122,7 @@ async def register(
 
 @router.post("/OTP", response_model=Token)
 def login_otp(
-    otp_code: str,
+    otp_code: str | int = Query(...),
     authorization_header: str = Header(),
     db: Session = Depends(get_db)
 ):

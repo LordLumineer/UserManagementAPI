@@ -105,30 +105,38 @@ class _Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _verify_email_settings(self) -> Self:
-        if (
-            self.EMAIL_METHOD == "smtp" and
-            self.SMTP_TLS and
-            self.SMTP_PORT and
-            self.SMTP_HOST and
-            self.SMTP_USER and
-            self.SMTP_PASSWORD and
-            self.SMTP_SENDER_EMAIL
-        ):
-            logger.critical(
-                "Email Settings are set. EMAIL_METHOD will be set to 'none'")
-            self.EMAIL_METHOD = "none"
+        if self.EMAIL_METHOD == "smtp":
+            if (
+                self.SMTP_PORT is None or
+                self.SMTP_HOST is None or
+                self.SMTP_USER is None or
+                self.SMTP_PASSWORD is None or
+                self.SMTP_SENDER_EMAIL is None
+            ):
+                logger.critical(
+                    "SMTP Email Settings are set. EMAIL_METHOD will be set to 'none'")
+                self.EMAIL_METHOD = "none"  # pylint: disable=C0103
+                return self
+            logger.info(
+                "SMTP Email Settings are set.")
             return self
-        if (
-            self.EMAIL_METHOD == "mj" and
-            self.MJ_APIKEY_PUBLIC and
-            self.MJ_APIKEY_PRIVATE and
-            self.MJ_SENDER_EMAIL
-        ):
-            logger.critical(
-                "Email Settings are set. EMAIL_METHOD will be set to 'none'")
-            self.EMAIL_METHOD = "none"
+        if self.EMAIL_METHOD == "mj":
+            if (
+                self.MJ_APIKEY_PUBLIC is None or
+                self.MJ_APIKEY_PRIVATE is None or
+                self.MJ_SENDER_EMAIL is None
+            ):
+                logger.critical(
+                    "MailJet Email Settings are set. EMAIL_METHOD will be set to 'none'")
+                self.EMAIL_METHOD = "none"  # pylint: disable=C0103
+                return self
+            logger.info(
+                "MailJet Email Settings are set."
+            )
             return self
-        self.EMAIL_METHOD = "none"
+        logger.warning(
+            "EMAIL_METHOD will is set to 'none'")
+        self.EMAIL_METHOD = "none"  # pylint: disable=C0103
         return self
 
 

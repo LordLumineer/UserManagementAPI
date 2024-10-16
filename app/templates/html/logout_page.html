@@ -117,25 +117,22 @@
     checkIfTokenExists();
 
     function checkIfTokenExists() {
-      const access_token = localStorage.getItem("access_token");
-      const token_type = localStorage.getItem("token_type");
-      if (access_token && token_type) {
+      const auth_token = localStorage.getItem("auth_token");
+      if (auth_token) {
         fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
           headers: {
-            Authorization: `${token_type} ${access_token}`,
+            Authorization: `${auth_token}`,
           },
         })
           .then((response) => {
             if (!response.ok) {
-              localStorage.removeItem("access_token");
-              localStorage.removeItem("token_type");
+              localStorage.removeItem("auth_token");
             }
             return;
           })
           .catch((error) => {
             console.error("Error:", error);
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("token_type");
+            localStorage.removeItem("auth_token");
           });
       }
     }
@@ -149,9 +146,8 @@
       submitButton.disabled = true;
       submitButton.innerHTML = 'Loading';
 
-      const access_token = localStorage.getItem("access_token");
-      const token_type = localStorage.getItem("token_type");
-      if (!(access_token && token_type)) {
+      const auth_token = localStorage.getItem("auth_token");
+      if (!(auth_token)) {
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonText;
         window.location.href = "{{ FRONTEND_URL }}/login";
@@ -164,15 +160,14 @@
         headers: {
           Accept: "application/json",
           "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `${token_type} ${access_token}`,
+          "Authorization": `${auth_token}`,
         },
       })
         .then((response) => {
           if (response.ok) {
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("token_type");
+            localStorage.removeItem("auth_token");
             window.location.href = "{{ FRONTEND_URL }}/login";
           } else {
             return response.json().then((message) => {

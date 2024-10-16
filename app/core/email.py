@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse
-from jinja2 import Template
+from jinja2 import DebugUndefined, Template
 from mailjet_rest import Client
 
 from app.core.config import settings, logger
@@ -126,6 +126,21 @@ async def send_email(recipients: list[str], subject: str, html_content: str):
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
+    context = {
+        # TODO: UPDATE CONTEXT
+        "PROJECT_NAME": settings.PROJECT_NAME,
+        "FRONTEND_URL": settings.FRONTEND_URL,
+        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
+        "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
+        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
+        "LOGO_URL": "https://picsum.photos/600/300",
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+    }
+    html_content = Template(html_content).render(context)
+
     match settings.EMAIL_METHOD:
         case "smtp":
             logger.debug("Email sent via SMTP")
@@ -150,21 +165,10 @@ async def send_test_email(recipient: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open("./templates/html/test_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
-    # TODO: UPDATE CONTEXT
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
         "ENDPOINT": "/send-test-email/test/todo",
-        "PARAMS": "?test=123456789&token=123456789",
-        # SAME on all emails
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "BASE_URL": settings.BASE_URL,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "API_STR": settings.API_STR,
-        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
-        "LOGO_URL": "https://picsum.photos/600/300",
-        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
+        "PARAMS": "?test=123456789&token=123456789"
     }
     html = template.render(context)
     logger.debug("Testing Email to %s", recipient)
@@ -181,20 +185,10 @@ async def send_validation_email(recipient: str, token_str: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open("./templates/html/validate_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
         "ENDPOINT": "/auth/email/verify",
-        "PARAMS": f"?token={token_str}",
-        # SAME on all emails
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "BASE_URL": settings.BASE_URL,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "API_STR": settings.API_STR,
-        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
-        "LOGO_URL": "https://picsum.photos/600/300",
-        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
+        "PARAMS": f"?token={token_str}"
     }
     html = template.render(context)
     logger.debug("Sending Validation Email: %s", recipient)
@@ -215,7 +209,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     """
     location, device, browser, ip_address = get_info_from_request(request)
     with open("./templates/html/otp_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     expiration_date = datetime.now(
         timezone.utc) + timedelta(seconds=settings.OTP_EMAIL_INTERVAL)
     context = {
@@ -225,18 +219,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
         "IP_ADDRESS": ip_address,
         "OTP_CODE": otp_code,
         "EXPIRATION_DATE": expiration_date.strftime("%B %d, %Y %H:%M:%S %Z"),
-        "RESET_PASSWORD_URL": f"{settings.FRONTEND_URL}/reset-password",
-        "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
-        # SAME on all emails
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "BASE_URL": settings.BASE_URL,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "API_STR": settings.API_STR,
-        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
-        "LOGO_URL": "https://picsum.photos/600/300",
-        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
+        "RESET_PASSWORD_URL": f"{settings.FRONTEND_URL}/reset-password"
     }
     html = template.render(context)
     logger.debug("Sending One-Time Password Email: %s", recipient)
@@ -253,20 +236,10 @@ async def send_reset_password_email(recipient: str, token_str: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open("./templates/html/reset_password_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read())
+        template = Template(f.read(), undefined=DebugUndefined)
     context = {
         "ENDPOINT": "/auth/password/reset",
-        "PARAMS": f"?token={token_str}",
-        # SAME on all emails
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "BASE_URL": settings.BASE_URL,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "API_STR": settings.API_STR,
-        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
-        "LOGO_URL": "https://picsum.photos/600/300",
-        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
+        "PARAMS": f"?token={token_str}"
     }
     html = template.render(context)
     logger.debug("Sending Reset Password Email: %s", recipient)

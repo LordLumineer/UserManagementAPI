@@ -7,12 +7,10 @@ This module contains the SQLAlchemy models for the application.
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
-import time
-import uuid
-
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.utils import generate_timestamp, generate_uuid
 from app.templates.base import Base
 # from app.core.config import settings
 
@@ -26,7 +24,7 @@ class User(Base):
     uuid: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=str(uuid.uuid4())
+        default=generate_uuid
     )
     username: Mapped[str] = mapped_column(
         String,
@@ -59,11 +57,11 @@ class User(Base):
     description: Mapped[str | None]
     created_at: Mapped[int] = mapped_column(
         Integer,
-        default=int(time.time())
+        default=generate_timestamp
     )
     updated_at: Mapped[int] = mapped_column(
         Integer,
-        default=int(time.time())
+        default=generate_timestamp
     )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
@@ -96,7 +94,7 @@ class File(Base):
 
     created_at: Mapped[int] = mapped_column(
         Integer,
-        default=int(time.time())
+        default=generate_timestamp
     )
 
     # Foreign keys

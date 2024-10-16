@@ -307,7 +307,8 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         detail="Incorrect username/email or password or email not verified",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    # if username in ["user", "manager", "admin"]: # TODO: remove comments
+    # TODO: remove comments to force first login with email
+    # if username in ["user", "manager", "admin"]:
     #     raise error_msg
     try:
         if username == "admin@example.com":
@@ -325,7 +326,6 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
     if not user.is_active:
         raise HTTPException(
             status_code=400, detail="Inactive user, please contact admin")
-
     if verify_password(password, user.hashed_password):
         if user.otp_method == "none":
             return user
@@ -359,12 +359,7 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
             detail=jsonable_encoder({
                 "message": "Please enter OTP",
                 "method": user.otp_method,
-                "curl": {
-                    "-X": "POST",
-                    "url": f"{settings.BASE_URL}{settings.API_STR}/login/OTP?otp_code=",
-                    "-H": f"Authorization: {otp_request_token.token_type} {otp_request_token.access_token}",
-                    "-d": ""
-                }
+                "token": str(otp_request_token)
             }),
         )
     raise error_msg

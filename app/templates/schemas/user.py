@@ -12,7 +12,7 @@ from pydantic import BaseModel, computed_field, Field, field_validator
 from app.core.object.file import get_files_list
 from app.core.config import settings
 from app.core.db import get_db
-from app.core.utils import validate_email, validate_password, validate_username
+from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
 from app.core.security import hash_password
 from app.templates.schemas.file import FileReadDB
 
@@ -117,6 +117,11 @@ class UserCreate(UserBase):
     def hashed_password(self) -> str:
         """The hashed password of the user."""
         return hash_password(self.password)
+
+    @computed_field
+    def otp_secret(self) -> str:
+        """The OTP secret of the user."""
+        return generate_random_letters(length=32, seed=self.username)
 
 
 class UserUpdate(UserBase):
