@@ -2,74 +2,68 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - Page Not Found</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #e4f1ee;
-            color: #485b56;
-            /* Default light mode text color */
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 - Page Not Found</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      height: 100vh;
+      background-color: #e4f1ee;
+      color: #485b56;
+    }
 
-        .container {
-            text-align: center;
-        }
+    h1 {
+      font-size: 3em;
+    }
 
-        h1 {
-            font-size: 3em;
-        }
+    p {
+      font-size: 1.2em;
+    }
 
-        p {
-            font-size: 1.2em;
-        }
+    a {
+      color: hsl(211, 100%, 50%);
+      text-decoration: none;
+      cursor: pointer;
+    }
 
-        a {
-            color: #007bff;
-            /* Default light mode link color */
-            text-decoration: none;
-            cursor: pointer;
-        }
+    a:hover {
+      text-decoration: underline;
+      color: hsl(211, 100%, 25%);
+      /* color: #76cbb0; */
+    }
 
-        a:hover {
-            text-decoration: underline;
-            color: #76cbb0;
-        }
+    /* Dark mode styles */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #081712;
+        color: #a0bab5;
+      }
 
-        /* Dark mode styles */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #081712;
-                color: #a0bab5;
-            }
+      a {
+        color: #9094ea;
+      }
 
-            a {
-                color: #9094ea;
-            }
-
-            a:hover {
-                color: #07c085;
-            }
-        }
-    </style>
+      a:hover {
+        /* color: #07c085; */
+        color: hsl(211, 100%, 75%);
+      }
+    }
+  </style>
 </head>
 
 <body>
-    <div class="container">
-        <div>
-            <h1>404 - Page Not Found</h1>
-            <p>Oops! The page you are looking for might have been removed or is temporarily unavailable.</p>
-            <p>Go back to <a href="{{ FRONTEND_URL }}"
-                    data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}">Home Page</a>.</p>
-        </div>
-    </div>
+  <h1>404 - Page Not Found</h1>
+  <p>Oops! The page you are looking for might have been removed or is temporarily unavailable.</p>
+  <p>Go back to <a href="{{ FRONTEND_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}">Home
+      Page</a>.</p>
 </body>
 
 </html>

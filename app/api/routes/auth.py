@@ -78,8 +78,8 @@ def logout(current_user: UserReadDB = Depends(get_current_user)):
     return Response(content=f"{current_user.username} | Logged out", status_code=200)
 
 
-@router.post("/register", response_model=Token)
-async def register(
+@router.post("/signup", response_model=Token)
+async def signup(
     username: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),

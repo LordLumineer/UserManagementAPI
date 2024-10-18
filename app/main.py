@@ -152,6 +152,7 @@ def _login():
     context = {
         "ENDPOINT": "/auth/login",
         # ----------
+        "PROJECT_NAME": settings.PROJECT_NAME,
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
@@ -171,6 +172,7 @@ def _otp():
         "ENDPOINT": "/auth/OTP",
         "OTP_LENGTH": settings.OTP_LENGTH,
         # ----------
+        "PROJECT_NAME": settings.PROJECT_NAME,
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
@@ -182,13 +184,14 @@ def _otp():
     return HTMLResponse(content=html)
 
 
-@app.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _register():
-    with open("./templates/html/register_page.html", "r", encoding="utf-8") as f:
+@app.get("/signup", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _signup():
+    with open("./templates/html/signup_page.html", "r", encoding="utf-8") as f:
         template = Template(f.read(), undefined=DebugUndefined)
     context = {
-        "ENDPOINT": "/auth/register",
+        "ENDPOINT": "/auth/signup",
         # ----------
+        "PROJECT_NAME": settings.PROJECT_NAME,
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
@@ -207,6 +210,7 @@ def _logout():
     context = {
         "ENDPOINT": "/auth/logout",
         # ----------
+        "PROJECT_NAME": settings.PROJECT_NAME,
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
@@ -225,6 +229,7 @@ def _reset_password():
     context = {
         "ENDPOINT": "/auth/password/reset",
         # ----------
+        "PROJECT_NAME": settings.PROJECT_NAME,
         "FRONTEND_URL": settings.FRONTEND_URL,
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,

@@ -4,22 +4,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login</title>
+  <title>Log Out</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
+    /* General Styles */
     body {
+      background-color: #f7fbfa;
+
       font-family: "Roboto", sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
+      margin: 0;
     }
 
     .card {
+      background-color: #ffffff;
+      box-shadow: 0 0 646px rgba(0, 0, 0, 0.1);
+
       padding: 20px;
       width: 50%;
       min-width: fit-content;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
     }
 
@@ -28,9 +34,79 @@
       flex-direction: column;
     }
 
+    h1 {
+      color: #0a1210;
+
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .input-box {
+      margin-bottom: 15px;
+    }
+
+    .input-field {
+      border: 1px solid #808080;
+
+      display: flex;
+      margin-bottom: 4px;
+      align-items: center;
+      border-radius: 4px;
+      padding: 1px;
+      transition: border-color 0.3s;
+    }
+
+    .input-field:hover {
+      border-color: #76cbb0;
+
+      border-width: 2px;
+      padding: 0px;
+    }
+
+    .material-icons {
+      padding: 10px;
+      color: #485b56
+    }
+
+    input {
+      color: #0a1210;
+
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      width: 100%;
+      min-width: 128px;
+      border: none;
+      background-color: transparent;
+    }
+
+    input:focus {
+      outline: none;
+    }
+
+    .validation-message {
+      color: red;
+      font-size: 14px;
+      display: none;
+      margin-left: 10px;
+    }
+
+    .FooterText {
+      color: #485b56;
+
+      font-size: 12px;
+      margin-top: 24px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .FooterLink {
+      color: hsl(192, 50%, 50%);
+      text-decoration: underline;
+    }
+
     .submit-button {
       background-color: #76cbb0;
-      background: #76cbb0;
       color: #0a1210;
 
       padding: 12px;
@@ -38,160 +114,172 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 16px;
-      margin-top: 20px;
+      font-weight: bold;
+      transition: background-color 0.3s;
     }
 
     .submit-button:disabled {
       background-color: #bbb;
-      background: #bbb;
       color: #fff;
-
       cursor: not-allowed;
     }
 
     .submit-button:hover:enabled {
       background-color: #9fd7c5;
-      background: #9fd7c5;
       color: #485b56;
     }
 
-    .right-icon:hover {
+    .move-button {
+      background-color: transparent;
+      color: #76cbb0;
+      width: 100%;
+      font-weight: bold;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+      transition: background-color 0.3s;
     }
 
-    h1 {
-      text-align: center;
-    }
-
-    .bg {
-      background-color: #ffffff;
-      background: #ffffff;
-    }
-
-    .bg-bis {
-      background-color: #f7fbfa;
-      background: #f7fbfa;
-    }
-
-    .text {
-      color: #0a1210;
+    .move-button:hover {
+      background-color: rgba(128, 128, 128, 0.25);
+      color: #485b56;
     }
 
     @media (prefers-color-scheme: dark) {
-      .submit-button {
-        background-color: #07c085;
-        background: #07c085;
+      body {
+        background-color: #050f0c;
+      }
+
+      .card {
+        background-color: #292929;
+        box-shadow: 0 0 64px rgba(255, 255, 255, 0.1);
+      }
+
+      h1 {
         color: #f5faf9;
       }
 
-      .submit-button:disabled {
-        background-color: #bbb;
-        background: #bbb;
-        color: #000000;
+
+      .input-field:hover {
+        border-color: #07c085;
+      }
+
+      .material-icons {
+        color: #a0bab5;
+      }
+
+      input {
+        color: #f5faf9;
+      }
+
+      .FooterText {
+        color: #a0bab5;
+      }
+
+      .submit-button {
+        background-color: #07c085;
+        color: #f5faf9;
       }
 
       .submit-button:hover:enabled {
         background-color: #107f5c;
-        background: #107f5c;
         color: #a0bab5;
       }
 
-      .bg {
-        background-color: #292929;
-        background: #292929;
+      .move-button {
+        color: #07c085;
       }
 
-      .bg-bis {
-        background-color: #050f0c;
-        background: #050f0c;
+      .move-button:hover {
+        background-color: rgba(128, 128, 128, 0.25);
+        color: #a0bab5;
       }
-
-      .text {
-        color: #f5faf9;
-      }
-
-
     }
   </style>
-  <script>
-    checkIfTokenExists();
-
-    function checkIfTokenExists() {
-      const auth_token = localStorage.getItem("auth_token");
-      if (auth_token) {
-        fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
-          headers: {
-            Authorization: `${auth_token}`,
-          },
-        })
-          .then((response) => {
-            if (!response.ok) {
-              localStorage.removeItem("auth_token");
-            }
-            return;
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            localStorage.removeItem("auth_token");
-          });
-      }
-    }
-
-    function submitForm(event) {
-      event.preventDefault(); // Prevent default form submission behavior
-
-      const submitButton = document.querySelector(".submit-button");
-      const originalButtonText = submitButton.textContent;
-
-      submitButton.disabled = true;
-      submitButton.innerHTML = 'Loading';
-
-      const auth_token = localStorage.getItem("auth_token");
-      if (!(auth_token)) {
-        submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
-        window.location.href = "{{ FRONTEND_URL }}/login";
-        return;
-      }
-
-      // Send a POST request with query parameters in the URL (no body content)
-      fetch("{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `${auth_token}`,
-        },
-      })
-        .then((response) => {
-          if (response.ok) {
-            submitButton.disabled = false;
-            submitButton.innerHTML = originalButtonText;
-            localStorage.removeItem("auth_token");
-            window.location.href = "{{ FRONTEND_URL }}/login";
-          } else {
-            return response.json().then((message) => {
-              throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + message["detail"]);
-            });
-          }
-        })
-        .catch((error) => {
-          submitButton.disabled = false;
-          submitButton.innerHTML = originalButtonText;
-          console.error("Error:", error);
-          alert("Login Failed: There was an issue with the login request.\n" + error);
-        });
-    }
-  </script>
 </head>
 
-<body class="bg-bis">
-  <div class="card bg">
+<body>
+  <div class="card">
     <form class="form" onsubmit="submitForm(event)">
-      <h1 class="text">Logout</h1>
+      <h1>Log Out</h1>
       <button type="submit" class="submit-button">Logout</button>
     </form>
   </div>
 </body>
+
+<script>
+  function checkIfAuthTokenExists() {
+    const auth_token = localStorage.getItem("auth_token");
+    if (auth_token) {
+      fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
+        headers: {
+          Authorization: `${auth_token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            localStorage.removeItem("auth_token");
+          }
+          return;
+        })
+        .catch((error) => {
+          console.error(error);
+          localStorage.removeItem("auth_token");
+        });
+    }
+  }
+
+  function submitForm(event) {
+    event.preventDefault();
+    const submitButton = document.querySelector(".submit-button");
+    const originalButtonText = submitButton.textContent;
+
+    submitButton.disabled = true;
+    submitButton.innerHTML = 'Loading';
+
+    const auth_token = localStorage.getItem("auth_token");
+    if (!(auth_token)) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = originalButtonText;
+      window.location.href = "{{ FRONTEND_URL }}/login";
+      return;
+    }
+
+
+    const apiUrl = '{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}';
+    fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `${auth_token}`,
+      },
+    })
+      .then(response => {
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+        if (response.ok) {
+          localStorage.removeItem("auth_token");
+          window.location.href = "{{ FRONTEND_URL }}/login";
+        } else {
+          return response.json().then(data => ({ response, data }))
+            .then(({ response, data }) => {
+              throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
+            })
+        }
+      })
+      .catch((error) => {
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        console.error(error);
+        alert("Login Failed: There was an issue with the login request.\n" + error);
+      });
+  }
+
+  checkIfAuthTokenExists();
+</script>
 
 </html>

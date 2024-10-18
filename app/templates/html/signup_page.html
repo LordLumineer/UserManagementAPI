@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login</title>
+  <title>Sign Up</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
     /* General Styles */
@@ -204,12 +204,31 @@
 <body>
   <div class="card">
     <form class="form" onsubmit="submitForm(event)">
-      <h1>Login</h1>
+      <h1>Sign Up</h1>
+
       <!-- USERNAME -->
       <div class="input-box">
         <div class="input-field">
           <span class="material-icons">person</span>
-          <input type="text" id="username" placeholder="Username or Email" required oninput="updateSubmitButton()" />
+          <input type="text" id="username" placeholder="Username" required
+            oninput="validateField('username', validateUsername)" />
+        </div>
+        <div id="lengthError" class="validation-message">
+          * Username must be at least 5 characters.
+        </div>
+        <div id="charsError" class="validation-message">
+          * Only lowercase letters, numbers, and underscores are allowed.
+        </div>
+      </div>
+
+      <!-- EMAIL -->
+      <div class="input-box">
+        <div class="input-field">
+          <span class="material-icons">email</span>
+          <input type="email" id="email" placeholder="Email" required oninput="validateField('email', validateEmail)" />
+        </div>
+        <div id="emailError" class="validation-message">
+          * Invalid email address.
         </div>
       </div>
 
@@ -217,23 +236,123 @@
       <div class="input-box">
         <div class="input-field">
           <span class="material-icons">lock</span>
-          <input type="password" id="password" placeholder="Password" required oninput="updateSubmitButton()" />
-          <span class="material-icons" id="password-btn"
-            onclick="togglePasswordVisibility('password','password-btn')">visibility_off</span>
+          <input type="password" id="new_password" placeholder="Password" required
+            oninput="validateField('new_password', validateNewPassword)" />
+          <span class="material-icons" id="new_password-btn"
+            onclick="togglePasswordVisibility('new_password','new_password-btn')">visibility_off</span>
+        </div>
+        <div id="PWDlengthError_new" class="validation-message">
+          * Password must be at least 8 characters.
+        </div>
+        <div id="PWDnoUpError_new" class="validation-message">
+          * Must include at least one uppercase letter.
+        </div>
+        <div id="PWDnoSpeError_new" class="validation-message">
+          * Must include at least one special character.
+        </div>
+        <div id="PWDnoNumError_new" class="validation-message">
+          * Must include at least one number.
+        </div>
+      </div>
+
+      <!-- CONFIRM PASSWORD -->
+      <div class="input-box">
+        <div class="input-field">
+          <span class="material-icons">lock</span>
+          <input type="password" id="confirm_password" placeholder="Confirm Password" required
+            oninput="validateField('confirm_password', validateConfPassword)" />
+          <span class="material-icons" id="confirm_password-btn"
+            onclick="togglePasswordVisibility('confirm_password','confirm_password-btn')">visibility_off</span>
+        </div>
+        <div id="PWDnoMatch_conf" class="validation-message">
+          * Passwords do not match.
         </div>
       </div>
 
       <!-- CAPTCHA - For REAL frontend -->
 
-      <button type="submit" class="submit-button" disabled>Login</button>
+      <p class="FooterText">
+        By clicking Register, you agree to {{ PROJECT_NAME }}
+        <a class="FooterLink" href="{{ TERMS_URL }}" target="_blank">Terms of Service</a>
+        and acknowledge our
+        <a class="FooterLink" href="{{ PRIVACY_URL }}" target="_blank">Privacy Policy</a>.
+      </p>
+
+      <button type="submit" class="submit-button" disabled>Register</button>
     </form>
 
-    <button class="move-button" onclick="redirectSignUp()">Don't have an account? Sign up</button>
+    <button class="move-button" onclick="redirectLogIn()">Already have an account? Log In</button>
   </div>
 </body>
 
 <script>
-  // CAPTCHA - For REAL frontend
+  function validateField(fieldId, validationFn) {
+    validationFn();
+    updateSubmitButton();
+  }
+
+  function validateUsername() {
+    const username = document.getElementById('username').value;
+    const lengthError = document.getElementById('lengthError');
+    const charsError = document.getElementById('charsError');
+
+    const minLength = username.length >= 5;
+    const validChars = /^[a-z0-9_]+$/.test(username);
+
+    toggleErrorMessage(lengthError, !minLength);
+    toggleErrorMessage(charsError, !validChars);
+
+    return minLength && validChars;
+  }
+
+  function validateEmail() {
+    const email = document.getElementById('email').value;
+    const emailError = document.getElementById('emailError');
+
+    const validEmail = /\S+@\S+\.\S+/.test(email);
+
+    toggleErrorMessage(emailError, !validEmail);
+
+    return validEmail;
+  }
+
+  function validateNewPassword() {
+    const password = document.getElementById('new_password').value;
+    const lengthError = document.getElementById('PWDlengthError_new');
+    const noUpError = document.getElementById('PWDnoUpError_new');
+    const noSpeError = document.getElementById('PWDnoSpeError_new');
+    const noNumError = document.getElementById('PWDnoNumError_new');
+
+    const minLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasNumber = /\d/.test(password);
+
+    toggleErrorMessage(lengthError, !minLength);
+    toggleErrorMessage(noUpError, !hasUpperCase);
+    toggleErrorMessage(noSpeError, !hasSpecialChar);
+    toggleErrorMessage(noNumError, !hasNumber);
+
+    return minLength && hasUpperCase && hasSpecialChar && hasNumber;
+  }
+
+  function validateConfPassword() {
+    const password = document.getElementById('new_password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    const noMatchError = document.getElementById('PWDnoMatch_conf');
+
+    const passwordsMatch = password === confirmPassword;
+
+    toggleErrorMessage(noMatchError, !passwordsMatch);
+
+    return passwordsMatch;
+  }
+
+  // CAPTCHA validation - For the REAL frontend
+
+
+
+  // Handle form submission
 
   function submitForm(event) {
     event.preventDefault();
@@ -241,21 +360,21 @@
     const originalButtonText = submitButton.textContent;
 
     submitButton.disabled = true;
-    submitButton.innerHTML = 'Loading';
+    submitButton.textContent = 'Loading...';
 
     // Check CAPTCHA - For the REAL frontend
 
     const apiUrl = '{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}';
     const formData = new URLSearchParams();
     formData.append("username", document.getElementById("username").value);
-    formData.append("password", document.getElementById("password").value);
+    formData.append("email", document.getElementById("email").value);
+    formData.append("password", document.getElementById("new_password").value);
+    formData.append("confirm_password", document.getElementById("confirm_password").value);
 
-
-    // Send a POST request with query parameters in the URL (no body content)
     fetch(apiUrl, {
       method: "POST",
       headers: {
-        Accept: "application/json",
+        "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData,
@@ -265,32 +384,33 @@
         submitButton.disabled = false;
         submitButton.textContent = originalButtonText;
         if (response.ok) {
-          localStorage.setItem("auth_token", data["token_type"] + " " + data["access_token"]);
-          checkIfAuthTokenExists()
-        } else if (data["detail"].message === "Please enter OTP") {
-          localStorage.setItem("otp_token", data["detail"].token);
-          window.location.href = "{{ FRONTEND_URL }}/otp";
+          localStorage.setItem("auth_token", `${data["token_type"]} ${data["access_token"]}`);
+          checkIfAuthTokenExists();
         } else {
           throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
         }
       })
-      .catch((error) => {
+      .catch(error => {
         submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
+        submitButton.textContent = originalButtonText;
         console.error(error);
-        alert("Login Failed: There was an issue with the login request.\n" + error);
+        alert("Signup Failed: There was an issue with the signup request.\n" + error);
       });
   }
 
 
   // Utility Functions
+  function toggleErrorMessage(element, showError) {
+    element.style.display = showError ? 'block' : 'none';
+  }
+
+
   function updateSubmitButton() {
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-    document.querySelector(".submit-button").disabled = !(username && password);
     const isValid =
-      document.getElementById("username").value &&
-      document.getElementById("password").value; // &&
+      validateUsername() &&
+      validateEmail() &&
+      validateNewPassword() &&
+      validateConfPassword(); // &&
     //validateCaptcha();
     document.querySelector('.submit-button').disabled = !isValid;
   }
@@ -322,15 +442,18 @@
     }
   }
 
-  function redirectSignUp() {
-    window.location.href = "{{ FRONTEND_URL }}/signup";
+  // Redirect to login page
+  function redirectLogIn() {
+    window.location.href = "{{ FRONTEND_URL }}/login";
   }
 
   // Initialize form validation on page load
   checkIfAuthTokenExists();
   updateSubmitButton();
   //document.getElementById("username").value = ""
-  //document.getElementById("password").value = ""
+  //document.getElementById("email").value = ""
+  //document.getElementById("new_password").value = ""
+  //document.getElementById("confirm_password").value = ""
 </script>
 
 </html>
