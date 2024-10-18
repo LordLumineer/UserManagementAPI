@@ -7,71 +7,175 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch><o:AllowPNG/></o:OfficeDocumentSettings></xml><![endif]-->
   <style>
-    .bg {
-      background-color: #ffffff;
-      background: #ffffff;
+    body {
+      padding: 16px auto;
+      padding-top: 64px;
+      text-align: center;
+      font-family: Roboto, Helvetica, Arial, sans-serif;
+      line-height: 22px;
+      font-size: 14px;
     }
 
-    .bg-bis {
-      background-color: #f7fbfa;
-      background: #f7fbfa;
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
     }
 
+    h2 {
+      font-size: 14px;
+      font-weight: normal;
+    }
+
+    span {
+      font-size: 12px;
+      line-height: 20px;
+      word-break: break-word
+    }
+
+    .main {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background-color: transparent;
+    }
+
+    .card {
+      background-color: transparent;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+
+    .otp-code {
+      border-radius: 4px;
+      padding: 8px 24px;
+      display: inline-block;
+      text-decoration: none;
+      margin: 20px 0;
+      letter-spacing: 2px;
+      font-size: 24px;
+      font-weight: normal;
+      margin: 0px;
+
+    }
+
+    .footer {
+      background-color: transparent;
+    }
+
+    /* TEXT COLORS */
     .text {
       color: #0a1210;
     }
 
     .text-bis {
-      color: #485b56
+      color: #485b56;
     }
 
-    .primary {
-      background-color: #1E342D;
-      background: #1E342D;
+    .text-primary {
+      color: #1e342d
     }
 
-    .secondary {
+    .text-secondary {
+      color: #9fd7c5;
+    }
+
+    .text-accent {
+      color: #76cbb0;
+    }
+
+    /* BG COLORS */
+    .bg {
+      background-color: #d6d6d6;
+    }
+
+    .bg-bis {
+      background-color: #f7fbfa;
+    }
+
+    .bg-primary {
+      background-color: #1e342d;
+    }
+
+    .bg-secondary {
       background-color: #9fd7c5;
-      background: #9fd7c5;
     }
 
-    .accent {
+    .bg-accent {
       background-color: #76cbb0;
-      background: #76cbb0;
     }
 
+    /* BORDER COLORS */
+    .border-primary {
+      border-color: #1e342d;
+    }
+
+    .border-secondary {
+      border-color: #9fd7c5;
+    }
+
+    .border-accent {
+      border-color: #76cbb0;
+    }
+
+    /* DARK MODE */
     @media (prefers-color-scheme: dark) {
+
+      /* TEXT COLORS */
+      .text {
+        color: #f5faf9;
+      }
+
+      .text-bis {
+        color: #a0bab5;
+      }
+
+      .text-primary {
+        color: #cbe1da;
+      }
+
+      .text-secondary {
+        color: #107f5c;
+      }
+
+      .text-accent {
+        color: #07c085;
+      }
+
+      /* BG COLORS */
       .bg {
         background-color: #292929;
-        background: #292929;
       }
 
       .bg-bis {
         background-color: #050f0c;
-        background: #050f0c;
       }
 
-      .text {
-        color: hsl(168, 33%, 97%);
-      }
-
-      .text-bis {
-        color: hsl(168, 16%, 68%);
-      }
-
-      .primary {
+      .bg-primary {
         background-color: #cbe1da;
-        background: #cbe1da;
       }
 
-      .secondary {
+      .bg-secondary {
         background-color: #107f5c;
-        background: #107f5c;
       }
 
-      .accent {
+      .bg-accent {
         background-color: #07c085;
-        background: #07c085;
+      }
+
+      /* BORDER COLORS */
+      .border-primary {
+        border-color: #cbe1da;
+      }
+
+      .border-secondary {
+        border-color: #107f5c;
+      }
+
+      .border-accent {
+        border-color: #07c085;
       }
     }
   </style>
@@ -79,191 +183,155 @@
 </head>
 
 <body class="bg">
-  <div class="bg" style="padding-top:80px">
+  <div class="main">
     <!-- MAIN -->
-    <div class="bg-bis" style="margin:0 auto;max-width:600px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" class="bg-bis" style="font-size:0px;width:100%;"
-        align="center" border="0">
-        <div class="primary" style="height:4px"></div>
+    <div class="card bg-bis text-bis">
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center"
+        style="width: 100%; padding:40px 30px 30px 30px">
+        <div class="bg-primary" style="height:4px"></div>
         <tbody>
+          <!-- LOGO -->
           <tr>
-            <td style="text-align:center;vertical-align:top;font-size:0px;padding:40px 30px 30px 30px">
-              <div aria-labelledby="mj-column-per-100" class="m_-607929468235766625mj-column-per-100"
-                style="vertical-align:top;display:inline-block;font-size:13px;text-align:left;width:100%">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
-                  <tbody>
-                    <!-- LOGO -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:30px" align="center">
-                        <table role="presentation" cellpadding="0" cellspacing="0"
-                          style="border-collapse:collapse;border-spacing:0px" align="center" border="0">
-                          <tbody>
-                            <tr>
-                              <td style="width:180px">
-                                <a href="{{ FRONTEND_URL }}" target="_blank"
-                                  data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}">
-                                  <img alt="{{ LOGO_URL }}" title="" height="auto" src="{{ LOGO_URL }}"
-                                    style="border:none;display:block;outline:none;text-decoration:none;width:100%;height:auto;"
-                                    width="180" class="text" data-bit="iit"></a>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                    <!-- TITLE -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:30px" align="center">
-                        <div class="text"
-                          style="font-family:Open Sans,Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;line-height:22px">
-                          Did you sign in to {{ PROJECT_NAME }}?
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- SUBTITLE -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:20px" align="center">
-                        <div class="text-bis"
-                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          Help us keep your account safe by approving your sign-in on:
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- INFORMATION -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;" align="center">
-                        <div class="text-bis"
-                          style="width: fit-content;font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px; text-align: left">
-                          <span class="text-bis" style="font-weight:bold;">Location:</span> {{ LOCATION }}<br>
-                          <span class="text-bis" style="font-weight:bold;">Device:</span> {{ DEVICE }}<br>
-                          <span class="text-bis" style="font-weight:bold;">Browser:</span> {{ BROWSER }}<br>
-                          <span class="text-bis" style="font-weight:bold;">IP Address:</span> {{ IP_ADDRESS }}
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- CODE -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-top:40px" align="center">
-                        <div class="text-bis"
-                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          Please enter the following code to complete the login:
-                        </div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:10px;" align="center">
-                        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate"
-                          align="center" border="0">
-                          <tbody>
-                            <tr>
-                              <td class="accent text" style="border-radius:4px;padding:6px 25px" align="center"
-                                valign="middle">
-                                <div class="accent text"
-                                  style="display:inline-block;text-decoration:none;font-family:Roboto,Helvetica,Arial,sans-serif,Helvetica,Arial,sans-serif;letter-spacing: 2px;font-size:24px;font-weight:normal;margin:0px">
-                                  {{ OTP_CODE }}
-                                </div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:40px" align="center">
-                        <div class="text-bis"
-                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px;font-style:italic;font-weight:bold">
-                          Please note that this code will expire on {{ EXPIRATION_DATE }}.
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- NOT REQUESTED -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:8px" align="center">
-                        <div class="text-bis"
-                          style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px">
-                          <span>
-                            If you did NOT initiate this log-in, you should immediately
-                            <a href="{{ RESET_PASSWORD_URL }}" target="_blank"
-                              data-saferedirecturl="https://www.google.com/url?q={{ RESET_PASSWORD_URL }}"
-                              style="color:#3586ff;">
-                              change your {{ PROJECT_NAME }} password</a>
-                            to ensure account security.
-                          </span>
-                          <br>
-                          <span>
-                            For more info, contact <a href="mailto:{{ SUPPORT_EMAIL }}" target="_blank"
-                              style="color:#3586ff;">{{ PROJECT_NAME }} Support</a>.
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+            <td>
+              <a href="{{ FRONTEND_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}"
+                target="_blank">
+                <img alt="{{ LOGO_URL }}" title="" height="auto" src="{{ LOGO_URL }}" width="180">
+              </a>
+            </td>
+          </tr>
+          <!-- TITLE -->
+          <tr>
+            <td>
+              <div>
+                <h1 class="text">
+                  Did you sign in to {{ PROJECT_NAME }}?
+                </h1>
+              </div>
+            </td>
+          </tr>
+          <!-- SUBTITLE -->
+          <tr>
+            <td>
+              <div>
+                <h2>
+                  Help us keep your account safe by approving your sign-in on:
+                </h2>
+              </div>
+            </td>
+          </tr>
+          <!-- INFORMATION -->
+          <tr>
+            <td style="word-break:break-word;font-size:0px;padding:0px;" align="center">
+              <div style="width: fit-content; font-size:14px;line-height:22px; text-align: left">
+                <span style="font-weight:bold;">Location:</span> {{ LOCATION }}<br>
+                <span style="font-weight:bold;">Device:</span> {{ DEVICE }}<br>
+                <span style="font-weight:bold;">Browser:</span> {{ BROWSER }}<br>
+                <span style="font-weight:bold;">IP Address:</span> {{ IP_ADDRESS }}
+              </div>
+            </td>
+          </tr>
+          <!-- CODE -->
+          <tr>
+            <td>
+              <div style="margin-top: 32px;">
+                <h2>
+                  Please enter the following code to complete the login:
+                </h2>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div class="otp-code bg-accent text" href="{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
+                data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
+                target="_blank">
+                {{ OTP_CODE }}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div style="margin-bottom: 32px;">
+                <span style="font-style:italic;font-weight:bold;">
+                  Please note that this code will expire on {{ EXPIRATION_DATE }}.
+                </span>
+              </div>
+            </td>
+          </tr>
+          <!-- NOT REQUESTED -->
+          <tr>
+            <td>
+              <div>
+                <span>
+                  If you did NOT initiate this log-in, you should immediately
+                  <a href="{{ RESET_PASSWORD_URL }}"
+                    data-saferedirecturl="https://www.google.com/url?q={{ RESET_PASSWORD_URL }}" target="_blank"
+                    style="color:rgb(98, 171, 255);">
+                    change your {{ PROJECT_NAME }} password
+                  </a>
+                  to ensure account security.
+                  <br />
+                  For more info, contact
+                  <a href="mailto:{{ SUPPORT_EMAIL }}" target="_blank" style="color:rgb(98, 171, 255);">
+                    {{ PROJECT_NAME }} Support
+                  </a>.
+                </span>
               </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
+    </td>
+    </tr>
+    </tbody>
+    </table>
+  </div>
 
-    <!-- FOOTER -->
-    <div class="text-bis" style="margin:0 auto;max-width:600px">
-      <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:0px;width:100%" align="center"
-        border="0">
-        <tbody>
-          <tr>
-            <td style="text-align:center;vertical-align:top;font-size:0px;padding:30px">
-
-              <div aria-labelledby="mj-column-per-100" class="m_-607929468235766625mj-column-per-100"
-                style="vertical-align:top;display:inline-block;font-size:13px;text-align:left;width:100%">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" border="0">
-                  <tbody>
-                    <!-- FOOTER TEXT -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:10px" align="center">
-                        <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
-                          <span>
-                            This email was sent to you by {{ PROJECT_NAME }} because you
-                            tried to sign in to your {{ PROJECT_NAME }} account.
-                          </span>
-                          <br>
-                          <span>
-                            Please let us know if you feel that this email was sent to you by error.
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- COPYRIGHT -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:15px" align="center">
-                        <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
-                          © {{ COPYRIGHT_YEAR }} {{ PROJECT_NAME }}
-                        </div>
-                      </td>
-                    </tr>
-                    <!-- LINK -->
-                    <tr>
-                      <td style="word-break:break-word;font-size:0px;padding:0px;padding-bottom:10px" align="center">
-                        <div style="font-family:Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:22px">
-                          <a href="{{ PRIVACY_URL }}" style="color:inherit;padding:0 7px" target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={{ PRIVACY_URL }}">
-                            Privacy Policy
-                          </a>
-                          <a href="{{ TERMS_URL }}" style="color:inherit;padding:0 7px" target="_blank"
-                            data-saferedirecturl="https://www.google.com/url?q={{ TERMS_URL }}">
-                            Terms &amp; Conditions
-                          </a>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <!-- FOOTER -->
+  <div class="footer text-bis">
+    <table role="presentation" cellpadding="0" cellspacing="10px" align="center">
+      <tbody>
+        <!-- FOOTER TEXT -->
+        <tr>
+          <td>
+            <div>
+              <span>
+                This email was sent to you by {{ PROJECT_NAME }} because you
+                tried to sign in to your {{ PROJECT_NAME }} account.
+                <br>
+                Please let us know if you feel that this email was sent to you by error.
+              </span>
+            </div>
+          </td>
+        </tr>
+        <!-- COPYRIGHT -->
+        <tr>
+          <td>
+            <div>
+              <span>
+                © {{ COPYRIGHT_YEAR }} {{ PROJECT_NAME }}
+              </span>
+            </div>
+          </td>
+        </tr>
+        <!-- LINK -->
+        <tr>
+          <td>
+            <div>
+              <a href="{{ PRIVACY_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ PRIVACY_URL }}"
+                target="_blank" style="color:inherit; padding:0 8px">
+                Privacy Policy
+              </a>
+              <a href="{{ TERMS_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ TERMS_URL }}"
+                target="_blank" style="color:inherit; padding:0 8px">
+                Terms &amp; Conditions
+              </a>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </body>
 
