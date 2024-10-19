@@ -208,8 +208,7 @@
       <div class="input-box">
         <div class="input-field">
           <span class="material-icons">person</span>
-          <input type="text" id="otp" placeholder="{{ OTP_LENGTH }} digit code" required
-            oninput="checkInput(event)" />
+          <input type="text" id="otp" placeholder="{{ OTP_LENGTH }} digit code" required oninput="checkInput(event)" />
         </div>
         <div id="lengthError" class="validation-message">
           * The OTP has to be {{ OTP_LENGTH }} digits.
@@ -222,6 +221,44 @@
 </body>
 
 <script>
+  window.onload = function () {
+    // Create a URLSearchParams object to parse the query string
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectUri = urlParams.get('redirect_uri');
+    const resetToken = urlParams.get('token');
+
+    // Store the redirect_uri in sessionStorage
+    if (redirectUri) {
+      const storageRedirectUri = sessionStorage.getItem('redirect_uri');
+      if (storageRedirectUri) {
+        const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
+        parsedStorageRedirectUri.unshift(redirectUri);
+        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
+      } else {
+        sessionStorage.setItem('redirect_uri', JSON.stringify([redirectUri]));
+      }
+      urlParams.delete('redirect_uri');
+    }
+    // Store the reset_token in sessionStorage
+    if (resetToken) {
+      sessionStorage.setItem('reset_token', resetToken);
+      urlParams.delete('token');
+    }
+    if (redirectUri || resetToken) {
+      if (urlParams.toString()) {
+        window.location.href = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+      } else {
+        window.location.href = window.location.origin + window.location.pathname;
+      }
+      return;
+    }
+
+    checkIfOtpTokenExists()
+      .then(() => checkIfAuthTokenExists());
+    document.getElementById("otp").value = ""
+    updateSubmitButton()
+  };
+
   function checkInput(event) {
     if (isNaN(Number(event.key))) {
       event.preventDefault();
@@ -234,6 +271,7 @@
       submitForm(event);
     }
   }
+
   function submitForm(event) {
     event.preventDefault();
     const submitButton = document.querySelector(".submit-button");
@@ -243,7 +281,7 @@
     submitButton.innerHTML = 'Loading';
 
     const otp = document.getElementById("otp").value;
-    const otp_token = localStorage.getItem("otp_token");
+    const otp_token = sessionStorage.getItem("otp_token");
 
     fetch("{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}?otp_code=" + `${otp}`, {
       method: "POST",
@@ -258,7 +296,7 @@
         submitButton.textContent = originalButtonText;
         if (response.ok) {
           localStorage.setItem("auth_token", data["token_type"] + " " + data["access_token"]);
-          localStorage.removeItem("otp_token");
+          sessionStorage.removeItem("otp_token");
           checkIfAuthTokenExists();
         } else {
           throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
@@ -290,7 +328,7 @@
       })
         .then((response) => {
           if (response.ok) {
-            window.location.href = "{{ FRONTEND_URL }}";
+            redirect_uri()
           } else {
             localStorage.removeItem("auth_token");
           }
@@ -305,19 +343,36 @@
 
   function checkIfOtpTokenExists() {
     return new Promise((resolve, reject) => {
-      const otp_token = localStorage.getItem("otp_token");
-      if (!otp_token) {
-        window.location.href = "{{ FRONTEND_URL }}/login";
-      }
+      const otp_token = sessionStorage.getItem("otp_token");
+      if (!otp_token) redirect_uri("{{ FRONTEND_URL }}/login");
+      else resolve();
     });
   }
 
+  function redirect_uri(BASE_URL, new_redirect_uri) {
+    if (new_redirect_uri) {
+      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
+      else window.location.href = new_redirect_uri
+      return;
+    }
 
-  checkIfOtpTokenExists()
-    .then(() => checkIfAuthTokenExists());
-
-  document.getElementById("otp").value = ""
-  updateSubmitButton()
+    const storageRedirectUri = sessionStorage.getItem('redirect_uri');
+    if (storageRedirectUri) {
+      const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
+      new_redirect_uri = parsedStorageRedirectUri.shift();
+      if (!parsedStorageRedirectUri.length) {
+        sessionStorage.removeItem('redirect_uri');
+      } else {
+        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
+      }
+      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
+      else window.location.href = new_redirect_uri;
+      return;
+    }
+    if (BASE_URL) window.location.href = BASE_URL;
+    else window.location.href = "{{ FRONTEND_URL }}";
+    return;
+  }
 </script>
 
 </html>

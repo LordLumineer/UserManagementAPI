@@ -12,10 +12,10 @@ from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import DebugUndefined, Template
-from starlette.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router, tags_metadata
 from app.core import db as database
@@ -162,6 +162,11 @@ def _login():
     }
     html = template.render(context)
     return HTMLResponse(content=html)
+
+
+@app.get("/signin", tags=["PAGE"], include_in_schema=False, response_class=RedirectResponse)
+def _sign_in():
+    return RedirectResponse(url=f"{settings.FRONTEND_URL}/login", status_code=308)
 
 
 @app.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)

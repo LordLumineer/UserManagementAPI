@@ -233,6 +233,38 @@
 </body>
 
 <script>
+  window.onload = function () {
+    // Create a URLSearchParams object to parse the query string
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectUri = urlParams.get('redirect_uri');
+
+    // Store the redirect_uri in sessionStorage
+    if (redirectUri) {
+      const storageRedirectUri = sessionStorage.getItem('redirect_uri');
+      if (storageRedirectUri) {
+        const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
+        parsedStorageRedirectUri.unshift(redirectUri);
+        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
+      } else {
+        sessionStorage.setItem('redirect_uri', JSON.stringify([redirectUri]));
+      }
+      urlParams.delete('redirect_uri');
+    }
+    if (redirectUri) {
+      if (urlParams.toString()) {
+        window.location.href = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+      } else {
+        window.location.href = window.location.origin + window.location.pathname;
+      }
+      return;
+    }
+
+    checkIfAuthTokenExists();
+    //document.getElementById("username").value = ""
+    //document.getElementById("password").value = ""
+    updateSubmitButton();
+  };
+
   // CAPTCHA - For REAL frontend
 
   function submitForm(event) {
@@ -268,8 +300,8 @@
           localStorage.setItem("auth_token", data["token_type"] + " " + data["access_token"]);
           checkIfAuthTokenExists()
         } else if (data["detail"].message === "Please enter OTP") {
-          localStorage.setItem("otp_token", data["detail"].token);
-          window.location.href = "{{ FRONTEND_URL }}/otp";
+          sessionStorage.setItem("otp_token", data["detail"].token);
+          redirect_uri("{{ FRONTEND_URL }}/otp")
         } else {
           throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
         }
@@ -312,7 +344,7 @@
         },
       })
         .then(response => {
-          if (response.ok) window.location.href = "{{ FRONTEND_URL }}";
+          if (response.ok) redirect_uri();
           else localStorage.removeItem("auth_token");
         })
         .catch(error => {
@@ -322,15 +354,34 @@
     }
   }
 
-  function redirectSignUp() {
-    window.location.href = "{{ FRONTEND_URL }}/signup";
+  function redirect_uri(BASE_URL, new_redirect_uri) {
+    if (new_redirect_uri) {
+      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
+      else window.location.href = new_redirect_uri
+      return;
+    }
+
+    const storageRedirectUri = sessionStorage.getItem('redirect_uri');
+    if (storageRedirectUri) {
+      const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
+      new_redirect_uri = parsedStorageRedirectUri.shift();
+      if (!parsedStorageRedirectUri.length) {
+        sessionStorage.removeItem('redirect_uri');
+      } else {
+        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
+      }
+      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
+      else window.location.href = new_redirect_uri;
+      return;
+    }
+    if (BASE_URL) window.location.href = BASE_URL;
+    else window.location.href = "{{ FRONTEND_URL }}";
+    return;
   }
 
-  // Initialize form validation on page load
-  checkIfAuthTokenExists();
-  updateSubmitButton();
-  //document.getElementById("username").value = ""
-  //document.getElementById("password").value = ""
+  function redirectSignUp() {
+    redirect_uri("{{ FRONTEND_URL }}/signup");
+  }
 </script>
 
 </html>

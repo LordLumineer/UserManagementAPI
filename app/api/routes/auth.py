@@ -21,7 +21,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.core.object.user import create_user, get_current_user, get_user, get_user_by_email, update_user
+from app.core.email import send_reset_password_email
+from app.core.object.user import create_user, get_current_user, get_user, get_user_by_email, get_user_by_username, update_user
 from app.core.security import (
     Token, TokenData,
     authenticate_user, decode_access_token, validate_otp,
@@ -152,6 +153,8 @@ def login_otp(
     if token_data.purpose != "OTP":
         raise HTTPException(status_code=401, detail="Unauthorized")
     user = get_user(db, token_data.uuid)
+    if user.uuid != token_data.uuid:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     if user.otp_method == "none":
         raise HTTPException(status_code=401, detail="OTP not enabled")
     if not validate_otp(
@@ -229,13 +232,43 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     return RedirectResponse(url=settings.FRONTEND_URL)
 
 
+@router.get("/password/reset", response_class=Response)
+async def request_password_reset(current_user: UserReadDB = Depends(get_current_user)):
+    """
+    Request a password reset for the current user.
+
+    Parameters
+    ----------
+    current_user : UserReadDB
+        The current user.
+
+    Returns
+    -------
+    Response
+        A response with no content.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the user is not authorized to request a password reset.
+    """
+    token = create_access_token(
+        sub=TokenData(
+            purpose="reset-password",
+            uuid=current_user.uuid,
+            username=current_user.username
+        ))
+    return await send_reset_password_email(current_user.email, token)
+
+
 @router.patch("/password/reset", response_class=Response)
 async def reset_password(
     old_password: str = Form(...), new_password: str = Form(...), confirm_password: str = Form(...),
-    db: Session = Depends(get_db), current_user: UserReadDB = Depends(get_current_user)
+    authorization_header: str = Header(...),
+    current_user: UserReadDB = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
-    Reset a user's password by its old password and new password.
+    Reset the password of the current user.
 
     Parameters
     ----------
@@ -243,24 +276,33 @@ async def reset_password(
         The old password of the user.
     new_password : str
         The new password of the user.
-    confirm_new_password : str
+    confirm_password : str
         The confirmation of the new password.
+    authorization_header : str
+        The authorization header containing the reset password token.
+    current_user : UserReadDB
+        The current user.
     db : Session
         The current database session.
-    current_user : UserReadDB
-        The user object of the user who is making the request.
 
     Returns
     -------
-    RedirectResponse
-        A redirect to the frontend URL.
+    Response
+        A response with a status code of 200 if the password was reset successfully.
 
     Raises
     ------
     HTTPException
-        400 Bad Request if the new password is the same as the old password or if the passwords do not match.
-        401 Unauthorized if the old password is invalid.
+        400 Bad Request if the passwords do not match, or if the new password is the same as the old password.
+        401 Unauthorized if the token is invalid.
     """
+    token_data = decode_access_token(authorization_header)
+    if token_data.purpose != "reset-password":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = get_user_by_username(db, token_data.username)
+    if user.uuid != token_data.uuid:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     validate_password(new_password)
     if new_password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")

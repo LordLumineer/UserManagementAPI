@@ -65,7 +65,7 @@ async def send_mj_email(recipients: list[str] | str, subject: str, html_content:
             - From %s
             - Subject: %s""",
             recipients, settings.MJ_SENDER_EMAIL, subject)
-        return HTMLResponse(content="Test Email Sent", status_code=200)
+        return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
     logger.error("Failed to send email to %s", recipients)
     logger.error(result.json())
     raise HTTPException(
@@ -108,7 +108,7 @@ async def send_smtp_email(recipients: list[str] | str, subject: str, html_conten
                 - From %s
                 - Subject: %s""",
             settings.SMTP_HOST, recipients, settings.SMTP_SENDER_EMAIL, subject)
-        return HTMLResponse(content="Test Email Sent", status_code=200)
+        return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
     except Exception as e:
         logger.error("Failed to send email to %s", recipients)
         logger.error(e)
@@ -172,7 +172,7 @@ async def send_test_email(recipient: str):
     }
     html = template.render(context)
     logger.debug("Testing Email to %s", recipient)
-    return await send_email(recipient, "Test Email", html)
+    return await send_email(recipient, f"{settings.PROJECT_NAME} - Test Email", html)
 
 
 async def send_validation_email(recipient: str, token_str: str):
@@ -238,9 +238,9 @@ async def send_reset_password_email(recipient: str, token_str: str):
     with open("./templates/html/reset_password_email.html", "r", encoding="utf-8") as f:
         template = Template(f.read(), undefined=DebugUndefined)
     context = {
-        "ENDPOINT": "/auth/password/reset",
+        "ENDPOINT": "/reset-password",
         "PARAMS": f"?token={token_str}"
     }
     html = template.render(context)
     logger.debug("Sending Reset Password Email: %s", recipient)
-    return await send_email(recipient, "{settings.PROJECT_NAME} - Reset your password", html)
+    return await send_email(recipient, f"{settings.PROJECT_NAME} - Reset your password", html)

@@ -211,6 +211,41 @@
 </body>
 
 <script>
+  window.onload = function () {
+    // Create a URLSearchParams object to parse the query string
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectUri = urlParams.get('redirect_uri');
+    const resetToken = urlParams.get('token');
+
+    // Store the redirect_uri in sessionStorage
+    if (redirectUri) {
+      const storageRedirectUri = sessionStorage.getItem('redirect_uri');
+      if (storageRedirectUri) {
+        const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
+        parsedStorageRedirectUri.unshift(redirectUri);
+        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
+      } else {
+        sessionStorage.setItem('redirect_uri', JSON.stringify([redirectUri]));
+      }
+      urlParams.delete('redirect_uri');
+    }
+    // Store the reset_token in sessionStorage
+    if (resetToken) {
+      sessionStorage.setItem('reset_token', resetToken);
+      urlParams.delete('token');
+    }
+    if (redirectUri || resetToken) {
+      if (urlParams.toString()) {
+        window.location.href = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+      } else {
+        window.location.href = window.location.origin + window.location.pathname;
+      }
+      return;
+    }
+
+    checkIfAuthTokenExists();
+  };
+
   function checkIfAuthTokenExists() {
     const auth_token = localStorage.getItem("auth_token");
     if (auth_token) {
@@ -244,8 +279,7 @@
     if (!(auth_token)) {
       submitButton.disabled = false;
       submitButton.innerHTML = originalButtonText;
-      window.location.href = "{{ FRONTEND_URL }}/login";
-      return;
+      redirect_uri("{{ FRONTEND_URL }}/login");
     }
 
 
@@ -263,7 +297,7 @@
         submitButton.textContent = originalButtonText;
         if (response.ok) {
           localStorage.removeItem("auth_token");
-          window.location.href = "{{ FRONTEND_URL }}/login";
+          redirect_uri("{{ FRONTEND_URL }}/login");
         } else {
           return response.json().then(data => ({ response, data }))
             .then(({ response, data }) => {
@@ -279,7 +313,30 @@
       });
   }
 
-  checkIfAuthTokenExists();
+  function redirect_uri(BASE_URL, new_redirect_uri) {
+    if (new_redirect_uri) {
+      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
+      else window.location.href = new_redirect_uri
+      return;
+    }
+
+    const storageRedirectUri = sessionStorage.getItem('redirect_uri');
+    if (storageRedirectUri) {
+      const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
+      new_redirect_uri = parsedStorageRedirectUri.shift();
+      if (!parsedStorageRedirectUri.length) {
+        sessionStorage.removeItem('redirect_uri');
+      } else {
+        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
+      }
+      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
+      else window.location.href = new_redirect_uri;
+      return;
+    }
+    if (BASE_URL) window.location.href = BASE_URL;
+    else window.location.href = "{{ FRONTEND_URL }}";
+    return;
+  }
 </script>
 
 </html>
