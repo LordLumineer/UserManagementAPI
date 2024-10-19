@@ -268,44 +268,39 @@ async def reset_password(
     current_user: UserReadDB = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
-    Reset the password of the current user.
+    Reset the user's password.
 
     Parameters
     ----------
     old_password : str
-        The old password of the user.
+        The user's current password.
     new_password : str
-        The new password of the user.
+        The new password to set.
     confirm_password : str
         The confirmation of the new password.
     authorization_header : str
-        The authorization header containing the reset password token.
+        The header containing the authorization token.
     current_user : UserReadDB
-        The current user.
+        The current user making the password reset request.
     db : Session
         The current database session.
-
-    Returns
-    -------
-    Response
-        A response with a status code of 200 if the password was reset successfully.
 
     Raises
     ------
     HTTPException
-        400 Bad Request if the passwords do not match, or if the new password is the same as the old password.
-        401 Unauthorized if the token is invalid.
+        401 Unauthorized if the token is invalid or the user is unauthorized to reset the password.
+        400 Bad Request if passwords do not match, new password is the same as the old password, or the current password is invalid.
     """
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "reset-password":
         raise HTTPException(status_code=401, detail="Unauthorized")
     user = get_user_by_username(db, token_data.username)
-    if user.uuid != token_data.uuid:
+    if user.uuid != token_data.uuid or user.uuid != current_user.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-
     validate_password(new_password)
     if new_password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
+        raise HTTPException(
+            status_code=400, detail="Passwords do not match")
     if old_password == new_password:
         raise HTTPException(
             status_code=400, detail="New password cannot be the same as old password")
