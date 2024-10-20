@@ -108,6 +108,8 @@ async def new_user_image(
         401 Unauthorized if the user is not the same as the current user 
         and the current user does not have permission "admin".
     """
+    if current_user.uuid != uuid and current_user.permission != "admin":
+        raise HTTPException(status_code=401, detail="Unauthorized")
     if file.filename.split('.')[-1].lower() not in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
         raise HTTPException(
             status_code=400, detail="File must be a valid image format")
@@ -117,9 +119,6 @@ async def new_user_image(
             status_code=400, detail=f"Image must be below 512x512 px ({img.width}x{img.height}px)")
     file.file.seek(0)  # Reset pointer to the beginning of the file
 
-    if current_user.uuid != uuid and current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
     file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
     new_file = FileCreate(
         description=description,
@@ -128,7 +127,13 @@ async def new_user_image(
     )
     db_user = get_user(db, uuid)
     if db_user.profile_picture_id:
-        delete_file(db, db_user.profile_picture_id)
+        try:
+            delete_file(db, db_user.profile_picture_id)
+        except HTTPException as e:
+            if e.status_code == 404:
+                pass
+            else:
+                raise e
 
     file_db = await create_file(db, new_file, file)
     link_file_to_user(db, uuid, file_db.id)

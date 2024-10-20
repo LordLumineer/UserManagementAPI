@@ -100,7 +100,7 @@ def _ping():
 @app.get("/version", tags=["DEBUG"])
 def _version():
     logger.info("Version!")
-    return settings.VERSION
+    return app.version
 
 
 @app.get(

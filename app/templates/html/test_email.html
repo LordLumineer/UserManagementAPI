@@ -26,6 +26,15 @@
       font-weight: normal;
     }
 
+    h3 {
+      padding: 0;
+      margin: 0;
+      font-weight: bold;
+      font-size: 16px;
+      height: 24px;
+      line-height: 24px;
+    }
+
     span {
       font-size: 12px;
       line-height: 20px;
@@ -53,7 +62,8 @@
       padding: 8px 24px;
       display: inline-block;
       text-decoration: none;
-      margin: 20px 0
+      margin: 20px 0;
+      color: inherit;
     }
 
     .footer {
@@ -187,7 +197,7 @@
         <tbody>
           <!-- LOGO -->
           <tr>
-            <td>
+            <td align="center">
               <a href="{{ FRONTEND_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}"
                 target="_blank">
                 <img alt="{{ LOGO_URL }}" title="" height="auto" src="{{ LOGO_URL }}" width="180">
@@ -196,7 +206,7 @@
           </tr>
           <!-- TITLE -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <h1 class="text">
                   TEST EMAIL
@@ -206,7 +216,7 @@
           </tr>
           <!-- SUBTITLE -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <h2>
                   This is a test email to from {{ PROJECT_NAME }}.
@@ -218,17 +228,17 @@
           </tr>
           <!-- BUTTON -->
           <tr>
-            <td>
-              <a class="button bg-accent text" href="{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
+            <td align="center">
+              <a class="button bg-accent" href="{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
                 data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
                 target="_blank">
-                TEST BUTTON
+                <h3 class="text">TEST BUTTON</h3>
               </a>
             </td>
           </tr>
           <!-- LINK -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <p>
                   If the link doesn’t work, copy this URL into your browser:
@@ -244,7 +254,7 @@
           </tr>
           <!-- NOT REQUESTED -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 CONTENT FOOTER
               </div>
@@ -260,7 +270,7 @@
         <tbody>
           <!-- FOOTER TEXT -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <span>
                   This email was sent to you by {{ PROJECT_NAME }} because you TESTED THE EMAIL.
@@ -272,7 +282,7 @@
           </tr>
           <!-- COPYRIGHT -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <span>
                   © {{ COPYRIGHT_YEAR }} {{ PROJECT_NAME }}
@@ -282,7 +292,7 @@
           </tr>
           <!-- LINK -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <span>
                   <a href="{{ PRIVACY_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ PRIVACY_URL }}"

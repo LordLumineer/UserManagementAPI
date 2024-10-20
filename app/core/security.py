@@ -325,7 +325,7 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         raise error_msg
     if not user.is_active:
         raise HTTPException(
-            status_code=400, detail="Inactive user, please contact admin")
+            status_code=400, detail=f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.")
     if verify_password(password, user.hashed_password):
         if user.otp_method == "none":
             return user

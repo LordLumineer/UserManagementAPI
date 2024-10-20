@@ -26,6 +26,14 @@
       font-weight: normal;
     }
 
+    h3 {
+      padding: 0;
+      margin: 0;
+      height: 24px;
+      line-height: 24px;
+    }
+
+
     span {
       font-size: 12px;
       line-height: 20px;
@@ -58,7 +66,6 @@
       font-size: 24px;
       font-weight: normal;
       margin: 0px;
-
     }
 
     .footer {
@@ -186,13 +193,13 @@
   <div class="main bg">
     <!-- MAIN -->
     <div class="card bg-bis text-bis">
+      <div class="bg-primary" style="height:4px"></div>
       <table role="presentation" cellpadding="0" cellspacing="0" align="center"
         style="width: 100%; padding:40px 30px 30px 30px">
-        <div class="bg-primary" style="height:4px"></div>
         <tbody>
           <!-- LOGO -->
           <tr>
-            <td>
+            <td align="center">
               <a href="{{ FRONTEND_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ FRONTEND_URL }}"
                 target="_blank">
                 <img alt="{{ LOGO_URL }}" title="" height="auto" src="{{ LOGO_URL }}" width="180">
@@ -201,7 +208,7 @@
           </tr>
           <!-- TITLE -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <h1 class="text">
                   Did you sign in to {{ PROJECT_NAME }}?
@@ -211,7 +218,7 @@
           </tr>
           <!-- SUBTITLE -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <h2>
                   Help us keep your account safe by approving your sign-in on:
@@ -232,7 +239,7 @@
           </tr>
           <!-- CODE -->
           <tr>
-            <td>
+            <td align="center">
               <div style="margin-top: 32px;">
                 <h2>
                   Please enter the following code to complete the login:
@@ -241,16 +248,14 @@
             </td>
           </tr>
           <tr>
-            <td>
-              <div class="otp-code bg-accent text" href="{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
-                data-saferedirecturl="https://www.google.com/url?q={{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}{{ PARAMS }}"
-                target="_blank">
-                {{ OTP_CODE }}
-              </div>
+            <td align="center">
+              <a class="otp-code bg-accent">
+                <h3 class="text">{{ OTP_CODE }}</h3>
+              </a>
             </td>
           </tr>
           <tr>
-            <td>
+            <td align="center">
               <div style="margin-bottom: 32px;">
                 <span style="font-style:italic;font-weight:bold;">
                   Please note that this code will expire on {{ EXPIRATION_DATE }}.
@@ -260,7 +265,7 @@
           </tr>
           <!-- NOT REQUESTED -->
           <tr>
-            <td>
+            <td align="center">
               <div>
                 <span>
                   If you did NOT initiate this log-in, you should immediately
@@ -282,58 +287,54 @@
         </tbody>
       </table>
     </div>
-    </td>
-    </tr>
-    </tbody>
-    </table>
-  </div>
 
-  <!-- FOOTER -->
-  <div class="footer text-bis">
-    <table role="presentation" cellpadding="0" cellspacing="10px" align="center">
-      <tbody>
-        <!-- FOOTER TEXT -->
-        <tr>
-          <td>
-            <div>
-              <span>
-                This email was sent to you by {{ PROJECT_NAME }} because you
-                tried to sign in to your {{ PROJECT_NAME }} account.
-                <br>
-                Please let us know if you feel that this email was sent to you by error.
-              </span>
-            </div>
-          </td>
-        </tr>
-        <!-- COPYRIGHT -->
-        <tr>
-          <td>
-            <div>
-              <span>
-                © {{ COPYRIGHT_YEAR }} {{ PROJECT_NAME }}
-              </span>
-            </div>
-          </td>
-        </tr>
-        <!-- LINK -->
-        <tr>
-          <td>
-            <div>
-              <span>
-                <a href="{{ PRIVACY_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ PRIVACY_URL }}"
-                  target="_blank" style="color:inherit; padding:0 8px">
-                  Privacy Policy
-                </a>
-                <a href="{{ TERMS_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ TERMS_URL }}"
-                  target="_blank" style="color:inherit; padding:0 8px">
-                  Terms &amp; Conditions
-                </a>
-              </span>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- FOOTER -->
+    <div class="footer text-bis">
+      <table role="presentation" cellpadding="0" cellspacing="10px" align="center">
+        <tbody>
+          <!-- FOOTER TEXT -->
+          <tr>
+            <td align="center">
+              <div>
+                <span>
+                  This email was sent to you by {{ PROJECT_NAME }} because you
+                  tried to sign in to your {{ PROJECT_NAME }} account.
+                  <br>
+                  Please let us know if you feel that this email was sent to you by error.
+                </span>
+              </div>
+            </td>
+          </tr>
+          <!-- COPYRIGHT -->
+          <tr>
+            <td align="center">
+              <div>
+                <span>
+                  © {{ COPYRIGHT_YEAR }} {{ PROJECT_NAME }}
+                </span>
+              </div>
+            </td>
+          </tr>
+          <!-- LINK -->
+          <tr>
+            <td align="center">
+              <div>
+                <span>
+                  <a href="{{ PRIVACY_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ PRIVACY_URL }}"
+                    target="_blank" style="color:inherit; padding:0 8px">
+                    Privacy Policy
+                  </a>
+                  <a href="{{ TERMS_URL }}" data-saferedirecturl="https://www.google.com/url?q={{ TERMS_URL }}"
+                    target="_blank" style="color:inherit; padding:0 8px">
+                    Terms &amp; Conditions
+                  </a>
+                </span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </body>
 

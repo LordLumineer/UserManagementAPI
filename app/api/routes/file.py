@@ -138,7 +138,7 @@ def read_file(file_id: int, db: Session = Depends(get_db)):
     return get_file(db, file_id)
 
 
-@router.get("/{id}/file", response_class=FileResponse)
+@router.get("/{file_id}/file", response_class=FileResponse)
 async def read_file_file(file_id: int, db: Session = Depends(get_db)):
     """
     Get the file content by its ID.
