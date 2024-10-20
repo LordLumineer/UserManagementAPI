@@ -5,6 +5,7 @@ This module contains the functions to interact with the users in the database.
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
+import time
 from fastapi import Depends, HTTPException
 from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session
@@ -139,6 +140,7 @@ async def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
     user_data = user.model_dump(exclude_unset=True, exclude_none=True)
     for key, value in user_data.items():
         setattr(db_user, key, value)
+    setattr(db_user, "updated_at", int(time.time()))
     try:
         db.add(db_user)
         db.commit()

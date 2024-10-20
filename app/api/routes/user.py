@@ -315,7 +315,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.patch("/{uuid}", response_model=UserRead)
-def patch_user(
+async def patch_user(
     uuid: str,
     user: UserUpdate,
     current_user: UserReadDB = Depends(get_current_user),
@@ -344,7 +344,7 @@ def patch_user(
         raise HTTPException(status_code=401, detail="Unauthorized")
     if current_user.uuid == uuid:
         user.permission = None  # NOTE: A User can't change their own permission
-    return update_user(db, uuid, user)
+    return await update_user(db, uuid, user)
 
 
 @router.patch("/{uuid}/image")

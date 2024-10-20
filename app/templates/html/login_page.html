@@ -297,7 +297,7 @@
         submitButton.disabled = false;
         submitButton.textContent = originalButtonText;
         if (response.ok) {
-          localStorage.setItem("auth_token", data["token_type"] + " " + data["access_token"]);
+          localStorage.setItem("auth_token", `${data["token_type"]}  ${data["access_token"]}`);
           checkIfAuthTokenExists()
         } else if (data["detail"].message === "Please enter OTP") {
           sessionStorage.setItem("otp_token", data["detail"].token);

@@ -26,7 +26,7 @@ class UserBase(BaseModel):
         max_length=32
     )
     email: str  # EmailStr
-    otp_method: Literal["none", "authenticator", "email"] = Field(
+    otp_method: Literal["none", None, "authenticator", "email"] = Field(
         default="none"
     )
     permission: Literal["user", "manager", "admin"] = Field(
@@ -90,7 +90,7 @@ class UserRead(UserReadDB):
     @computed_field
     def picture_url(self) -> str:
         """The URL of the user's profile picture."""
-        return f"{settings.BASE_URL}{settings.API_STR}/users/{self.uuid}/image"
+        return f"{settings.BASE_URL}{settings.API_STR}/user/{self.uuid}/image"
 
     @computed_field
     def files(self) -> list[FileReadDB]:
@@ -130,8 +130,9 @@ class UserUpdate(UserBase):
     email: str | None = None
     email_verified: bool | None = None
     password: str | None = None
-    otp_method: Literal["none", "authenticator", "email"] | None = None
-    otp_secret: str | None = None
+    # otp_method change done in a specific endpoint
+    otp_method: Literal["none", "authenticator",
+                        "email"] | None = Field(default="none", exclude=True)
     permission: Literal["user", "manager", "admin"] | None = None
     isActive: bool | None = None
 
