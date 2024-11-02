@@ -7,9 +7,11 @@ This module contains the SQLAlchemy models for the application.
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
+from weakref import ref
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.api.routes import user
 from app.core.utils import generate_timestamp, generate_uuid
 from app.templates.base import Base
 # from app.core.config import settings
@@ -99,6 +101,21 @@ class File(Base):
 
     # Foreign keys
     created_by: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
+
+
+class OAuth2Token(Base):
+    """OAuth2 tokens model."""
+    __tablename__ = "oauth2_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(40))
+    token_type: Mapped[str] = mapped_column(String(40))
+    access_token: Mapped[str] = mapped_column(String(200))
+    refresh_token: Mapped[str] = mapped_column(String(200))
+    expires_at: Mapped[int] = mapped_column(Integer)
+    
+    # Foreign keys
+    user_uuid: Mapped[str] = mapped_column(String(36), ForeignKey('users.uuid'))
 
 
 users_files_links = Table(

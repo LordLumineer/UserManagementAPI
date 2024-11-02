@@ -16,6 +16,8 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import DebugUndefined, Template
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+
 
 from app.api.router import api_router, tags_metadata
 from app.core import db as database
@@ -78,7 +80,8 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
     },
     generate_unique_id_function=custom_generate_unique_id,
 )
-
+# TODO: Change the secret key
+app.add_middleware(SessionMiddleware, secret_key="some-random-string")
 app.include_router(api_router, prefix=settings.API_STR)
 app.mount(f"{settings.API_STR}/static",
           StaticFiles(directory="../assets"), name="Assets")

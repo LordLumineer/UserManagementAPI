@@ -19,7 +19,6 @@ from app.core.security import (
     TokenData, create_access_token, decode_access_token,
     generate_otp, hash_password, oauth2_scheme
 )
-from app.core.utils import generate_random_letters
 from app.templates.models import User as User_Model
 from app.templates.models import users_files_links
 from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
