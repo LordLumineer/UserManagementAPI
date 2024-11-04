@@ -131,7 +131,7 @@ async def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
     """
     db_user = get_user(db, uuid)
     if db_user.email == "admin@example.com":
-        user.otp_secret = (await generate_otp(user_uuid=db_user.uuid, user_username=db_user.username))[1]
+        await generate_otp(user_uuid=db_user.uuid, user_username=db_user.username, user_otp_secret=db_user.otp_secret)
     email_to_verify = False
     if user.email and user.email != db_user.email:
         user.email_verified = False
@@ -295,7 +295,7 @@ def init_default_user() -> None:
                 hashed_password=hash_password("changeme"),
                 permission="admin",
                 email_verified=True,
-                otp_secret="changeme"  # generate_random_letters(32),
+                otp_secret="changeme",
             )
             db.add(default_user)
             db.commit()

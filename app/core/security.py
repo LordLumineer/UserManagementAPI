@@ -21,6 +21,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ValidationError, model_validator
 import pyotp
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings, logger
@@ -225,17 +226,21 @@ async def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str 
     :param str user_otp_secret: The OTP secret of the user if it exists.
     :return tuple[str, str]: A tuple of the OTP URI and secret.
     """
-    if not user_otp_secret:
-        from app.templates.schemas.user import UserUpdate  # pylint: disable=import-outside-toplevel
-        from app.core.object.user import update_user  # pylint: disable=import-outside-toplevel
+    if not user_otp_secret or user_otp_secret == "changeme":
+        from app.templates.models import User  # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
             user_otp_secret = generate_random_letters(
                 length=32, seed=user_uuid)
-            updated_user = UserUpdate(
-                otp_secret=user_otp_secret
-            )
-            await update_user(db=db, uuid=user_uuid, user=updated_user)
+            try:
+                db_user = db.query(User).filter(User.uuid == user_uuid).first()
+                db_user.otp_secret = user_otp_secret
+                db.add(db_user)
+                db.commit()
+                db.refresh(db_user)
+            except IntegrityError as e:
+                db.rollback()
+                raise HTTPException(status_code=400, detail=str(e.orig)) from e
         finally:
             db.close()
     totp = pyotp.TOTP(

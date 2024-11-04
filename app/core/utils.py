@@ -11,6 +11,8 @@ route to a URL.
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 from io import BytesIO
+import json
+from logging import Logger
 import os
 import time
 import random
@@ -212,6 +214,12 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 # ----- UTILS ----- #
 
+def pprint(obj: object, logging: bool = False) -> None:
+    if logging:
+        logger.debug("\n%s", json.dumps(obj, indent=4))
+    else:
+        print(json.dumps(obj, indent=4))
+
 
 def not_found_page() -> Response:
     """
@@ -237,6 +245,7 @@ def remove_file(file_path: str):
     if os.path.exists(file_path):
         os.remove(file_path)
 
+# ----- REQUEST ----- #
 
 def extract_info(user_agent):
     """

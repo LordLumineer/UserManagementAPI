@@ -69,6 +69,13 @@ class _Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     SMTP_SENDER_EMAIL: str | None = None
 
+    API_CLIENT_ID_GOOGLE: str | None = None
+    API_CLIENT_SECRET_GOOGLE: str | None = None
+    API_CLIENT_ID_TWITCH: str | None = None
+    API_CLIENT_SECRET_TWITCH: str | None = None
+    API_CLIENT_ID_GITHUB: str | None = None
+    API_CLIENT_SECRET_GITHUB: str | None = None
+
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:  # pylint: disable=C0103
         """

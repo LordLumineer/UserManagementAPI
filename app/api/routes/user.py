@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.object.file import create_file, delete_file, get_file
 from app.core.object.user import (
     create_user, get_user, update_user, delete_user,
     get_users, get_users_list, get_current_user,
@@ -107,8 +108,6 @@ async def new_user_image(
         401 Unauthorized if the user is not the same as the current user 
         and the current user does not have permission "admin".
     """
-    from app.core.object.file import create_file, delete_file
-
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
     if file.filename.split('.')[-1].lower() not in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
@@ -138,7 +137,7 @@ async def new_user_image(
 
     file_db = await create_file(db, new_file, file)
     link_file_to_user(db, uuid, file_db.id)
-    update_user(db, uuid, UserUpdate(profile_picture_id=file_db.id))
+    await update_user(db, uuid, UserUpdate(profile_picture_id=file_db.id))
     return file_db
 
 
@@ -171,7 +170,6 @@ async def new_user_file(
     FileReadDB
         The new file object.
     """
-    from app.core.object.file import create_file
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
     new_file = FileCreate(
@@ -303,7 +301,6 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
     -----
     If the user does not have a profile picture, a default profile picture is generated.
     """
-    from app.core.object.file import get_file
     user = get_user(db, uuid)
     try:
         file = get_file(db, user.profile_picture_id)
