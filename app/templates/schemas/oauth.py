@@ -4,15 +4,15 @@ from pydantic import BaseModel, Field, computed_field, model_validator
 
 class OAuthTokenBase(BaseModel):
     """Base model for OAuth2 tokens."""
-    oauth_version: Literal["1", "2"]
+    oauth_version: Literal["1", "2"] = Field(default="2", max_length=1)
     name: str = Field(max_length=40)
     # OAuth1
-    oauth_token: str | None = Field(max_length=200)
-    oauth_token_secret: str | None = Field(max_length=200)
+    oauth_token: str | None = Field(default=None, max_length=200)
+    oauth_token_secret: str | None = Field(default=None, max_length=200)
     # OAuth2
-    token_type: str | None = Field(max_length=40)
-    access_token: str | None = Field(max_length=200)
-    refresh_token: str | None = Field(max_length=200)
+    token_type: str | None = Field(default=None, max_length=40)
+    access_token: str | None = Field(default=None, max_length=200)
+    refresh_token: str | None = Field(default=None, max_length=200)
     expires_at: int | None = Field(default=0, ge=0)
 
     user_uuid: str
@@ -33,7 +33,6 @@ class OAuthTokenBase(BaseModel):
             raise ValueError("Missing OAuth2 token values")
         return self
 
-    @computed_field
     def to_token(self) -> dict:
         if self.oauth_version == "1":
             return dict(

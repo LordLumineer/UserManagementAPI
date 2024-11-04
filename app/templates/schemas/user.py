@@ -7,6 +7,7 @@ The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserRead
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 from typing import Literal
+from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, computed_field, Field, field_validator
 
 from app.core.object.file import get_files_list
@@ -22,6 +23,11 @@ from app.templates.schemas.file import FileReadDB
 class UserBase(BaseModel):
     """Base model for user creation."""
     username: str = Field(
+        min_length=1,
+        max_length=32
+    )
+    display_name: str | None = Field(
+        default=None,
         min_length=1,
         max_length=32
     )
@@ -45,6 +51,18 @@ class UserBase(BaseModel):
     @classmethod
     def _validate_username(cls, value: str) -> str:
         return validate_username(value)
+
+    @field_validator("display_name")
+    @classmethod
+    def _validate_display_name(cls, value: str) -> str:
+        if value is None:
+            return cls.username
+        if value.replace(" ", "_").lower() == cls.username:
+            return value
+        raise HTTPException(
+            status_code=400,
+            detail="The display name must be the same as the username (Capitalization allowed). Spaces are only allowed in place of underscores."
+        )
 
     @field_validator("email")
     @classmethod

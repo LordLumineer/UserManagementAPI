@@ -247,6 +247,7 @@ def remove_file(file_path: str):
 
 # ----- REQUEST ----- #
 
+
 def extract_info(user_agent):
     """
     Extracts OS and browser information from the given user agent string.

@@ -291,6 +291,7 @@ def init_default_user() -> None:
             # otp_secret = generate_random_letters(32)
             default_user = User_Model(
                 username="admin",
+                display_name="Admin",
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
                 permission="admin",

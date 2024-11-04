@@ -63,6 +63,20 @@ if settings.API_CLIENT_ID_TWITCH and settings.API_CLIENT_SECRET_TWITCH:
                        'code_challenge_method': 'S256'},
     )
 
+if settings.API_CLIENT_ID_DISCORD and settings.API_CLIENT_SECRET_DISCORD:
+    oauth.register(
+        'discord',
+        client_id=settings.API_CLIENT_ID_DISCORD,
+        client_secret=settings.API_CLIENT_SECRET_DISCORD,
+        access_token_url='https://discord.com/api/oauth2/token',
+        access_token_params=None,
+        authorize_url='https://discord.com/oauth2/authorize',
+        authorize_params=None,
+        api_base_url='https://discord.com/api',
+        userinfo_endpoint='https://discord.com/api/users/@me',
+        client_kwargs={'scope': 'identify email'},
+    )
+
 # NOTE: Not supported yet
 # oauth.register(
 #     'microsoft',

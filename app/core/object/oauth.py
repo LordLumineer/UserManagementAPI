@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 

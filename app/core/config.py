@@ -75,6 +75,8 @@ class _Settings(BaseSettings):
     API_CLIENT_SECRET_TWITCH: str | None = None
     API_CLIENT_ID_GITHUB: str | None = None
     API_CLIENT_SECRET_GITHUB: str | None = None
+    API_CLIENT_ID_DISCORD: str | None = None
+    API_CLIENT_SECRET_DISCORD: str | None = None
 
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:  # pylint: disable=C0103
