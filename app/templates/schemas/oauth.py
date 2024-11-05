@@ -1,5 +1,5 @@
 from typing import Literal, Self
-from pydantic import BaseModel, Field, computed_field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class OAuthTokenBase(BaseModel):
@@ -7,12 +7,12 @@ class OAuthTokenBase(BaseModel):
     oauth_version: Literal["1", "2"] = Field(default="2", max_length=1)
     name: str = Field(max_length=40)
     # OAuth1
-    oauth_token: str | None = Field(default=None, max_length=200)
-    oauth_token_secret: str | None = Field(default=None, max_length=200)
+    oauth_token: str | None = Field(default=None)
+    oauth_token_secret: str | None = Field(default=None)
     # OAuth2
     token_type: str | None = Field(default=None, max_length=40)
-    access_token: str | None = Field(default=None, max_length=200)
-    refresh_token: str | None = Field(default=None, max_length=200)
+    access_token: str | None = Field(default=None)
+    refresh_token: str | None = Field(default=None)
     expires_at: int | None = Field(default=0, ge=0)
 
     user_uuid: str

@@ -1,8 +1,9 @@
 from fastapi import HTTPException
-from sqlalchemy import insert, select
+from sqlalchemy import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import logger
 from app.core.db import get_db
 from app.templates.models import users_oauth_links
 from app.templates.models import OAuthToken as OAuthTokenModel
@@ -104,6 +105,7 @@ def update_token(name, token, refresh_token=None, access_token=None):
     :param access_token: The access token of the OAuth client
     :return: Nothing
     """
+    logger.debug("Updating token: %s", name)
     db = next(get_db())
     try:
         if refresh_token:

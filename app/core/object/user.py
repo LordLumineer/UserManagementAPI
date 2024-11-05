@@ -108,6 +108,10 @@ async def create_user(db: Session, user: UserCreate) -> User_Model:
         db.refresh(db_user)
     except IntegrityError as e:
         db.rollback()
+        print(str(e.orig))
+        if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
+            third_party_user = get_user_by_email(db, user.email)
+            return await update_user(db, third_party_user.uuid, UserUpdate(email=user.email, password=user.password, is_third_part_only=False))
         raise HTTPException(status_code=400, detail=str(e.orig)) from e
     email_token = create_access_token(
         sub=TokenData(

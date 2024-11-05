@@ -204,6 +204,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         return HTMLResponse(html)
     except Exception as e:
         print(e)
+        pprint(token, True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -214,6 +215,7 @@ async def create_oauth_account(db: Session, provider, username, display_name, em
             display_name=display_name,
             email=email,
             hashed_password="ThirdPartyOnlyAcc",
+            is_third_part_only=True
         )
         db.add(db_user)
         db.commit()
@@ -238,8 +240,11 @@ async def create_oauth_account(db: Session, provider, username, display_name, em
             filename=picture_url.split("/")[-1],
         )
 
-        file.filename = f"pfp_{db_user.uuid}.{
-            file.filename.split('.')[-1].lower()}"
+        match provider:
+            case "google":
+                file.filename = f"pfp_{db_user.uuid}.png"
+            case _:
+                file.filename = f"pfp_{db_user.uuid}.{file.filename.split('.')[-1].lower()}"
         new_file = FileCreate(
             description=f"Profile picture for {
                 db_user.username} from {provider}",

@@ -17,6 +17,8 @@ if settings.API_CLIENT_ID_GOOGLE and settings.API_CLIENT_SECRET_GOOGLE:
         client_id=settings.API_CLIENT_ID_GOOGLE,
         client_secret=settings.API_CLIENT_SECRET_GOOGLE,
         server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        access_token_params=None,
+        authorize_params={'access_type': 'offline'},
         client_kwargs={'scope': 'openid profile email',
                        'code_challenge_method': 'S256'}
     )

@@ -6,9 +6,9 @@ The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserRead
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
-from typing import Literal
+from typing import Literal, Self
 from fastapi.exceptions import HTTPException
-from pydantic import BaseModel, computed_field, Field, field_validator
+from pydantic import BaseModel, computed_field, Field, field_validator, model_validator
 
 from app.core.object.file import get_files_list
 from app.core.config import settings
@@ -43,6 +43,9 @@ class UserBase(BaseModel):
         max_length=256
     )
     profile_picture_id: int | None = None
+    is_third_part_only: bool = Field(
+        default=False
+    )
     is_active: bool = Field(
         default=True
     )
@@ -52,13 +55,13 @@ class UserBase(BaseModel):
     def _validate_username(cls, value: str) -> str:
         return validate_username(value)
 
-    @field_validator("display_name")
-    @classmethod
-    def _validate_display_name(cls, value: str) -> str:
-        if value is None:
-            return cls.username
-        if value.replace(" ", "_").lower() == cls.username:
-            return value
+    @model_validator(mode="after")
+    def _validate_display_name(self) -> Self:
+        if self.display_name is None:
+            self.display_name = self.username
+            return self
+        elif str(self.display_name).replace(" ", "_").lower() == self.username:
+            return self
         raise HTTPException(
             status_code=400,
             detail="The display name must be the same as the username (Capitalization allowed). Spaces are only allowed in place of underscores."
@@ -152,6 +155,7 @@ class UserUpdate(UserBase):
     otp_method: Literal["none", "authenticator",
                         "email"] | None = Field(default="none", exclude=True)
     permission: Literal["user", "manager", "admin"] | None = None
+    is_third_part_only: bool | None = None
     isActive: bool | None = None
 
     @field_validator('password')

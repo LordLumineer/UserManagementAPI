@@ -67,6 +67,10 @@ class User(Base):
         Integer,
         default=generate_timestamp
     )
+    is_third_part_only: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False
+    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True
@@ -118,13 +122,13 @@ class OAuthToken(Base):
     oauth_version: Mapped[str] = mapped_column(String(1))
     name: Mapped[str] = mapped_column(String(40))
     # OAuth1
-    oauth_token: Mapped[str | None] = mapped_column(String(200))
-    oauth_token_secret: Mapped[str | None] = mapped_column(String(200))
+    oauth_token: Mapped[str | None]
+    oauth_token_secret: Mapped[str | None]
     # OAuth2
     token_type: Mapped[str | None] = mapped_column(String(40))
-    access_token: Mapped[str | None] = mapped_column(String(200))
-    refresh_token: Mapped[str | None] = mapped_column(String(200))
-    expires_at: Mapped[int | None] = mapped_column(Integer)
+    access_token: Mapped[str | None]
+    refresh_token: Mapped[str | None]
+    expires_at: Mapped[int | None]
 
     # Foreign keys
     user_uuid: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
