@@ -20,8 +20,8 @@ from app.core.security import (
     generate_otp, hash_password, oauth2_scheme
 )
 from app.templates.models import User as User_Model
-from app.templates.models import users_files_links
-from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
+from app.templates.models import users_files_links, users_third_party_links
+from app.templates.schemas.user import UserCreate, UserUpdate
 
 
 def get_nb_users(db: Session) -> int:
@@ -34,7 +34,7 @@ def get_nb_users(db: Session) -> int:
     return db.query(User_Model).count()
 
 
-def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[UserReadDB]:
+def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[User_Model]:
     """
     Get a list of users from the database.
 
@@ -108,10 +108,13 @@ async def create_user(db: Session, user: UserCreate) -> User_Model:
         db.refresh(db_user)
     except IntegrityError as e:
         db.rollback()
-        print(str(e.orig))
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
             third_party_user = get_user_by_email(db, user.email)
-            return await update_user(db, third_party_user.uuid, UserUpdate(email=user.email, password=user.password, is_third_part_only=False))
+            return await update_user(
+                db, third_party_user.uuid,
+                UserUpdate(email=user.email, password=user.password,
+                           is_third_part_only=False)
+            )
         raise HTTPException(status_code=400, detail=str(e.orig)) from e
     email_token = create_access_token(
         sub=TokenData(
@@ -218,7 +221,27 @@ def get_users_list(db: Session, id_list: list[str]) -> list[User_Model]:
     return db.query(User_Model).filter(User_Model.uuid.in_(id_list)).all()
 
 
-def get_user_files_id(db: Session, user_uuid: str) -> list[int]:
+def get_user_third_party_account_ids(db: Session, user_uuid: str) -> list[int]:
+    """
+    Get a list of third-party account IDs associated with a user.
+
+    :param Session db: The current database session.
+    :param str user_uuid: The UUID of the user to get the third-party account IDs of.
+    :return list[int]: A list of third-party account IDs associated with the user.
+    """
+    stmt = select(users_third_party_links.c.acc_id).where(
+        users_third_party_links.c.user_uuid == user_uuid)
+    result = db.execute(stmt)
+    return [row[0] for row in result]
+
+def link_third_party_account_to_user(db: Session, user_uuid: str, third_party_account_id: int) -> int:
+    db.execute(
+        insert(users_third_party_links).values(user_uuid=user_uuid, third_party_account_id=third_party_account_id)
+    )
+    db.commit()
+    return third_party_account_id
+
+def get_user_files_ids(db: Session, user_uuid: str) -> list[int]:
     """
     Get a list of file IDs associated with a user.
 
@@ -266,7 +289,7 @@ def delete_user_file(db: Session, user_uuid: str, file_id: int) -> list[int]:
     db.commit()
     if not get_file_users_uuid(db, file_id):
         delete_file(db, file_id)
-    return get_user_files_id(db, user_uuid)
+    return get_user_files_ids(db, user_uuid)
 
 
 def init_default_user() -> None:

@@ -10,12 +10,14 @@ from typing import Literal, Self
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, computed_field, Field, field_validator, model_validator
 
+from app.core.object.third_party_account import get_third_party_accounts_list
 from app.core.object.file import get_files_list
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
 from app.core.security import hash_password
 from app.templates.schemas.file import FileReadDB
+from app.templates.schemas.third_party_account import ThirdPartyAccountBase
 
 # pylint: disable=R0903
 
@@ -60,7 +62,7 @@ class UserBase(BaseModel):
         if self.display_name is None:
             self.display_name = self.username
             return self
-        elif str(self.display_name).replace(" ", "_").lower() == self.username:
+        if str(self.display_name).replace(" ", "_").lower() == self.username:
             return self
         raise HTTPException(
             status_code=400,
@@ -91,12 +93,24 @@ class UserReadDB(UserBase):
     updated_at: int
 
     @computed_field
-    def files_id(self) -> list[int]:
-        """A list of file IDs associated with the user."""
-        from app.core.object.user import get_user_files_id   # pylint: disable=import-outside-toplevel
+    def third_party_account_ids(self) -> list[int]:
+        """A list of third party account IDs associated with the user."""
+        from app.core.object.user import get_user_third_party_account_ids   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            files_id_list = get_user_files_id(db, self.uuid)
+            third_party_account_ids_list = get_user_third_party_account_ids(
+                db, self.uuid)
+        finally:
+            db.close()
+        return third_party_account_ids_list
+
+    @computed_field
+    def files_id(self) -> list[int]:
+        """A list of file IDs associated with the user."""
+        from app.core.object.user import get_user_files_ids   # pylint: disable=import-outside-toplevel
+        db = next(get_db())
+        try:
+            files_id_list = get_user_files_ids(db, self.uuid)
         finally:
             db.close()
         return files_id_list
@@ -112,6 +126,17 @@ class UserRead(UserReadDB):
     def picture_url(self) -> str:
         """The URL of the user's profile picture."""
         return f"{settings.BASE_URL}{settings.API_STR}/user/{self.uuid}/image"
+
+    @computed_field
+    def third_party_accounts(self) -> list[ThirdPartyAccountBase]:
+        """A list of third-party accounts associated with the user."""
+        db = next(get_db())
+        try:
+            third_party_accounts_list = get_third_party_accounts_list(
+                db, self.third_party_account_ids)
+        finally:
+            db.close()
+        return third_party_accounts_list
 
     @computed_field
     def files(self) -> list[FileReadDB]:

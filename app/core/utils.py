@@ -12,7 +12,6 @@ route to a URL.
 """
 from io import BytesIO
 import json
-from logging import Logger
 import os
 import time
 import random
@@ -215,6 +214,11 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 # ----- UTILS ----- #
 
 def pprint(obj: object, logging: bool = False) -> None:
+    """Print a JSON representation of an object to the console or log it to the debug level.
+
+    :param object obj: The object to print.
+    :param bool logging: If True, log the JSON representation to the debug level instead of printing it.
+    """
     if logging:
         logger.debug("\n%s", json.dumps(obj, indent=4))
     else:

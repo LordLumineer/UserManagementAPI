@@ -10,7 +10,6 @@ and verifying the One-Time-Password (OTP) QR code.
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 from io import BytesIO
-from tkinter import E
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, Form, Header, Query
@@ -22,14 +21,18 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.email import send_reset_password_email
-from app.core.object.user import create_user, get_current_user, get_user, get_user_by_email, get_user_by_username, update_user
+from app.core.object.user import (
+    get_current_user, get_user, get_user_by_email, get_user_by_username,
+    create_user, update_user
+)
 from app.core.security import (
     Token, TokenData,
     authenticate_user, decode_access_token, validate_otp,
     create_access_token, generate_otp, verify_password
 )
 from app.core.utils import validate_password
-from app.templates.schemas.user import UserCreate, UserReadDB, UserUpdate
+from app.templates.models import User as User_Model
+from app.templates.schemas.user import UserCreate, UserUpdate
 
 
 router = APIRouter()
@@ -61,13 +64,13 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 
 @router.post("/logout", response_class=Response)
-def logout(current_user: UserReadDB = Depends(get_current_user)):
+def logout(current_user: User_Model = Depends(get_current_user)):
     """
     Logout user and return a response.
 
     Parameters
     ----------
-    current_user : UserReadDB
+    current_user : User_Model
         The current user object.
 
     Returns
@@ -173,13 +176,13 @@ def login_otp(
 
 
 @router.get("/QR", response_class=Response)
-async def get_otp_qr(current_user: UserReadDB = Depends(get_current_user)):
+async def get_otp_qr(current_user: User_Model = Depends(get_current_user)):
     """
     Generate a QR code with the user's OTP URI and return it as an image.
 
     Parameters
     ----------
-    current_user : UserReadDB
+    current_user : User_Model
         The user who is requesting the QR code.
 
     Returns
@@ -233,13 +236,13 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
 
 
 @router.get("/password/reset", response_class=Response)
-async def request_password_reset(current_user: UserReadDB = Depends(get_current_user)):
+async def request_password_reset(current_user: User_Model = Depends(get_current_user)):
     """
     Request a password reset for the current user.
 
     Parameters
     ----------
-    current_user : UserReadDB
+    current_user : User_Model
         The current user.
 
     Returns
@@ -265,7 +268,7 @@ async def request_password_reset(current_user: UserReadDB = Depends(get_current_
 async def reset_password(
     old_password: str = Form(...), new_password: str = Form(...), confirm_password: str = Form(...),
     authorization_header: str = Header(...),
-    current_user: UserReadDB = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: User_Model = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Reset the user's password.
@@ -280,7 +283,7 @@ async def reset_password(
         The confirmation of the new password.
     authorization_header : str
         The header containing the authorization token.
-    current_user : UserReadDB
+    current_user : User_Model
         The current user making the password reset request.
     db : Session
         The current database session.
@@ -289,7 +292,7 @@ async def reset_password(
     ------
     HTTPException
         401 Unauthorized if the token is invalid or the user is unauthorized to reset the password.
-        400 Bad Request if passwords do not match, new password is the same as the old password, or the current password is invalid.
+        400 Bad Request if passwords do not match, is the same as the old password, or invalid.
     """
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "reset-password":
@@ -311,13 +314,13 @@ async def reset_password(
 
 
 @router.get("/token/validate")
-def validate_token(current_user: UserReadDB = Depends(get_current_user)):
+def validate_token(current_user: User_Model = Depends(get_current_user)):
     """
     Validate the current user's token.
 
     Parameters
     ----------
-    current_user : UserReadDB
+    current_user : User_Model
         The current user object.
 
     Returns

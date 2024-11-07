@@ -1,4 +1,14 @@
-from fastapi import HTTPException
+"""
+This module contains functions for managing OAuth tokens in the database,
+including creating, updating, deleting, and linking tokens to users. It also
+provides functions for integrating with authlib's OAuth client for automatic
+token fetching and updating.
+
+@file: ./app/core/object/oauth.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
+from fastapi.exceptions import HTTPException
 from sqlalchemy import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -11,6 +21,13 @@ from app.templates.schemas.oauth import OAuthTokenBase
 
 
 def get_oauth_token(db: Session, name: str, user_uuid: str) -> OAuthTokenModel:
+    """Print a JSON representation of an object to the console or log it to the debug level.
+
+    :param Session db: The database session.
+    :param str name: The name of the OAuth token.
+    :param str user_uuid: The user UUID of the OAuth token.
+    :return OAuthTokenModel: The OAuth token model object.
+    """
     db_token = db.query(OAuthTokenModel).filter(
         OAuthTokenModel.name == name,
         OAuthTokenModel.user_uuid == user_uuid
@@ -21,6 +38,18 @@ def get_oauth_token(db: Session, name: str, user_uuid: str) -> OAuthTokenModel:
 
 
 def create_oauth_token(db: Session, new_token: OAuthTokenBase) -> OAuthTokenModel:
+    """
+    Create a new OAuth token in the database and link it to a user.
+
+    This function creates a new OAuth token based on the provided token details
+    and inserts it into the database. It also establishes a link between the 
+    user and the token. If an integrity error occurs during the insertion,
+    an HTTPException is raised.
+
+    :param Session db: The database session.
+    :param OAuthTokenBase new_token: The token details to create.
+    :return OAuthTokenModel: The created OAuth token model object.
+    """
     db_token = OAuthTokenModel(**new_token.model_dump())
     try:
         db.add(db_token)
@@ -33,7 +62,22 @@ def create_oauth_token(db: Session, new_token: OAuthTokenBase) -> OAuthTokenMode
     return db_token
 
 
-def update_oauth_token(db: Session, new_token: OAuthTokenBase, name: str, user_uuid: str, **kwargs) -> OAuthTokenModel:
+def update_oauth_token(db: Session, new_token: OAuthTokenBase, name: str, user_uuid: str) -> OAuthTokenModel:
+    """
+    Update an existing OAuth token in the database.
+
+    This function updates the fields of an existing OAuth token with the
+    provided token details and commits the changes to the database. If an
+    integrity error occurs during the update, an HTTPException is raised.
+
+    :param Session db: The database session.
+    :param OAuthTokenBase new_token: The new token details to update.
+    :param str name: The name of the OAuth token.
+    :param str user_uuid: The user UUID of the OAuth token.
+    :param kwargs: Additional keyword arguments.
+    :return OAuthTokenModel: The updated OAuth token model object.
+    :raises HTTPException: If there is an integrity error during the update.
+    """
     db_token = get_oauth_token(db, name, user_uuid)
     for field, value in new_token.items():
         setattr(db_token, field, value)
@@ -48,13 +92,36 @@ def update_oauth_token(db: Session, new_token: OAuthTokenBase, name: str, user_u
 
 
 def delete_oauth_token(db: Session, name: str, user_uuid: str) -> bool:
+    """
+    Delete an existing OAuth token from the database.
+
+    This function deletes an existing OAuth token by finding it with the
+    specified name and user UUID, and then removing it from the database.
+    If the deletion is successful, it returns True.
+
+    :param Session db: The database session.
+    :param str name: The name of the OAuth token.
+    :param str user_uuid: The user UUID of the OAuth token.
+    :return bool: Whether the deletion was successful.
+    """
     db_token = get_oauth_token(db, name, user_uuid)
     db.delete(db_token)
     db.commit()
     return True
 
 
-def link_user_to_token(db: Session, token_id: int, user_uuid: str) -> None:
+def link_user_to_token(db: Session, token_id: int, user_uuid: str) -> int:
+    """
+    Link a user to an OAuth token.
+
+    This function inserts a new record in the `users_oauth_links` table
+    to establish a link between the user and the OAuth token.
+
+    :param Session db: The database session.
+    :param int token_id: The ID of the OAuth token.
+    :param str user_uuid: The UUID of the user.
+    :return None: There is no return value.
+    """
     db.execute(
         insert(users_oauth_links).values(
             user_uuid=user_uuid, oauth_token_id=token_id)

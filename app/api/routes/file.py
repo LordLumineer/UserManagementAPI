@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.object.file import create_file, delete_file, get_file, get_files, get_files_list, update_file
 from app.core.object.user import get_current_user
+from app.templates.models import User as User_Model
 from app.templates.schemas.file import FileCreate, FileRead, FileReadDB, FileUpdate
-from app.templates.schemas.user import UserReadDB
 
 
 router = APIRouter()
@@ -28,7 +28,7 @@ router = APIRouter()
 async def new_file(
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -40,7 +40,7 @@ async def new_file(
         The description for the file (default is None).
     file : UploadFile
         The file to upload.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -63,7 +63,7 @@ async def new_file(
 @router.get("/", response_model=list[FileReadDB])
 def read_files(
     skip: int = Query(default=0), limit: int = Query(default=100),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -75,7 +75,7 @@ def read_files(
         The number of items to skip (default is 0).
     limit : int, optional
         The maximum number of items to return (default is 100).
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -93,7 +93,7 @@ def read_files(
 @router.get("/files", response_model=list[FileReadDB])
 def read_files_list(
     files_ids: list[int] = Query(default=[]),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -103,7 +103,7 @@ def read_files_list(
     ----------
     files_ids : list[int], optional
         The IDs of the files to get (default is an empty list).
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -172,7 +172,7 @@ async def read_file_file(file_id: int, db: Session = Depends(get_db)):
 def patch_file(
     file_id: int,
     file: FileUpdate,
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -184,7 +184,7 @@ def patch_file(
         The ID of the file to update.
     file : FileUpdate
         The file object with the updated data.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -205,7 +205,7 @@ def patch_file(
 @router.delete("/{file_id}", response_class=Response)
 def remove_file(
     file_id: int,
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -215,7 +215,7 @@ def remove_file(
     ----------
     file_id : int
         The ID of the file to delete.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.

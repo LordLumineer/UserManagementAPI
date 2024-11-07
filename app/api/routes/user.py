@@ -5,7 +5,6 @@ This module contains the API endpoints related to the users (e.g. create, read, 
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
-from app.templates.models import User as User_Model
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Header, Query
@@ -23,6 +22,7 @@ from app.core.object.user import (
 )
 from app.core.security import decode_access_token
 from app.core.utils import extract_initials_from_text, generate_profile_picture
+from app.templates.models import User as User_Model
 from app.templates.schemas.file import FileCreate, FileReadDB
 from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate
 
@@ -32,7 +32,7 @@ router = APIRouter()
 # ------- Create ------- #
 
 
-@router.post("/", response_model=UserRead)  # , response_model=UserReadDB)
+@router.post("/", response_model=UserRead)
 async def new_user(
     user: UserCreate,
     token: str | None = Header(None),
@@ -75,7 +75,7 @@ async def new_user_image(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -93,7 +93,7 @@ async def new_user_image(
         The description for the file (default is None).
     file : UploadFile
         The file to upload.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -147,7 +147,7 @@ async def new_user_file(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -161,7 +161,7 @@ async def new_user_file(
         The description for the file (default is None).
     file : UploadFile
         The file to upload.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -188,7 +188,7 @@ async def new_user_file(
 @router.get("/", response_model=list[UserReadDB])
 def read_users(
     skip: int = Query(default=0), limit: int = Query(default=100),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -200,7 +200,7 @@ def read_users(
         The number of items to skip (default is 0).
     limit : int, optional
         The maximum number of items to return (default is 100).
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -218,7 +218,7 @@ def read_users(
 @router.get("/users", response_model=list[UserReadDB])
 def read_users_list(
     users_ids: list[str] = Query(default=[]),
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -228,7 +228,7 @@ def read_users_list(
     ----------
     users_ids : list[str]
         A list of user UUIDs (default is an empty list)
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request
     db : Session
         The current database session
@@ -250,7 +250,7 @@ def read_users_me(current_user: User_Model = Depends(get_current_user)):
 
     Parameters
     ----------
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
 
     Returns
@@ -324,7 +324,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
 async def patch_user(
     uuid: str,
     user: UserUpdate,
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -336,7 +336,7 @@ async def patch_user(
         The UUID of the user to update.
     user : UserUpdate
         The user object with the updated data.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -414,7 +414,7 @@ def patch_user_file():
 @router.delete("/{uuid}", response_class=Response)
 def remove_user(
     uuid: str,
-    current_user: UserReadDB = Depends(get_current_user),
+    current_user: User_Model = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -424,7 +424,7 @@ def remove_user(
     ----------
     uuid : str
         The UUID of the user to delete.
-    current_user : UserReadDB
+    current_user : User_Model
         The user object of the user who is making the request.
     db : Session
         The current database session.
