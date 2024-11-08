@@ -27,13 +27,13 @@ from app.core.oauth import oauth, oauth_clients_names
 from app.core.object.file import create_file
 from app.core.object.oauth import create_oauth_token
 from app.core.object.user import get_current_user, get_user, get_user_by_email, link_file_to_user, update_user
-from app.core.object.third_party_account import get_third_party_account, create_third_party_account
+from app.core.object.external_account import get_external_account, create_external_account
 from app.core.security import TokenData, create_access_token
 from app.core.utils import pprint
 from app.templates.schemas.file import FileCreate
 from app.templates.schemas.oauth import OAuthTokenBase
 from app.templates.models import User as User_Model
-from app.templates.schemas.third_party_account import ThirdPartyAccountBase
+from app.templates.schemas.external_account import ExternalAccountBase
 from app.templates.schemas.user import UserUpdate
 
 router = APIRouter()
@@ -113,210 +113,206 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     Response
         The redirect response to the main page of the app.
     """
+    if provider not in oauth_clients_names:
+        raise HTTPException(status_code=404, detail="Unsupported provider")
+    provider_client = oauth.create_client(provider)
+    # Retrieve token and user info from the provider
     try:
-        if provider not in oauth_clients_names:
-            raise HTTPException(status_code=404, detail="Unsupported provider")
-        provider_client = oauth.create_client(provider)
-        # Retrieve token and user info from the provider
-        try:
-            token = await provider_client.authorize_access_token(request)
-        except OAuthError as error:
-            raise HTTPException(status_code=401, detail=str(error)) from error
+        token = await provider_client.authorize_access_token(request)
+    except OAuthError as error:
+        raise HTTPException(status_code=401, detail=str(error)) from error
 
-        user_info = await get_user_info(provider_client, token)
-        pprint(user_info, logging=True)
+    user_info = await get_user_info(provider_client, token)
+    pprint(user_info, logging=True)
 
-        # Find or create a user
-        db_user = None
+    # Find or create a user
+    db_user = None
 
-        if is_link:
-            match provider:
-                case "twitch" | "google":
-                    acc_id = user_info["sub"]
-                case "github" | "discord":
-                    acc_id = user_info["id"]
-                case _:
-                    raise HTTPException(
-                        status_code=501, detail="Not implemented yet")
-            if get_user_by_third_party_id(db, acc_id):
+    if is_link:
+        match provider:
+            case "twitch" | "google":
+                external_acc_id = user_info["sub"]
+            case "github" | "discord":
+                external_acc_id = user_info["id"]
+            case _:
                 raise HTTPException(
-                    status_code=409,
-                    detail=f"This {
-                        provider} account is already linked to another user"
-                )
-
-            db_user = get_user(db, request.session.get("user_uuid"))
-            # Create Third Party Account
-            create_third_party_account(
-                db,
-                third_party_account=ThirdPartyAccountBase(
-                    acc_id=acc_id,
-                    provider=provider,
-                    user_uuid=db_user.uuid
-                )
+                    status_code=501, detail="Not implemented yet")
+        if get_user_by_third_party_id(db, external_acc_id):
+            raise HTTPException(
+                status_code=409,
+                detail=f"This {
+                    provider} account is already linked to another user"
             )
 
-        else:
-            # Flow:
-            #   Check if ThirdPartyAccount exists (acc id)
-            #   -> Check if LocalUser exists (email if email verified)
-            #   -> Create LocalUser
-            match provider:
-                case "twitch":
-                    db_user = get_user_by_third_party_id(db, user_info["sub"])
-                    if not db_user:
-                        if not user_info["email_verified"]:
-                            raise HTTPException(
-                                status_code=401,
-                                detail="You need to verify your email associated with your Twitch account."
-                            )
-                        db_user = await get_or_create_user(
-                            db,
-                            provider,
-                            acc_id=user_info["sub"],
-                            new_user=User_Model(
-                                username=user_info["preferred_username"].lower().replace(
-                                    " ", "_"),
-                                display_name=user_info["preferred_username"],
-                                email=user_info["email"],
-                                hashed_password="ThirdPartyOnlyAcc",
-                                is_third_part_only=True
-                            ),
-                            picture_url=user_info["picture"]
-                        )
-                case "google":
-                    db_user = get_user_by_third_party_id(db, user_info["sub"])
-                    if not db_user:
-                        if not user_info["email_verified"]:
-                            raise HTTPException(
-                                status_code=401,
-                                detail="You need to verify your email associated with your Google account."
-                            )
-                        db_user = await get_or_create_user(
-                            db,
-                            provider,
-                            acc_id=user_info["sub"],
-                            new_user=User_Model(
-                                username=user_info["name"].lower().replace(
-                                    " ", "_"),
-                                display_name=user_info["name"],
-                                email=user_info["email"],
-                                hashed_password="ThirdPartyOnlyAcc",
-                                is_third_part_only=True
-                            ),
-                            picture_url=user_info["picture"]
-                        )
-                case "github":
-                    db_user = get_user_by_third_party_id(db, user_info["id"])
-                    if not db_user:
-                        emails = [
-                            email for email in user_info["emails"]
-                            if email["verified"] and email["email"].split("@")[-1] != "users.noreply.github.com"
-                        ]
-                        if not emails:
-                            raise HTTPException(
-                                status_code=401,
-                                detail="You need to verify at least one email associated with your GitHub account."
-                            )
-                        primary_emails = [
-                            email for email in emails if email["primary"]]
-                        other_emails = [
-                            email for email in emails if not email["primary"]]
-                        for email in (primary_emails + other_emails):
-                            db_user = await get_or_create_user(
-                                db,
-                                provider,
-                                acc_id=user_info["id"],
-                                new_user=User_Model(
-                                    username=user_info["login"].lower().replace(
-                                        " ", "_"),
-                                    display_name=user_info["login"],
-                                    email=email,
-                                    hashed_password="ThirdPartyOnlyAcc",
-                                    is_third_part_only=True
-                                ),
-                                picture_url=user_info["avatar_url"] + ".png"
-                            )
-                            if db_user:
-                                break
-                case "discord":
-                    db_user = get_user_by_third_party_id(db, user_info["id"])
-                    if not db_user:
-                        if not user_info["verified"]:
-                            raise HTTPException(
-                                status_code=401,
-                                detail="You need to verify your Discord account. (Email)"
-                            )
-                        db_user = await get_or_create_user(
-                            db,
-                            provider,
-                            acc_id=user_info["id"],
-                            new_user=User_Model(
-                                username=user_info["username"].lower().replace(
-                                    " ", "_"),
-                                display_name=user_info["username"],
-                                email=user_info["email"],
-                                hashed_password="ThirdPartyOnlyAcc",
-                                is_third_part_only=True
-                            ),
-                            picture_url=f"https://cdn.discordapp.com/avatars/{
-                                user_info['id']}/{user_info['avatar']}.png"
-                        )
-                case _:
-                    raise HTTPException(
-                        status_code=501, detail="Not implemented yet")
-
-        request.session.update({"user_uuid": db_user.uuid})
-        oauth_version = type(provider_client).__name__.replace(
-            "StarletteOAuth", "").replace("App", "")
-        if oauth_version == "1":
-            create_oauth_token(
-                db,
-                OAuthTokenBase(
-                    oauth_version=oauth_version,
-                    name=provider,
-                    oauth_token=token["token"],
-                    oauth_token_secret=token["token_secret"],
-                    user_uuid=db_user.uuid
-                )
+        db_user = get_user(db, request.session.get("user_uuid"))
+        # Create Third Party Account
+        create_external_account(
+            db,
+            external_account=ExternalAccountBase(
+                external_acc_id=external_acc_id,
+                provider=provider,
+                user_uuid=db_user.uuid
             )
-        else:
-            create_oauth_token(
-                db,
-                OAuthTokenBase(
-                    oauth_version=oauth_version,
-                    name=provider,
-                    token_type=token["token_type"],
-                    access_token=token["access_token"],
-                    refresh_token=token["refresh_token"],
-                    expires_at=token["expires_at"],
-                    user_uuid=db_user.uuid
-                )
-            )
-
-        auth_token = create_access_token(
-            sub=TokenData(
-                purpose="login",
-                uuid=db_user.uuid,
-                permission=db_user.permission
-            ))
-        return HTMLResponse(
-            f"""
-            <html>
-                <body>
-                    <script>
-                        localStorage.setItem("auth_token", `{auth_token.token_type} {auth_token.access_token}`);
-                        window.location.href = "/";
-                    </script>
-                    <!-- DEBUG -->
-                    <div>{user_info}</div>
-                </body>
-            </html>
-            """
         )
-    except Exception as e:
-        print(str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    else:
+        # Flow:
+        #   Check if ExternalAccount exists (acc id)
+        #   -> Check if LocalUser exists (email if email verified)
+        #   -> Create LocalUser
+        match provider:
+            case "twitch":
+                db_user = get_user_by_third_party_id(db, user_info["sub"])
+                if not db_user:
+                    if not user_info["email_verified"]:
+                        raise HTTPException(
+                            status_code=401,
+                            detail="You need to verify your email associated with your Twitch account."
+                        )
+                    db_user = await get_or_create_user(
+                        db,
+                        provider,
+                        external_acc_id=user_info["sub"],
+                        new_user=User_Model(
+                            username=user_info["preferred_username"].lower().replace(
+                                " ", "_"),
+                            display_name=user_info["preferred_username"],
+                            email=user_info["email"],
+                            hashed_password="ThirdPartyOnlyAcc",
+                            is_third_part_only=True
+                        ),
+                        picture_url=user_info["picture"]
+                    )
+            case "google":
+                db_user = get_user_by_third_party_id(db, user_info["sub"])
+                if not db_user:
+                    if not user_info["email_verified"]:
+                        raise HTTPException(
+                            status_code=401,
+                            detail="You need to verify your email associated with your Google account."
+                        )
+                    db_user = await get_or_create_user(
+                        db,
+                        provider,
+                        external_acc_id=user_info["sub"],
+                        new_user=User_Model(
+                            username=user_info["name"].lower().replace(
+                                " ", "_"),
+                            display_name=user_info["name"],
+                            email=user_info["email"],
+                            hashed_password="ThirdPartyOnlyAcc",
+                            is_third_part_only=True
+                        ),
+                        picture_url=user_info["picture"]
+                    )
+            case "github":
+                db_user = get_user_by_third_party_id(db, user_info["id"])
+                if not db_user:
+                    emails = [
+                        email for email in user_info["emails"]
+                        if email["verified"] and email["email"].split("@")[-1] != "users.noreply.github.com"
+                    ]
+                    if not emails:
+                        raise HTTPException(
+                            status_code=401,
+                            detail="You need to verify at least one email associated with your GitHub account."
+                        )
+                    primary_emails = [
+                        email for email in emails if email["primary"]]
+                    other_emails = [
+                        email for email in emails if not email["primary"]]
+                    for email in (primary_emails + other_emails):
+                        db_user = await get_or_create_user(
+                            db,
+                            provider,
+                            external_acc_id=user_info["id"],
+                            new_user=User_Model(
+                                username=user_info["login"].lower().replace(
+                                    " ", "_"),
+                                display_name=user_info["login"],
+                                email=email,
+                                hashed_password="ThirdPartyOnlyAcc",
+                                is_third_part_only=True
+                            ),
+                            picture_url=user_info["avatar_url"] + ".png"
+                        )
+                        if db_user:
+                            break
+            case "discord":
+                db_user = get_user_by_third_party_id(db, user_info["id"])
+                if not db_user:
+                    if not user_info["verified"]:
+                        raise HTTPException(
+                            status_code=401,
+                            detail="You need to verify your Discord account. (Email)"
+                        )
+                    db_user = await get_or_create_user(
+                        db,
+                        provider,
+                        external_acc_id=user_info["id"],
+                        new_user=User_Model(
+                            username=user_info["username"].lower().replace(
+                                " ", "_"),
+                            display_name=user_info["username"],
+                            email=user_info["email"],
+                            hashed_password="ThirdPartyOnlyAcc",
+                            is_third_part_only=True
+                        ),
+                        picture_url=f"https://cdn.discordapp.com/avatars/{
+                            user_info['id']}/{user_info['avatar']}.png"
+                    )
+            case _:
+                raise HTTPException(
+                    status_code=501, detail="Not implemented yet")
+
+    request.session.update({"user_uuid": db_user.uuid})
+    oauth_version = type(provider_client).__name__.replace(
+        "StarletteOAuth", "").replace("App", "")
+    if oauth_version == "1":
+        create_oauth_token(
+            db,
+            OAuthTokenBase(
+                oauth_version=oauth_version,
+                name=provider,
+                oauth_token=token["token"],
+                oauth_token_secret=token["token_secret"],
+                user_uuid=db_user.uuid
+            )
+        )
+    else:
+        create_oauth_token(
+            db,
+            OAuthTokenBase(
+                oauth_version=oauth_version,
+                name=provider,
+                token_type=token["token_type"],
+                access_token=token["access_token"],
+                refresh_token=token["refresh_token"],
+                expires_at=token["expires_at"],
+                user_uuid=db_user.uuid
+            )
+        )
+
+    auth_token = create_access_token(
+        sub=TokenData(
+            purpose="login",
+            uuid=db_user.uuid,
+            permission=db_user.permission
+        ))
+    return HTMLResponse(
+        f"""
+        <html>
+            <body>
+                <script>
+                    localStorage.setItem("auth_token", `{auth_token.token_type} {auth_token.access_token}`);
+                    window.location.href = "/";
+                </script>
+                <!-- DEBUG -->
+                <div>{user_info}</div>
+            </body>
+        </html>
+        """
+    )
 
 
 async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
@@ -361,15 +357,15 @@ def get_user_by_third_party_id(db: Session, third_party_id: str) -> User_Model:
     :return User_Model: The user model object.
     """
     try:
-        third_party_account = get_third_party_account(db, third_party_id)
-        return get_user(db, third_party_account.user_uuid)
+        external_account = get_external_account(db, third_party_id)
+        return get_user(db, external_account.user_uuid)
     except HTTPException as e:
         if e.status_code != 404:
             raise e
     return None
 
 
-async def get_or_create_user(db: Session, provider, acc_id, new_user: User_Model, picture_url) -> User_Model:
+async def get_or_create_user(db: Session, provider, external_acc_id, new_user: User_Model, picture_url) -> User_Model:
     """
     Get a user by their email, or create them if they don't exist.
 
@@ -379,7 +375,7 @@ async def get_or_create_user(db: Session, provider, acc_id, new_user: User_Model
 
     :param Session db: The current database session.
     :param str provider: The name of the OAuth provider.
-    :param str acc_id: The ID of the user's account on the provider.
+    :param str external_acc_id: The ID of the user's account on the provider.
     :param User_Model new_user: The new user object to create.
     :param str picture_url: The URL of the user's profile picture.
     :return User_Model: The user model object.
@@ -389,13 +385,13 @@ async def get_or_create_user(db: Session, provider, acc_id, new_user: User_Model
     except HTTPException as e:
         if e.status_code != 404:
             raise e
-        return await create_oauth_account(db, provider, acc_id, new_user, picture_url)
+        return await create_oauth_account(db, provider, external_acc_id, new_user, picture_url)
 
 
 async def create_oauth_account(
     db: Session,
     provider,
-    acc_id,
+    external_acc_id,
     new_user: User_Model,
     picture_url=None
 ):
@@ -412,7 +408,7 @@ async def create_oauth_account(
 
     :param Session db: The current database session.
     :param str provider: The name of the OAuth provider.
-    :param str acc_id: The ID of the user's account on the provider.
+    :param str external_acc_id: The ID of the user's account on the provider.
     :param User_Model new_user: The new user object to create.
     :param str picture_url: The URL of the user's profile picture.
     :return User_Model: The created user model object.
@@ -462,10 +458,10 @@ async def create_oauth_account(
         await update_user(db, new_user.uuid, UserUpdate(profile_picture_id=file_db.id))
 
     # Create Third Party Account
-    create_third_party_account(
+    create_external_account(
         db,
-        third_party_account=ThirdPartyAccountBase(
-            acc_id=acc_id,
+        external_account=ExternalAccountBase(
+            external_acc_id=external_acc_id,
             provider=provider,
             user_uuid=new_user.uuid
         )

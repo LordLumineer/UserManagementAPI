@@ -11,8 +11,8 @@ for creating the FastAPI application and setting up the routes and middleware.
 from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import DebugUndefined, Template
 from starlette.middleware.cors import CORSMiddleware
@@ -92,6 +92,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+def _debug_exception_handler(request: Request, exc: Exception):
+    logger.error(exc)
+    return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
 @app.get("/ping", tags=["DEBUG"])

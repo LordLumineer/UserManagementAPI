@@ -20,7 +20,7 @@ from app.core.security import (
     generate_otp, hash_password, oauth2_scheme
 )
 from app.templates.models import User as User_Model
-from app.templates.models import users_files_links, users_third_party_links
+from app.templates.models import users_files_links, users_external_acc_links
 from app.templates.schemas.user import UserCreate, UserUpdate
 
 
@@ -191,7 +191,6 @@ def delete_user(db: Session, uuid: str) -> bool:
 
 # ----- Helper Functions ----- #
 
-
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User_Model:
     """
     Get the current user from the token.
@@ -225,7 +224,7 @@ def get_users_list(db: Session, id_list: list[str]) -> list[User_Model]:
     return db.query(User_Model).filter(User_Model.uuid.in_(id_list)).all()
 
 
-def get_user_third_party_account_ids(db: Session, user_uuid: str) -> list[int]:
+def get_user_external_account_ids(db: Session, user_uuid: str) -> list[int]:
     """
     Get a list of third-party account IDs associated with a user.
 
@@ -233,30 +232,30 @@ def get_user_third_party_account_ids(db: Session, user_uuid: str) -> list[int]:
     :param str user_uuid: The UUID of the user to get the third-party account IDs of.
     :return list[int]: A list of third-party account IDs associated with the user.
     """
-    stmt = select(users_third_party_links.c.acc_id).where(
-        users_third_party_links.c.user_uuid == user_uuid)
+    stmt = select(users_external_acc_links.c.external_acc_id).where(
+        users_external_acc_links.c.user_uuid == user_uuid)
     result = db.execute(stmt)
     return [row[0] for row in result]
 
 
-def link_third_party_account_to_user(db: Session, user_uuid: str, third_party_account_id: int) -> int:
+def link_external_account_to_user(db: Session, user_uuid: str, external_account_id: int) -> int:
     """
     Link a third-party account to a user.
 
-    This function inserts a new record in the `users_third_party_links` table
+    This function inserts a new record in the `users_external_acc_links` table
     to establish a link between the user and the third-party account.
 
     :param Session db: The database session.
     :param str user_uuid: The UUID of the user to link the third-party account to.
-    :param int third_party_account_id: The ID of the third-party account to link.
+    :param int external_account_id: The ID of the third-party account to link.
     :return int: The ID of the third-party account that was linked.
     """
     db.execute(
-        insert(users_third_party_links).values(user_uuid=user_uuid,
-                                               third_party_account_id=third_party_account_id)
+        insert(users_external_acc_links).values(user_uuid=user_uuid,
+                                               external_account_id=external_account_id)
     )
     db.commit()
-    return third_party_account_id
+    return external_account_id
 
 
 def get_user_files_ids(db: Session, user_uuid: str) -> list[int]:

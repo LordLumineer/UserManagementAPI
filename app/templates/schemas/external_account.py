@@ -1,7 +1,7 @@
 """
-This module contains the pydantic models for third-party accounts.
+This module contains the pydantic models for External accounts.
 
-@file: ./app/templates/schemas/third_party_account.py
+@file: ./app/templates/schemas/external_account.py
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
@@ -12,16 +12,16 @@ from app.core.oauth import oauth_clients_names
 # pylint: disable=R0903
 
 
-class ThirdPartyAccountBase(BaseModel):
+class ExternalAccountBase(BaseModel):
     """
-    Base model for third-party accounts.
+    Base model for External accounts.
 
     Attributes:
-        acc_id (str): The account ID of the third-party account.
+        external_acc_id (str): The account ID of the third-party account.
         provider (str): The provider of the third-party account.
         user_uuid (str): The UUID of the user associated with this account.
     """
-    acc_id: str
+    external_acc_id: str
     provider: str
     user_uuid: str
 

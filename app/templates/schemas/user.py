@@ -10,14 +10,14 @@ from typing import Literal, Self
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, computed_field, Field, field_validator, model_validator
 
-from app.core.object.third_party_account import get_third_party_accounts_list
+from app.core.object.external_account import get_external_accounts_list
 from app.core.object.file import get_files_list
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
 from app.core.security import hash_password
 from app.templates.schemas.file import FileReadDB
-from app.templates.schemas.third_party_account import ThirdPartyAccountBase
+from app.templates.schemas.external_account import ExternalAccountBase
 
 # pylint: disable=R0903
 
@@ -94,19 +94,19 @@ class UserReadDB(UserBase):
     updated_at: int
 
     @computed_field
-    def third_party_account_ids(self) -> list[int]:
+    def external_account_ids(self) -> list[int]:
         """A list of third party account IDs associated with the user."""
-        from app.core.object.user import get_user_third_party_account_ids   # pylint: disable=import-outside-toplevel
+        from app.core.object.user import get_user_external_account_ids   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            third_party_account_ids_list = get_user_third_party_account_ids(
+            external_account_ids_list = get_user_external_account_ids(
                 db, self.uuid)
         finally:
             db.close()
-        return third_party_account_ids_list
+        return external_account_ids_list
 
     @computed_field
-    def files_id(self) -> list[int]:
+    def file_ids(self) -> list[int]:
         """A list of file IDs associated with the user."""
         from app.core.object.user import get_user_files_ids   # pylint: disable=import-outside-toplevel
         db = next(get_db())
@@ -129,22 +129,22 @@ class UserRead(UserReadDB):
         return f"{settings.BASE_URL}{settings.API_STR}/user/{self.uuid}/image"
 
     @computed_field
-    def third_party_accounts(self) -> list[ThirdPartyAccountBase]:
+    def external_accounts(self) -> list[ExternalAccountBase]:
         """A list of third-party accounts associated with the user."""
         db = next(get_db())
         try:
-            third_party_accounts_list = get_third_party_accounts_list(
-                db, self.third_party_account_ids)
+            external_accounts_list = get_external_accounts_list(
+                db, self.external_account_ids)
         finally:
             db.close()
-        return third_party_accounts_list
+        return external_accounts_list
 
     @computed_field
     def files(self) -> list[FileReadDB]:
         """A list of files associated with the user."""
         db = next(get_db())
         try:
-            files_list = get_files_list(db, self.files_id)
+            files_list = get_files_list(db, self.file_ids)
         finally:
             db.close()
         return files_list

@@ -83,9 +83,9 @@ class User(Base):
     )
 
     # Relationships
-    third_party_account_id: Mapped[list[str]] = relationship(
-        "ThirdPartyAccount",
-        secondary="users_third_party_links",
+    external_account_ids: Mapped[list[str]] = relationship(
+        "ExternalAccount",
+        secondary="users_external_acc_links",
         viewonly=True
     )
     files_id: Mapped[list[int]] = relationship(
@@ -100,11 +100,11 @@ class User(Base):
     )
 
 
-class ThirdPartyAccount(Base):
-    """ThirdPartyAccounts model."""
-    __tablename__ = "third_party_accounts"
+class ExternalAccount(Base):
+    """External Accounts model."""
+    __tablename__ = "external_accounts"
 
-    acc_id: Mapped[str] = mapped_column(String, primary_key=True)
+    external_acc_id: Mapped[str] = mapped_column(String, primary_key=True)
     provider: Mapped[str]
 
     # Foreign keys
@@ -150,12 +150,11 @@ class OAuthToken(Base):
     user_uuid: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
 
 
-users_third_party_links = Table(
-    "users_third_party_links",
+users_external_acc_links = Table(
+    "users_external_acc_links",
     Base.metadata,
     Column("user_uuid", ForeignKey("users.uuid")),
-    Column("third_party_account_id", ForeignKey(
-        "third_party_accounts.acc_id")),
+    Column("external_acc_id", ForeignKey("external_accounts.external_acc_id")),
 )
 
 users_files_links = Table(

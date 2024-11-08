@@ -244,7 +244,7 @@ def read_users_list(
 
 
 @router.get("/me", response_model=UserRead)
-def read_users_me(current_user: User_Model = Depends(get_current_user)):
+def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
     """
     Get the current user.
 
