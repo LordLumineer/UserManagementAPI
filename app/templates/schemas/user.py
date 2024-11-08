@@ -66,7 +66,8 @@ class UserBase(BaseModel):
             return self
         raise HTTPException(
             status_code=400,
-            detail="The display name must be the same as the username (Capitalization allowed). Spaces are only allowed in place of underscores."
+            detail="The display name must be the same as the username. "
+            "Capitalization allowed. Spaces are only allowed in place of underscores."
         )
 
     @field_validator("email")

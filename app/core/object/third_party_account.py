@@ -1,3 +1,10 @@
+"""
+This module contains functions to interact with third-party account models in the database.
+
+@file: ./app/core/object/third_party_account.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
 from fastapi.exceptions import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -24,10 +31,26 @@ def get_third_party_account(db: Session, acc_id: str) -> ThirdPartyAccount:
 
 
 def get_third_party_accounts_list(db: Session, id_list: list[str]) -> list[ThirdPartyAccount]:
+    """
+    Get a list of third party accounts by their IDs.
+
+    :param Session db: The current database session.
+    :param list[str] id_list: A list of third party account IDs to get.
+    :return list[ThirdPartyAccount]: A list of third party account objects.
+    """
+
     return db.query(ThirdPartyAccount).filter(ThirdPartyAccount.acc_id.in_(id_list)).all()
 
 
 def create_third_party_account(db: Session, third_party_account: ThirdPartyAccountBase) -> ThirdPartyAccount:
+    """
+    Create a new third party account in the database.
+
+    :param Session db: The current database session.
+    :param ThirdPartyAccountBase third_party_account: The third party account to create.
+    :return ThirdPartyAccount: The created third party account object.
+    :raises HTTPException: If a database integrity error occurs.
+    """
     try:
         db_third_party_account = ThirdPartyAccount(
             **third_party_account.model_dump())
@@ -48,7 +71,20 @@ def create_third_party_account(db: Session, third_party_account: ThirdPartyAccou
     return db_third_party_account
 
 
-def update_third_party_account(db: Session, acc_id: str, third_party_account: ThirdPartyAccountBase) -> ThirdPartyAccount:
+def update_third_party_account(
+    db: Session,
+    acc_id: str,
+    third_party_account: ThirdPartyAccountBase
+) -> ThirdPartyAccount:
+    """
+    Update a third party account by its ID.
+
+    :param Session db: The current database session.
+    :param str acc_id: The ID of the third party account to update.
+    :param ThirdPartyAccountBase third_party_account: The updated third party account object.
+    :return ThirdPartyAccount: The third party account object after update.
+    :raises HTTPException: If the third party account is not found, or the update fails.
+    """
     db_third_party_account = get_third_party_account(db, acc_id)
     third_party_account_data = third_party_account.model_dump(
         exclude_unset=True, exclude_none=True)
@@ -65,6 +101,14 @@ def update_third_party_account(db: Session, acc_id: str, third_party_account: Th
 
 
 def delete_third_party_account(db: Session, acc_id: str) -> bool:
+    """
+    Delete a third party account by its ID.
+
+    :param Session db: The current database session.
+    :param str acc_id: The ID of the third party account to delete.
+    :return bool: Whether the deletion was successful.
+    :raises HTTPException: If the third party account is not found.
+    """
     db_third_party_account = get_third_party_account(db, acc_id)
     db.delete(db_third_party_account)
     db.commit()

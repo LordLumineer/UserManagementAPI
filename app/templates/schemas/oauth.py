@@ -1,5 +1,15 @@
+"""
+This module defines the base model for OAuth2 tokens, supporting both OAuth1 and OAuth2 token structures.
+
+@file: ./app/templates/schemas/oauth.py
+@date: 10/12/2024
+@author: LordLumineer (https://github.com/LordLumineer)
+"""
+
 from typing import Literal, Self
 from pydantic import BaseModel, Field, model_validator
+
+# pylint: disable=R0903
 
 
 class OAuthTokenBase(BaseModel):
@@ -34,17 +44,23 @@ class OAuthTokenBase(BaseModel):
         return self
 
     def to_token(self) -> dict:
+        """Returns the OAuth token as a dictionary.
+
+        The keys of the dictionary will depend on the oauth_version of the token.
+        For OAuth1 tokens, the keys will be "oauth_token" and "oauth_token_secret".
+        For OAuth2 tokens, the keys will be "access_token", "token_type", "refresh_token", and "expires_at".
+        """
         if self.oauth_version == "1":
-            return dict(
-                oauth_token=self.oauth_token,
-                oauth_token_secret=self.oauth_token_secret,
-            )
-        return dict(
-            access_token=self.access_token,
-            token_type=self.token_type,
-            refresh_token=self.refresh_token,
-            expires_at=self.expires_at,
-        )
+            return {
+                "oauth_token": self.oauth_token,
+                "oauth_token_secret": self.oauth_token_secret,
+            }
+        return {
+            "access_token": self.access_token,
+            "token_type": self.token_type,
+            "refresh_token": self.refresh_token,
+            "expires_at": self.expires_at,
+        }
 
     class Config:
         """ORM model configuration"""

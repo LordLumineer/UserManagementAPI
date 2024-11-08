@@ -15,6 +15,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, Form, Header, Query
 from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 import qrcode
 from sqlalchemy.orm import Session
 
@@ -264,35 +265,45 @@ async def request_password_reset(current_user: User_Model = Depends(get_current_
     return await send_reset_password_email(current_user.email, token)
 
 
+class _ResetPasswordForm(BaseModel):
+    old_password: str
+    new_password: str
+    confirm_password: str
+
+
 @router.patch("/password/reset", response_class=Response)
 async def reset_password(
-    old_password: str = Form(...), new_password: str = Form(...), confirm_password: str = Form(...),
+    reset_password_form: _ResetPasswordForm = Form(...),
     authorization_header: str = Header(...),
     current_user: User_Model = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
-    Reset the user's password.
+    Reset the password of the current user.
 
     Parameters
     ----------
-    old_password : str
-        The user's current password.
-    new_password : str
-        The new password to set.
-    confirm_password : str
-        The confirmation of the new password.
+    reset_password_form : _ResetPasswordForm
+        The form containing the old password, new password, and confirmation of the new password.
     authorization_header : str
-        The header containing the authorization token.
+        The authorization header containing a valid reset password token.
     current_user : User_Model
-        The current user making the password reset request.
+        The current user object.
     db : Session
         The current database session.
+
+    Returns
+    -------
+    Response
+        A response with a status code of 200 if the password is reset successfully.
 
     Raises
     ------
     HTTPException
-        401 Unauthorized if the token is invalid or the user is unauthorized to reset the password.
-        400 Bad Request if passwords do not match, is the same as the old password, or invalid.
+        401 Unauthorized if the token is invalid.
+    HTTPException
+        400 Bad Request if the passwords do not match, 
+            or if the new password is the same as the old password, 
+            or if the old password is invalid.
     """
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "reset-password":
@@ -300,16 +311,16 @@ async def reset_password(
     user = get_user_by_username(db, token_data.username)
     if user.uuid != token_data.uuid or user.uuid != current_user.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    validate_password(new_password)
-    if new_password != confirm_password:
+    validate_password(reset_password_form.new_password)
+    if reset_password_form.new_password != reset_password_form.confirm_password:
         raise HTTPException(
             status_code=400, detail="Passwords do not match")
-    if old_password == new_password:
+    if reset_password_form.old_password == reset_password_form.new_password:
         raise HTTPException(
             status_code=400, detail="New password cannot be the same as old password")
-    if not verify_password(old_password, current_user.hashed_password):
+    if not verify_password(reset_password_form.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid password")
-    await update_user(db, current_user.uuid, UserUpdate(password=new_password))
+    await update_user(db, current_user.uuid, UserUpdate(password=reset_password_form.new_password))
     return Response(content="Password reset successful", status_code=200)
 
 

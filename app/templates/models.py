@@ -103,10 +103,10 @@ class User(Base):
 class ThirdPartyAccount(Base):
     """ThirdPartyAccounts model."""
     __tablename__ = "third_party_accounts"
-    
+
     acc_id: Mapped[str] = mapped_column(String, primary_key=True)
     provider: Mapped[str]
-    
+
     # Foreign keys
     user_uuid: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
 
@@ -154,7 +154,8 @@ users_third_party_links = Table(
     "users_third_party_links",
     Base.metadata,
     Column("user_uuid", ForeignKey("users.uuid")),
-    Column("third_party_account_id", ForeignKey("third_party_accounts.acc_id")),
+    Column("third_party_account_id", ForeignKey(
+        "third_party_accounts.acc_id")),
 )
 
 users_files_links = Table(

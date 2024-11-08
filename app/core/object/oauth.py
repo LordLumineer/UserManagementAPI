@@ -132,7 +132,7 @@ def link_user_to_token(db: Session, token_id: int, user_uuid: str) -> int:
 
 # ----- authlib OAuth client functions ----- #
 
-def fetch_token(name, request):
+def fetch_token(name, request) -> dict:
     """
     This is the authlib OAuth client auto fetch token.
 
@@ -142,7 +142,7 @@ def fetch_token(name, request):
 
     :param name: The name of the OAuth client
     :param request: The request object
-    :return: The OAuth token
+    :return dict: The OAuth token
     """
     db = next(get_db())
     try:
@@ -151,7 +151,7 @@ def fetch_token(name, request):
             OAuthTokenModel.user_uuid == request.session.get("user_uuid")
         ).first()
         if not token:
-            return
+            return None
         token = OAuthTokenBase(**token)
     finally:
         db.close()

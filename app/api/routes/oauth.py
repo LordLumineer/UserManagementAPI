@@ -67,6 +67,23 @@ async def oauth_login(provider: str,  request: Request):
 
 @router.get('/{provider}/link')
 async def oauth_link(provider: str, request: Request, current_user: User_Model = Depends(get_current_user),):
+    """
+    Redirect user to the OAuth provider login page to link a third-party account.
+
+    Parameters
+    ----------
+    provider : str
+        The OAuth provider to use (e.g. "google", "discord", ...).
+    request : Request
+        The request object.
+    current_user : User_Model
+        The current user.
+
+    Returns
+    -------
+    Response
+        The redirect response to the OAuth provider login page.
+    """
     if provider not in oauth_clients_names:
         raise HTTPException(status_code=404, detail="Unsupported provider")
     provider_client = oauth.create_client(provider)
@@ -121,8 +138,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                 case _:
                     raise HTTPException(
                         status_code=501, detail="Not implemented yet")
-            db_user = get_user_by_third_party_id(db, acc_id)
-            if db_user:
+            if get_user_by_third_party_id(db, acc_id):
                 raise HTTPException(
                     status_code=409,
                     detail=f"This {
@@ -250,57 +266,68 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     raise HTTPException(
                         status_code=501, detail="Not implemented yet")
 
-        if not db_user:
-            raise HTTPException(
-                status_code=400, detail="Unable to create or find user")
-
         request.session.update({"user_uuid": db_user.uuid})
         oauth_version = type(provider_client).__name__.replace(
             "StarletteOAuth", "").replace("App", "")
         if oauth_version == "1":
-            new_token = OAuthTokenBase(
-                oauth_version=oauth_version,
-                name=provider,
-                oauth_token=token["token"],
-                oauth_token_secret=token["token_secret"],
-                user_uuid=db_user.uuid
+            create_oauth_token(
+                db,
+                OAuthTokenBase(
+                    oauth_version=oauth_version,
+                    name=provider,
+                    oauth_token=token["token"],
+                    oauth_token_secret=token["token_secret"],
+                    user_uuid=db_user.uuid
+                )
             )
         else:
-            new_token = OAuthTokenBase(
-                oauth_version=oauth_version,
-                name=provider,
-                token_type=token["token_type"],
-                access_token=token["access_token"],
-                refresh_token=token["refresh_token"],
-                expires_at=token["expires_at"],
-                user_uuid=db_user.uuid
+            create_oauth_token(
+                db,
+                OAuthTokenBase(
+                    oauth_version=oauth_version,
+                    name=provider,
+                    token_type=token["token_type"],
+                    access_token=token["access_token"],
+                    refresh_token=token["refresh_token"],
+                    expires_at=token["expires_at"],
+                    user_uuid=db_user.uuid
+                )
             )
-        create_oauth_token(db, new_token)
+
         auth_token = create_access_token(
             sub=TokenData(
                 purpose="login",
                 uuid=db_user.uuid,
                 permission=db_user.permission
             ))
-        html = f"""
-        <html>
-            <body>
-                <script>
-                    localStorage.setItem("auth_token", `{auth_token.token_type} {auth_token.access_token}`);
-                    window.location.href = "/";
-                </script>
-                <!-- DEBUG -->
-                <div>{user_info}</div>
-            </body>
-        </html>
-        """
-        return HTMLResponse(html)
+        return HTMLResponse(
+            f"""
+            <html>
+                <body>
+                    <script>
+                        localStorage.setItem("auth_token", `{auth_token.token_type} {auth_token.access_token}`);
+                        window.location.href = "/";
+                    </script>
+                    <!-- DEBUG -->
+                    <div>{user_info}</div>
+                </body>
+            </html>
+            """
+        )
     except Exception as e:
         print(str(e))
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
+    """
+    Get user information from OAuth provider.
+
+    :param OAuth1App | OAuth2App provider_client: The OAuth client to use.
+    :param dict token: The OAuth token to use.
+    :return dict: The user information.
+    :raises HTTPException: If the user information cannot be fetched.
+    """
     match provider_client.name:
         case "github":
             user_info = await provider_client.userinfo(token=token)
@@ -312,11 +339,11 @@ async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
                 status_code=400,
                 detail="Twitter is not supported yet due to lack of way to get user email."
             )
-            url = "https://api.twitter.com/2/users/me"
-            url += "?user.fields=id,name,profile_image_url,username"
-            user_info = await provider_client.get(url, token=token)
-            user_info.raise_for_status()
-            user_info = user_info.json()
+            # url = "https://api.twitter.com/2/users/me"
+            # url += "?user.fields=id,name,profile_image_url,username"
+            # user_info = await provider_client.get(url, token=token)
+            # user_info.raise_for_status()
+            # user_info = user_info.json()
         case _:
             user_info = await provider_client.userinfo(token=token)
     if not user_info:
@@ -343,6 +370,20 @@ def get_user_by_third_party_id(db: Session, third_party_id: str) -> User_Model:
 
 
 async def get_or_create_user(db: Session, provider, acc_id, new_user: User_Model, picture_url) -> User_Model:
+    """
+    Get a user by their email, or create them if they don't exist.
+
+    If the user exists, return them. If they don't exist, create a new user
+    with the provided email and create a new OAuth token for the user with
+    the provided provider and account ID.
+
+    :param Session db: The current database session.
+    :param str provider: The name of the OAuth provider.
+    :param str acc_id: The ID of the user's account on the provider.
+    :param User_Model new_user: The new user object to create.
+    :param str picture_url: The URL of the user's profile picture.
+    :return User_Model: The user model object.
+    """
     try:
         return get_user_by_email(db, new_user.email)
     except HTTPException as e:
@@ -358,6 +399,25 @@ async def create_oauth_account(
     new_user: User_Model,
     picture_url=None
 ):
+    """
+    Create a new user account with OAuth provider details.
+
+    This function attempts to add a new user to the database using the provided
+    user details. If a username conflict occurs, it appends a timestamp to the
+    username and display name, then retries the creation. An email verification
+    token is generated and sent to the user's email. If a picture URL is provided,
+    it downloads the image, creates a file entry, and links it as the user's
+    profile picture. Finally, a third-party account is created and linked to
+    the user.
+
+    :param Session db: The current database session.
+    :param str provider: The name of the OAuth provider.
+    :param str acc_id: The ID of the user's account on the provider.
+    :param User_Model new_user: The new user object to create.
+    :param str picture_url: The URL of the user's profile picture.
+    :return User_Model: The created user model object.
+    :raises HTTPException: If a database integrity error occurs.
+    """
     try:
         db.add(new_user)
         db.commit()
@@ -411,87 +471,3 @@ async def create_oauth_account(
         )
     )
     return new_user
-
-
-# @router.get('/{provider}/callback/link')
-# async def oauth_callback_link(provider: str, request: Request, db: Session = Depends(get_db)):
-#     if provider not in oauth_clients_names:
-#         raise HTTPException(status_code=404, detail="Unsupported provider")
-#     provider_client = oauth.create_client(provider)
-#     # Retrieve token and user info from the provider
-#     try:
-#         token = await provider_client.authorize_access_token(request)
-#     except OAuthError as error:
-#         raise HTTPException(status_code=401, detail=str(error)) from error
-
-#     user_info = await get_user_info(provider_client, token)
-#     pprint(user_info, logging=True)
-
-#     match provider:
-#         case "twitch" | "google":
-#             db_user = get_user_by_third_party_id(db, user_info["sub"])
-#         case "github" | "discord":
-#             db_user = get_user_by_third_party_id(db, user_info["id"])
-#         case _:
-#             raise HTTPException(
-#                 status_code=501, detail="Not implemented yet")
-#     if db_user:
-#         raise HTTPException(
-#             status_code=409,
-#             detail=f"This {provider} account is already linked to another user"
-#         )
-
-#     # Find or create a user
-#     db_user = None
-#     db_user = query_or_publish_user(provider, user_info, db)
-#     if not db_user:
-#         raise HTTPException(status_code=400, detail="Unable to create or find user")
-
-#     # Create an OAuth token
-#     request.session.update({"user_uuid": db_user.uuid})
-#     oauth_version = type(provider_client).__name__.replace(
-#         "StarletteOAuth", "").replace("App", "")
-#     if oauth_version == "1":
-#         new_token = OAuthTokenBase(
-#             oauth_version=oauth_version,
-#             name=provider,
-#             oauth_token=token["token"],
-#             oauth_token_secret=token["token_secret"],
-#             user_uuid=db_user.uuid
-#         )
-#     else:
-#         new_token = OAuthTokenBase(
-#             oauth_version=oauth_version,
-#             name=provider,
-#             token_type=token["token_type"],
-#             access_token=token["access_token"],
-#             refresh_token=token["refresh_token"],
-#             expires_at=token["expires_at"],
-#             user_uuid=db_user.uuid
-#         )
-#     create_oauth_token(db, new_token)
-#     auth_token = create_access_token(
-#         sub=TokenData(
-#             purpose="login",
-#             uuid=db_user.uuid,
-#             permission=db_user.permission
-#         ))
-#     html = f"""
-#     <html>
-#         <body>
-#             <script>
-#                 localStorage.setItem("auth_token", `{auth_token.token_type} {auth_token.access_token}`);
-#                 window.location.href = "/";
-#             </script>
-#             <!-- DEBUG -->
-#             <div>{user_info}</div>
-#         </body>
-#     </html>
-#     """
-#     return HTMLResponse(html)
-
-#     # if third party account exists
-#     #   return error, the account is already linked
-#     # else
-#     #   return await oauth_callback(provider, request, db)
-#     ...

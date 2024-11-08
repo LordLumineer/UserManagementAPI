@@ -138,7 +138,11 @@ async def update_user(db: Session, uuid: str, user: UserUpdate) -> User_Model:
     """
     db_user = get_user(db, uuid)
     if db_user.email == "admin@example.com":
-        await generate_otp(user_uuid=db_user.uuid, user_username=db_user.username, user_otp_secret=db_user.otp_secret)
+        await generate_otp(
+            user_uuid=db_user.uuid,
+            user_username=db_user.username,
+            user_otp_secret=db_user.otp_secret
+        )
     email_to_verify = False
     if user.email and user.email != db_user.email:
         user.email_verified = False
@@ -234,12 +238,26 @@ def get_user_third_party_account_ids(db: Session, user_uuid: str) -> list[int]:
     result = db.execute(stmt)
     return [row[0] for row in result]
 
+
 def link_third_party_account_to_user(db: Session, user_uuid: str, third_party_account_id: int) -> int:
+    """
+    Link a third-party account to a user.
+
+    This function inserts a new record in the `users_third_party_links` table
+    to establish a link between the user and the third-party account.
+
+    :param Session db: The database session.
+    :param str user_uuid: The UUID of the user to link the third-party account to.
+    :param int third_party_account_id: The ID of the third-party account to link.
+    :return int: The ID of the third-party account that was linked.
+    """
     db.execute(
-        insert(users_third_party_links).values(user_uuid=user_uuid, third_party_account_id=third_party_account_id)
+        insert(users_third_party_links).values(user_uuid=user_uuid,
+                                               third_party_account_id=third_party_account_id)
     )
     db.commit()
     return third_party_account_id
+
 
 def get_user_files_ids(db: Session, user_uuid: str) -> list[int]:
     """
