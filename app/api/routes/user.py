@@ -1,10 +1,4 @@
-"""
-This module contains the API endpoints related to the users (e.g. create, read, update, delete).
-
-@file: ./app/api/routes/user.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
-"""
+"""This module contains the API endpoints related to the users (e.g. create, read, update, delete)."""
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Header, Query
@@ -14,15 +8,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.core.object.file import create_file, delete_file, get_file
-from app.core.object.user import (
+from app.db_objects.file import create_file, delete_file, get_file, link_file_user
+from app.db_objects.user import (
     create_user, get_user, update_user, delete_user,
     get_users, get_users_list, get_current_user,
-    link_file_to_user,
 )
 from app.core.security import decode_access_token
 from app.core.utils import extract_initials_from_text, generate_profile_picture
-from app.templates.models import User as User_Model
+from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.file import FileCreate, FileReadDB
 from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate
 
@@ -75,7 +68,7 @@ async def new_user_image(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -93,7 +86,7 @@ async def new_user_image(
         The description for the file (default is None).
     file : UploadFile
         The file to upload.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -129,7 +122,7 @@ async def new_user_image(
     db_user = get_user(db, uuid)
     if db_user.profile_picture_id:
         try:
-            delete_file(db, db_user.profile_picture_id)
+            delete_file(db, get_file(db, db_user.profile_picture_id))
         except HTTPException as e:
             if e.status_code == 404:
                 pass
@@ -137,7 +130,7 @@ async def new_user_image(
                 raise e
 
     file_db = await create_file(db, new_file, file)
-    link_file_to_user(db, uuid, file_db.id)
+    link_file_user(db, uuid, file_db.id)
     await update_user(db, uuid, UserUpdate(profile_picture_id=file_db.id))
     return file_db
 
@@ -147,7 +140,7 @@ async def new_user_file(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -161,7 +154,7 @@ async def new_user_file(
         The description for the file (default is None).
     file : UploadFile
         The file to upload.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -179,7 +172,7 @@ async def new_user_file(
         created_by=current_user.uuid
     )
     file_db = await create_file(db, new_file, file)
-    link_file_to_user(db, uuid, file_db.id)
+    link_file_user(db, uuid, file_db.id)
     return file_db
 
 # ------- Read ------- #
@@ -188,7 +181,7 @@ async def new_user_file(
 @router.get("/", response_model=list[UserReadDB])
 def read_users(
     skip: int = Query(default=0), limit: int = Query(default=100),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -200,7 +193,7 @@ def read_users(
         The number of items to skip (default is 0).
     limit : int, optional
         The maximum number of items to return (default is 100).
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -218,7 +211,7 @@ def read_users(
 @router.get("/users", response_model=list[UserReadDB])
 def read_users_list(
     users_ids: list[str] = Query(default=[]),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -228,7 +221,7 @@ def read_users_list(
     ----------
     users_ids : list[str]
         A list of user UUIDs (default is an empty list)
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request
     db : Session
         The current database session
@@ -250,7 +243,7 @@ def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
 
     Parameters
     ----------
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
 
     Returns
@@ -324,7 +317,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
 async def patch_user(
     uuid: str,
     user: UserUpdate,
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -336,7 +329,7 @@ async def patch_user(
         The UUID of the user to update.
     user : UserUpdate
         The user object with the updated data.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -350,7 +343,7 @@ async def patch_user(
         raise HTTPException(status_code=401, detail="Unauthorized")
     if current_user.uuid == uuid:
         user.permission = None  # NOTE: A User can't change their own permission
-    return await update_user(db, uuid, user)
+    return await update_user(db, get_user(db, uuid), user)
 
 
 @router.patch("/{uuid}/image")
@@ -414,7 +407,7 @@ def patch_user_file():
 @router.delete("/{uuid}", response_class=Response)
 def remove_user(
     uuid: str,
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -424,7 +417,7 @@ def remove_user(
     ----------
     uuid : str
         The UUID of the user to delete.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -437,7 +430,7 @@ def remove_user(
     """
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if not delete_user(db, uuid):
+    if not delete_user(db, get_user(db, uuid)):
         raise HTTPException(status_code=400, detail="Failed to delete user")
     return Response(status_code=200)
 

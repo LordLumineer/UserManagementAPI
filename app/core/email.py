@@ -5,10 +5,6 @@ This module contains the functions to send emails. It is designed to be
 used with FastAPI but can be used with any other Python application. It
 can use SMTP or Mailjet to send emails, depending on the EMAIL_METHOD
 setting.
-
-@file: ./app/core/email.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from datetime import datetime, timedelta, timezone
 import smtplib

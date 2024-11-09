@@ -2,10 +2,6 @@
 This module contains functions to interact with the database, including
 connection management, session creation, and database management using
 Alembic migrations.
-
-@file: ./app/core/db.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 import logging
 import os

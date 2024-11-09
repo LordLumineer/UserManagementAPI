@@ -1,10 +1,4 @@
-"""
-This module contains the settings for the application. It also sets up the logger.
-
-@file: ./app/core/config.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
-"""
+"""This module contains the settings for the application. It also sets up the logger."""
 import logging
 from typing import Literal, Self
 from pydantic import Field, PostgresDsn, model_validator, computed_field

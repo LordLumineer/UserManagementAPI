@@ -23,22 +23,26 @@ from app.api.router import api_router, tags_metadata
 from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
-from app.core.object.user import init_default_user
+from app.db_objects.user import init_default_user
 from app.core.utils import (
     custom_generate_unique_id,
     extract_initials_from_text,
     generate_profile_picture,
     not_found_page
 )
-from app.templates.base import Base
-
-Base.metadata.create_all(bind=database.engine)
+from app.db_objects._base import Base
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-outer-name
     """ Lifespan hook to run on application startup and shutdown. """
     logger.info("Starting up...")
+    # Create folders
+    logger.info("Creating folders...")
+    os.makedirs(os.path.join("..", "data", "files"), exist_ok=True)
+    # Database
+    logger.info("Creating or Loading the database tables...")
+    Base.metadata.create_all(bind=database.engine)
     # Alembic
     run_migrations()
     # Init Default User Database
@@ -93,12 +97,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ** ~~~~~ Debugging ~~~~~ ** #
+
+# ----- Exceptions Handler ----- #
 
 @app.exception_handler(Exception)
 def _debug_exception_handler(request: Request, exc: Exception):
     logger.error(exc)
-    return JSONResponse(content={"error": str(exc)}, status_code=500)
+    return JSONResponse(
+        content={
+            "error": str(exc),
+            "support": f"{settings.FRONTEND_URL}/support",
+            "contact": settings.CONTACT_EMAIL
+        },
+        status_code=500
+    )
 
+
+# ----- Debugging ----- #
 
 @app.get("/ping", tags=["DEBUG"])
 def _ping():
@@ -126,33 +142,35 @@ async def _favicon():
     return await generate_profile_picture(letters)
 
 
-# RedirectResponse)
+# ** ----- Frontend ----- ** #
+
+# ----- PLACEHOLDER ----- #
+
 @app.get("/", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _index():
     return not_found_page()
     # return RedirectResponse(url=settings.FRONTEND_URL)
 
 
-# RedirectResponse)
 @app.get("/terms", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _terms():
     return not_found_page()
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/terms")
 
 
-# RedirectResponse)
 @app.get("/privacy", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _privacy():
     return not_found_page()
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/privacy")
 
 
-# RedirectResponse)
 @app.get("/support", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _support():
     return not_found_page()
     # return RedirectResponse(url=f"{settings.FRONTEND_URL}/support")
 
+
+# ----- BACK UPs ----- #
 
 @app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _login():

@@ -4,11 +4,6 @@ validators for different types of data (e.g. email addresses), functions to get 
 from a FastAPI Request object, a function to generate a profile picture from a string,
 functions to get information about a request, and a function to convert a FastAPI
 route to a URL.
-
-
-@file: ./app/core/utils.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from io import BytesIO
 import json
@@ -214,7 +209,8 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 # ----- UTILS ----- #
 
 def pprint(obj: object, logging: bool = False) -> None:
-    """Print a JSON representation of an object to the console or log it to the debug level.
+    """
+    Print a JSON representation of an object to the console or log it to the debug level.
 
     :param object obj: The object to print.
     :param bool logging: If True, log the JSON representation to the debug level instead of printing it.

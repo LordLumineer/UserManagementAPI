@@ -1,1 +1,1 @@
-"""This module contains the main API router for the application."""
+"""This package contains the main API router for the application."""

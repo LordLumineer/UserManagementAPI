@@ -17,11 +17,11 @@ class ExternalAccountBase(BaseModel):
     Base model for External accounts.
 
     Attributes:
-        external_acc_id (str): The account ID of the third-party account.
+        external_account_id (str): The account ID of the third-party account.
         provider (str): The provider of the third-party account.
         user_uuid (str): The UUID of the user associated with this account.
     """
-    external_acc_id: str
+    external_account_id: str
     provider: str
     user_uuid: str
 

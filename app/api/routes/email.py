@@ -19,9 +19,9 @@ from app.core.db import get_db
 from app.core.email import (
     send_email, send_otp_email, send_reset_password_email, send_test_email, send_validation_email
 )
-from app.core.object.user import get_current_user, get_nb_users, get_user_by_email, get_users
+from app.db_objects.user import get_current_user, get_nb_users, get_user_by_email, get_users
 from app.core.security import TokenData, create_access_token
-from app.templates.models import User as User_Model
+from app.db_objects.db_models import User as User_DB
 
 
 router = APIRouter()
@@ -33,7 +33,7 @@ async def send_email_single(
     subject: str = Query(),
     recipient: str = Query(),
     content: str = Body(),
-    current_user: User_Model = Depends(get_current_user)
+    current_user: User_DB = Depends(get_current_user)
 ):
     """
     Send an email to a single recipient.
@@ -48,7 +48,7 @@ async def send_email_single(
         The recipient of the email.
     content : str
         The content of the email.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
 
     Raises
@@ -67,7 +67,7 @@ async def send_email_multiple(
     subject: str = Query(),
     recipients: list[str] = Query(),
     content: str = Body(),
-    current_user: User_Model = Depends(get_current_user)
+    current_user: User_DB = Depends(get_current_user)
 ):
     """
     Send an email to multiple recipients.
@@ -82,7 +82,7 @@ async def send_email_multiple(
         A list of recipients of the email.
     content : str
         The content of the email.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
 
     Raises
@@ -100,7 +100,7 @@ async def send_email_all(
     confirm: bool = Query(default=False),
     subject: str = Query(),
     content: str = Body(),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -114,7 +114,7 @@ async def send_email_all(
         The subject of the email.
     content : str
         The content of the email.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
 
     Raises
@@ -124,8 +124,7 @@ async def send_email_all(
     """
     if not current_user.permission in ["admin"] or not confirm:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user_nb = get_nb_users(db)
-    users = get_users(db, skip=0, limit=user_nb)
+    users = get_users(db, skip=0, limit=get_nb_users(db))
     recipients = [user.email for user in users]
     return await send_email(recipients, subject, content)
 
@@ -133,7 +132,7 @@ async def send_email_all(
 @router.post("/send-test-email")
 async def test_email(
     recipient: str = Query(default=settings.CONTACT_EMAIL),
-    current_user: User_Model = Depends(get_current_user)
+    current_user: User_DB = Depends(get_current_user)
 ):
     """
     Send a test email to a single recipient.
@@ -142,7 +141,7 @@ async def test_email(
     ----------
     recipient : str, optional
         The recipient of the email. Defaults to the contact email in settings.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
 
     Raises
@@ -159,7 +158,7 @@ async def test_email(
 async def otp_email(
     request: Request,
     recipient: str = Query(default=settings.CONTACT_EMAIL),
-    current_user: User_Model = Depends(get_current_user)
+    current_user: User_DB = Depends(get_current_user)
 ):
     """
     Send an email with a one-time password to a single recipient.
@@ -170,7 +169,7 @@ async def otp_email(
         The request object.
     recipient : str, optional
         The recipient of the email. Defaults to the contact email in settings.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
 
     Raises
@@ -197,7 +196,7 @@ async def otp_email(
 @router.post("/send-reset-password-email")
 async def reset_password_email(
     recipient: str = Query(default=settings.CONTACT_EMAIL),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -207,7 +206,7 @@ async def reset_password_email(
     ----------
     recipient : str, optional
         The recipient of the email. Defaults to the contact email in settings.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
     db : Session
         The database session.
@@ -232,7 +231,7 @@ async def reset_password_email(
 @router.post("/send-validation-email")
 async def validation_email(
     recipient: str = Query(default=settings.CONTACT_EMAIL),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -242,7 +241,7 @@ async def validation_email(
     ----------
     recipient : str, optional
         The recipient of the email. Defaults to the contact email in settings.
-    current_user : User_Model
+    current_user : User_DB
         The user who is sending the email.
     db : Session
         The database session.

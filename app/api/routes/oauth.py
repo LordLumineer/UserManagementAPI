@@ -1,17 +1,13 @@
 """
 This module contains the API endpoints for OAuth.
 Logging, Signing up, and linking third-party accounts.
-
-@file: ./app/api/routes/oauth.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from io import BytesIO
 import time
 from authlib.integrations.starlette_client import OAuthError
 from authlib.integrations.starlette_client import StarletteOAuth1App as OAuth1App
 from authlib.integrations.starlette_client import StarletteOAuth2App as OAuth2App
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Response, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends
 from fastapi.responses import HTMLResponse
@@ -24,15 +20,16 @@ from starlette.requests import Request
 from app.core.db import get_db
 from app.core.email import send_validation_email
 from app.core.oauth import oauth, oauth_clients_names
-from app.core.object.file import create_file
-from app.core.object.oauth import create_oauth_token
-from app.core.object.user import get_current_user, get_user, get_user_by_email, link_file_to_user, update_user
-from app.core.object.external_account import get_external_account, create_external_account
 from app.core.security import TokenData, create_access_token
 from app.core.utils import pprint
+from app.db_objects.file import create_file
+from app.db_objects.oauth import create_oauth_token, delete_oauth_token, get_oauth_token, update_oauth_token
+from app.db_objects.user import get_current_user, get_user, get_user_by_email, update_user
+from app.db_objects.external_account import delete_external_account, get_external_account, create_external_account, update_external_account
+from app.db_objects.file import link_file_user
 from app.templates.schemas.file import FileCreate
 from app.templates.schemas.oauth import OAuthTokenBase
-from app.templates.models import User as User_Model
+from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.external_account import ExternalAccountBase
 from app.templates.schemas.user import UserUpdate
 
@@ -66,7 +63,7 @@ async def oauth_login(provider: str,  request: Request):
 
 
 @router.get('/{provider}/link')
-async def oauth_link(provider: str, request: Request, current_user: User_Model = Depends(get_current_user),):
+async def oauth_link(provider: str, request: Request, current_user: User_DB = Depends(get_current_user),):
     """
     Redirect user to the OAuth provider login page to link a third-party account.
 
@@ -76,7 +73,7 @@ async def oauth_link(provider: str, request: Request, current_user: User_Model =
         The OAuth provider to use (e.g. "google", "discord", ...).
     request : Request
         The request object.
-    current_user : User_Model
+    current_user : User_DB
         The current user.
 
     Returns
@@ -131,13 +128,13 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     if is_link:
         match provider:
             case "twitch" | "google":
-                external_acc_id = user_info["sub"]
+                external_account_id = user_info["sub"]
             case "github" | "discord":
-                external_acc_id = user_info["id"]
+                external_account_id = user_info["id"]
             case _:
                 raise HTTPException(
                     status_code=501, detail="Not implemented yet")
-        if get_user_by_third_party_id(db, external_acc_id):
+        if get_user_by_third_party_id(db, external_account_id):
             raise HTTPException(
                 status_code=409,
                 detail=f"This {
@@ -149,7 +146,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         create_external_account(
             db,
             external_account=ExternalAccountBase(
-                external_acc_id=external_acc_id,
+                external_account_id=external_account_id,
                 provider=provider,
                 user_uuid=db_user.uuid
             )
@@ -172,14 +169,14 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     db_user = await get_or_create_user(
                         db,
                         provider,
-                        external_acc_id=user_info["sub"],
-                        new_user=User_Model(
+                        external_account_id=user_info["sub"],
+                        new_user=User_DB(
                             username=user_info["preferred_username"].lower().replace(
                                 " ", "_"),
                             display_name=user_info["preferred_username"],
                             email=user_info["email"],
                             hashed_password="ThirdPartyOnlyAcc",
-                            is_third_part_only=True
+                            is_external_only=True
                         ),
                         picture_url=user_info["picture"]
                     )
@@ -194,14 +191,14 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     db_user = await get_or_create_user(
                         db,
                         provider,
-                        external_acc_id=user_info["sub"],
-                        new_user=User_Model(
+                        external_account_id=user_info["sub"],
+                        new_user=User_DB(
                             username=user_info["name"].lower().replace(
                                 " ", "_"),
                             display_name=user_info["name"],
                             email=user_info["email"],
                             hashed_password="ThirdPartyOnlyAcc",
-                            is_third_part_only=True
+                            is_external_only=True
                         ),
                         picture_url=user_info["picture"]
                     )
@@ -225,14 +222,14 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                         db_user = await get_or_create_user(
                             db,
                             provider,
-                            external_acc_id=user_info["id"],
-                            new_user=User_Model(
+                            external_account_id=user_info["id"],
+                            new_user=User_DB(
                                 username=user_info["login"].lower().replace(
                                     " ", "_"),
                                 display_name=user_info["login"],
                                 email=email,
                                 hashed_password="ThirdPartyOnlyAcc",
-                                is_third_part_only=True
+                                is_external_only=True
                             ),
                             picture_url=user_info["avatar_url"] + ".png"
                         )
@@ -249,14 +246,14 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     db_user = await get_or_create_user(
                         db,
                         provider,
-                        external_acc_id=user_info["id"],
-                        new_user=User_Model(
+                        external_account_id=user_info["id"],
+                        new_user=User_DB(
                             username=user_info["username"].lower().replace(
                                 " ", "_"),
                             display_name=user_info["username"],
                             email=user_info["email"],
                             hashed_password="ThirdPartyOnlyAcc",
-                            is_third_part_only=True
+                            is_external_only=True
                         ),
                         picture_url=f"https://cdn.discordapp.com/avatars/{
                             user_info['id']}/{user_info['avatar']}.png"
@@ -268,30 +265,32 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     request.session.update({"user_uuid": db_user.uuid})
     oauth_version = type(provider_client).__name__.replace(
         "StarletteOAuth", "").replace("App", "")
+
     if oauth_version == "1":
-        create_oauth_token(
-            db,
-            OAuthTokenBase(
-                oauth_version=oauth_version,
-                name=provider,
-                oauth_token=token["token"],
-                oauth_token_secret=token["token_secret"],
-                user_uuid=db_user.uuid
-            )
+        oauth_token = OAuthTokenBase(
+            oauth_version=oauth_version,
+            name=provider,
+            oauth_token=token["token"],
+            oauth_token_secret=token["token_secret"],
+            user_uuid=db_user.uuid
         )
     else:
-        create_oauth_token(
-            db,
-            OAuthTokenBase(
-                oauth_version=oauth_version,
-                name=provider,
-                token_type=token["token_type"],
-                access_token=token["access_token"],
-                refresh_token=token["refresh_token"],
-                expires_at=token["expires_at"],
-                user_uuid=db_user.uuid
-            )
+        oauth_token = OAuthTokenBase(
+            oauth_version=oauth_version,
+            name=provider,
+            token_type=token["token_type"],
+            access_token=token["access_token"],
+            refresh_token=token["refresh_token"],
+            expires_at=token["expires_at"],
+            user_uuid=db_user.uuid
         )
+    try:
+        update_oauth_token(db, get_oauth_token(
+            db, provider, db_user.uuid), oauth_token)
+    except HTTPException as e:
+        if e.status_code != 404:
+            raise e
+        create_oauth_token(db, oauth_token)
 
     auth_token = create_access_token(
         sub=TokenData(
@@ -313,6 +312,34 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         </html>
         """
     )
+
+# # TODO: Revoke/Unlink
+
+
+# @router.post("/{provider}/revoke")
+# async def oauth_revoke(provider: str, request: Request, current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)):
+#     if provider not in oauth_clients_names:
+#         raise HTTPException(status_code=404, detail="Unsupported provider")
+#     provider_client = oauth.create_client(provider)
+
+#     resp = await provider_client.revoke_token(request)
+#     resp.raise_for_status()
+
+#     delete_oauth_token(db, get_oauth_token(db, provider, current_user.uuid))
+
+#     external_accounts = current_user.external_accounts
+#     external_account = next(
+#         (account for account in external_accounts if account.provider == provider), None)
+
+#     if external_account:
+#         delete_external_account(db, external_account)
+#     if current_user.is_external_only and len(external_accounts) == 1:
+#         ...
+#         # TODO: Delete account
+
+#     return Response(status_code=200)
+
+# ~~~~~ Utility Functions ~~~~~ #
 
 
 async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
@@ -348,13 +375,13 @@ async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
     return user_info
 
 
-def get_user_by_third_party_id(db: Session, third_party_id: str) -> User_Model:
+def get_user_by_third_party_id(db: Session, third_party_id: str) -> User_DB:
     """
     Get a user by their third-party account ID.
 
     :param Session db: The current database session.
     :param str third_party_id: The third-party account ID to get the user for.
-    :return User_Model: The user model object.
+    :return User_DB: The user model object.
     """
     try:
         external_account = get_external_account(db, third_party_id)
@@ -365,7 +392,7 @@ def get_user_by_third_party_id(db: Session, third_party_id: str) -> User_Model:
     return None
 
 
-async def get_or_create_user(db: Session, provider, external_acc_id, new_user: User_Model, picture_url) -> User_Model:
+async def get_or_create_user(db: Session, provider, external_account_id, new_user: User_DB, picture_url) -> User_DB:
     """
     Get a user by their email, or create them if they don't exist.
 
@@ -375,24 +402,24 @@ async def get_or_create_user(db: Session, provider, external_acc_id, new_user: U
 
     :param Session db: The current database session.
     :param str provider: The name of the OAuth provider.
-    :param str external_acc_id: The ID of the user's account on the provider.
-    :param User_Model new_user: The new user object to create.
+    :param str external_account_id: The ID of the user's account on the provider.
+    :param User_DB new_user: The new user object to create.
     :param str picture_url: The URL of the user's profile picture.
-    :return User_Model: The user model object.
+    :return User_DB: The user model object.
     """
     try:
         return get_user_by_email(db, new_user.email)
     except HTTPException as e:
         if e.status_code != 404:
             raise e
-        return await create_oauth_account(db, provider, external_acc_id, new_user, picture_url)
+        return await create_oauth_account(db, provider, external_account_id, new_user, picture_url)
 
 
 async def create_oauth_account(
     db: Session,
     provider,
-    external_acc_id,
-    new_user: User_Model,
+    external_account_id,
+    new_user: User_DB,
     picture_url=None
 ):
     """
@@ -408,10 +435,10 @@ async def create_oauth_account(
 
     :param Session db: The current database session.
     :param str provider: The name of the OAuth provider.
-    :param str external_acc_id: The ID of the user's account on the provider.
-    :param User_Model new_user: The new user object to create.
+    :param str external_account_id: The ID of the user's account on the provider.
+    :param User_DB new_user: The new user object to create.
     :param str picture_url: The URL of the user's profile picture.
-    :return User_Model: The created user model object.
+    :return User_DB: The created user model object.
     :raises HTTPException: If a database integrity error occurs.
     """
     try:
@@ -454,16 +481,19 @@ async def create_oauth_account(
         )
         file = UploadFile(BytesIO(response.content), )
         file_db = await create_file(db, new_file, file)
-        link_file_to_user(db, new_user.uuid, file_db.id)
-        await update_user(db, new_user.uuid, UserUpdate(profile_picture_id=file_db.id))
+        link_file_user(db, new_user, file_db)
+        await update_user(db, new_user, UserUpdate(profile_picture_id=file_db.id))
 
     # Create Third Party Account
-    create_external_account(
-        db,
-        external_account=ExternalAccountBase(
-            external_acc_id=external_acc_id,
-            provider=provider,
-            user_uuid=new_user.uuid
-        )
+    external_account = ExternalAccountBase(
+        external_account_id=external_account_id,
+        provider=provider,
+        user_uuid=new_user.uuid
     )
+    try:
+        update_external_account(db, get_external_account(db, external_account_id), external_account)
+    except HTTPException as e:
+        if e.status_code != 404:
+            raise e
+        create_external_account(db, external_account)
     return new_user

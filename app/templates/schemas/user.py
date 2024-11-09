@@ -10,8 +10,6 @@ from typing import Literal, Self
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, computed_field, Field, field_validator, model_validator
 
-from app.core.object.external_account import get_external_accounts_list
-from app.core.object.file import get_files_list
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
@@ -45,7 +43,7 @@ class UserBase(BaseModel):
         max_length=256
     )
     profile_picture_id: int | None = None
-    is_third_part_only: bool = Field(
+    is_external_only: bool = Field(
         default=False
     )
     is_active: bool = Field(
@@ -93,29 +91,6 @@ class UserReadDB(UserBase):
     created_at: int
     updated_at: int
 
-    @computed_field
-    def external_account_ids(self) -> list[int]:
-        """A list of third party account IDs associated with the user."""
-        from app.core.object.user import get_user_external_account_ids   # pylint: disable=import-outside-toplevel
-        db = next(get_db())
-        try:
-            external_account_ids_list = get_user_external_account_ids(
-                db, self.uuid)
-        finally:
-            db.close()
-        return external_account_ids_list
-
-    @computed_field
-    def file_ids(self) -> list[int]:
-        """A list of file IDs associated with the user."""
-        from app.core.object.user import get_user_files_ids   # pylint: disable=import-outside-toplevel
-        db = next(get_db())
-        try:
-            files_id_list = get_user_files_ids(db, self.uuid)
-        finally:
-            db.close()
-        return files_id_list
-
     class Config:
         """ORM model configuration"""
         from_attributes = True
@@ -131,23 +106,24 @@ class UserRead(UserReadDB):
     @computed_field
     def external_accounts(self) -> list[ExternalAccountBase]:
         """A list of third-party accounts associated with the user."""
+        from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            external_accounts_list = get_external_accounts_list(
-                db, self.external_account_ids)
+            db_user = get_user(db, self.uuid)
+            return db_user.external_accounts
         finally:
             db.close()
-        return external_accounts_list
 
     @computed_field
     def files(self) -> list[FileReadDB]:
         """A list of files associated with the user."""
+        from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            files_list = get_files_list(db, self.file_ids)
+            db_user = get_user(db, self.uuid)
+            return db_user.files
         finally:
             db.close()
-        return files_list
 
 
 class UserCreate(UserBase):
@@ -181,7 +157,7 @@ class UserUpdate(UserBase):
     otp_method: Literal["none", "authenticator",
                         "email"] | None = Field(default="none", exclude=True)
     permission: Literal["user", "manager", "admin"] | None = None
-    is_third_part_only: bool | None = None
+    is_external_only: bool | None = None
     isActive: bool | None = None
 
     @field_validator('password')

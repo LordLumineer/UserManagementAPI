@@ -4,12 +4,9 @@ Authentication logic for the API.
 This module contains the authentication logic for the API. It includes
 the routes for logging in and out, as well as the routes for generating
 and verifying the One-Time-Password (OTP) QR code.
-
-@file: ./app/api/routes/auth.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from io import BytesIO
+import re
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, Form, Header, Query
@@ -22,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.email import send_reset_password_email
-from app.core.object.user import (
+from app.db_objects.user import (
     get_current_user, get_user, get_user_by_email, get_user_by_username,
     create_user, update_user
 )
@@ -32,7 +29,7 @@ from app.core.security import (
     create_access_token, generate_otp, verify_password
 )
 from app.core.utils import validate_password
-from app.templates.models import User as User_Model
+from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.user import UserCreate, UserUpdate
 
 
@@ -65,13 +62,13 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 
 
 @router.post("/logout", response_class=Response)
-def logout(current_user: User_Model = Depends(get_current_user)):
+def logout(request: Request, current_user: User_DB = Depends(get_current_user)):
     """
     Logout user and return a response.
 
     Parameters
     ----------
-    current_user : User_Model
+    current_user : User_DB
         The current user object.
 
     Returns
@@ -80,15 +77,20 @@ def logout(current_user: User_Model = Depends(get_current_user)):
         A response with a status code of 200 if the user is logged out successfully, 
         or a response with a status code of 401 if there is an error.
     """
+    request.session.clear()
     return Response(content=f"{current_user.username} | Logged out", status_code=200)
+
+
+class _SignupForm(BaseModel):
+    username: str
+    email: str
+    password: str
+    confirm_password: str
 
 
 @router.post("/signup", response_model=Token)
 async def signup(
-    username: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    confirm_password: str = Form(...),
+    signup_form: _SignupForm = Form(...),
     db: Session = Depends(get_db),
 ):
     """
@@ -112,11 +114,11 @@ async def signup(
     Token
         The access token with user uuid and permission.
     """
-    validate_password(password)
-    if password != confirm_password:
+    validate_password(signup_form.password)
+    if signup_form.password != signup_form.confirm_password:
         raise HTTPException(
             status_code=400, detail="Passwords do not match")
-    user_new = await create_user(db, UserCreate(username=username, email=email, password=password))
+    user_new = await create_user(db, UserCreate(username=signup_form.username, email=signup_form.email, password=signup_form.password))
     return create_access_token(
         sub=TokenData(
             purpose="login",
@@ -177,13 +179,13 @@ def login_otp(
 
 
 @router.get("/QR", response_class=Response)
-async def get_otp_qr(current_user: User_Model = Depends(get_current_user)):
+async def get_otp_qr(current_user: User_DB = Depends(get_current_user)):
     """
     Generate a QR code with the user's OTP URI and return it as an image.
 
     Parameters
     ----------
-    current_user : User_Model
+    current_user : User_DB
         The user who is requesting the QR code.
 
     Returns
@@ -229,21 +231,21 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     token_data = decode_access_token(token)
     if token_data.purpose != "email-verification":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user = get_user_by_email(db, token_data.email)
-    if user.uuid != token_data.uuid:
+    db_user = get_user_by_email(db, token_data.email)
+    if db_user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user = await update_user(db, user.uuid, UserUpdate(email_verified=True))
+    await update_user(db, db_user, UserUpdate(email_verified=True))
     return RedirectResponse(url=settings.FRONTEND_URL)
 
 
 @router.get("/password/reset", response_class=Response)
-async def request_password_reset(current_user: User_Model = Depends(get_current_user)):
+async def request_password_reset(current_user: User_DB = Depends(get_current_user)):
     """
     Request a password reset for the current user.
 
     Parameters
     ----------
-    current_user : User_Model
+    current_user : User_DB
         The current user.
 
     Returns
@@ -275,7 +277,7 @@ class _ResetPasswordForm(BaseModel):
 async def reset_password(
     reset_password_form: _ResetPasswordForm = Form(...),
     authorization_header: str = Header(...),
-    current_user: User_Model = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Reset the password of the current user.
@@ -286,7 +288,7 @@ async def reset_password(
         The form containing the old password, new password, and confirmation of the new password.
     authorization_header : str
         The authorization header containing a valid reset password token.
-    current_user : User_Model
+    current_user : User_DB
         The current user object.
     db : Session
         The current database session.
@@ -308,8 +310,8 @@ async def reset_password(
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "reset-password":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user = get_user_by_username(db, token_data.username)
-    if user.uuid != token_data.uuid or user.uuid != current_user.uuid:
+    db_user = get_user_by_username(db, token_data.username)
+    if db_user.uuid != token_data.uuid or db_user.uuid != current_user.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
     validate_password(reset_password_form.new_password)
     if reset_password_form.new_password != reset_password_form.confirm_password:
@@ -325,13 +327,13 @@ async def reset_password(
 
 
 @router.get("/token/validate")
-def validate_token(current_user: User_Model = Depends(get_current_user)):
+def validate_token(current_user: User_DB = Depends(get_current_user)):
     """
     Validate the current user's token.
 
     Parameters
     ----------
-    current_user : User_Model
+    current_user : User_DB
         The current user object.
 
     Returns

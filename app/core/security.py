@@ -4,10 +4,6 @@ Security utilities for the API.
 This module contains the utilities for the authentication and authorization
 of the API. It includes the functions to hash passwords, generate and verify
 the JSON Web Tokens (JWT) and the One-Time-Password (OTP) QR code.
-
-@file: ./app/core/security.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from datetime import datetime, timedelta, timezone
 import re
@@ -227,13 +223,13 @@ async def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str 
     :return tuple[str, str]: A tuple of the OTP URI and secret.
     """
     if not user_otp_secret or user_otp_secret == "changeme":
-        from app.templates.models import User  # pylint: disable=import-outside-toplevel
+        from app.db_objects.db_models import User as User_DB  # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
             user_otp_secret = generate_random_letters(
                 length=32, seed=user_uuid)
             try:
-                db_user = db.query(User).filter(User.uuid == user_uuid).first()
+                db_user = db.query(User_DB).filter(User_DB.uuid == user_uuid).first()
                 db_user.otp_secret = user_otp_secret
                 db.add(db_user)
                 db.commit()
@@ -305,7 +301,7 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
     :raises HTTPException: 400 Bad Request if the user is inactive.
     :return UserReadDB: The user object if the user is found and the password is correct.
     """
-    from app.core.object.user import get_user_by_email, get_user_by_username  # pylint: disable=import-outside-toplevel
+    from app.db_objects.user import get_user_by_email, get_user_by_username  # pylint: disable=import-outside-toplevel
 
     error_msg = HTTPException(
         status_code=401,

@@ -2,10 +2,6 @@
 Database-related API endpoints.
 
 This module contains the API endpoints related to the database (e.g. export, import, recover).
-
-@file: ./app/api/routes/db.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Response, UploadFile, Depends, File
@@ -15,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db, handle_database_import, export_db
-from app.core.object.user import get_current_user
+from app.db_objects.user import get_current_user
 from app.core.utils import remove_file
-from app.templates.models import User as User_Model
+from app.db_objects.db_models import User as User_DB
 
 
 router = APIRouter()
@@ -26,7 +22,7 @@ router = APIRouter()
 @router.get("/export")
 async def db_export(
     background_tasks: BackgroundTasks,
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -36,7 +32,7 @@ async def db_export(
     ----------
     background_tasks : BackgroundTasks
         A list of tasks to run in the background.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -63,7 +59,7 @@ async def db_export(
 async def db_recover(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    current_user: User_Model = Depends(get_current_user)
+    current_user: User_DB = Depends(get_current_user)
 ):
     """
     Recover the database from an uploaded SQLite file.
@@ -82,7 +78,7 @@ async def db_recover(
         A list of tasks to run in the background.
     file : UploadFile
         The uploaded SQLite file.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
 
     Returns
@@ -114,7 +110,7 @@ async def db_recover(
 @router.post("/import")
 async def db_import(
     file: UploadFile = File(...),
-    current_user: User_Model = Depends(get_current_user)
+    current_user: User_DB = Depends(get_current_user)
 ):
     """
     Import the database from an uploaded SQLite file.
@@ -131,7 +127,7 @@ async def db_import(
     ----------
     file : UploadFile
         The uploaded SQLite file.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
 
     Returns

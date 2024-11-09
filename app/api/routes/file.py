@@ -1,10 +1,4 @@
-"""
-This module contains the API endpoints related to the files (e.g. upload, download, delete, update).
-
-@file: ./app/api/routes/file.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
-"""
+"""This module contains the API endpoints related to the files (e.g. upload, download, delete, update)."""
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Query
@@ -12,9 +6,9 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.core.object.file import create_file, delete_file, get_file, get_files, get_files_list, update_file
-from app.core.object.user import get_current_user
-from app.templates.models import User as User_Model
+from app.db_objects.file import create_file, delete_file, get_file, get_files, get_files_list, get_nb_files, update_file
+from app.db_objects.user import get_current_user
+from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.file import FileCreate, FileRead, FileReadDB, FileUpdate
 
 
@@ -28,7 +22,7 @@ router = APIRouter()
 async def new_file(
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -40,7 +34,7 @@ async def new_file(
         The description for the file (default is None).
     file : UploadFile
         The file to upload.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -50,12 +44,15 @@ async def new_file(
     FileReadDB
         The new file object.
     """
-    new_file_create = FileCreate(
-        description=description,
-        file_name=file.filename,
-        created_by=current_user.uuid
+    return await create_file(
+        db,
+        FileCreate(
+            description=description,
+            file_name=file.filename,
+            created_by=current_user.uuid
+        ),
+        file
     )
-    return await create_file(db, new_file_create, file)
 
 # ------- Read ------- #
 
@@ -63,7 +60,7 @@ async def new_file(
 @router.get("/", response_model=list[FileReadDB])
 def read_files(
     skip: int = Query(default=0), limit: int = Query(default=100),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -75,7 +72,7 @@ def read_files(
         The number of items to skip (default is 0).
     limit : int, optional
         The maximum number of items to return (default is 100).
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -93,7 +90,7 @@ def read_files(
 @router.get("/files", response_model=list[FileReadDB])
 def read_files_list(
     files_ids: list[int] = Query(default=[]),
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -103,7 +100,7 @@ def read_files_list(
     ----------
     files_ids : list[int], optional
         The IDs of the files to get (default is an empty list).
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -116,6 +113,24 @@ def read_files_list(
     if current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return get_files_list(db, files_ids)
+
+
+@router.get("/count", response_model=int)
+def read_files_number(db: Session = Depends(get_db)):
+    """
+    Get the number of files.
+
+    Parameters
+    ----------
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    int
+        The number of files.
+    """
+    return get_nb_files(db)
 
 
 @router.get("/{file_id}", response_model=FileRead)
@@ -172,7 +187,7 @@ async def read_file_file(file_id: int, db: Session = Depends(get_db)):
 def patch_file(
     file_id: int,
     file: FileUpdate,
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -184,7 +199,7 @@ def patch_file(
         The ID of the file to update.
     file : FileUpdate
         The file object with the updated data.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -197,7 +212,7 @@ def patch_file(
     db_file = get_file(db, file_id)
     if current_user.uuid != db_file.created_by and current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return update_file(db, file_id, file)
+    return update_file(db, db_file, file)
 
 # ------- Delete ------- #
 
@@ -205,7 +220,7 @@ def patch_file(
 @router.delete("/{file_id}", response_class=Response)
 def remove_file(
     file_id: int,
-    current_user: User_Model = Depends(get_current_user),
+    current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -215,7 +230,7 @@ def remove_file(
     ----------
     file_id : int
         The ID of the file to delete.
-    current_user : User_Model
+    current_user : User_DB
         The user object of the user who is making the request.
     db : Session
         The current database session.
@@ -229,6 +244,6 @@ def remove_file(
     db_file = get_file(db, file_id)
     if current_user.uuid != db_file.created_by and current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if not delete_file(db, file_id):
+    if not delete_file(db, db_file):
         raise HTTPException(status_code=400, detail="Failed to delete file")
     return Response(status_code=200)

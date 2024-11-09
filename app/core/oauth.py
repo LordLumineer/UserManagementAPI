@@ -2,16 +2,12 @@
 This module provides OAuth integration using Authlib with Starlette.
 
 It handles OAuth client setup and token management, including fetching and updating tokens.
-
-@file: ./app/core/oauth.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 
 from authlib.integrations.starlette_client import OAuth
 
 from app.core.config import settings
-from app.core.object.oauth import (fetch_token, update_token)
+from app.db_objects.oauth import (fetch_token, update_token)
 
 
 oauth = OAuth(
