@@ -127,41 +127,29 @@ class User(Base):
     )
 
     # Relationships
+    #   One-to-many
     external_accounts: Mapped[list[ExternalAccount]] = relationship(
         "ExternalAccount",
-        secondary="users_external_accounts_links",
-        viewonly=True
+        cascade="all, delete",
     )
+    oauth_tokens: Mapped[list[OAuthToken]] = relationship(
+        "OAuthToken",
+        cascade="all, delete",
+    )
+    #   Many-to-many
     files: Mapped[list[File]] = relationship(
         "File",
         secondary="users_files_links",
         viewonly=True
     )
-    oauth_token_id: Mapped[list[OAuthToken]] = relationship(
-        "OAuthToken",
-        secondary="users_oauth_tokens_links",
-        viewonly=True
-    )
 
 
-users_external_accounts_links = Table(
-    "users_external_accounts_links",
-    Base.metadata,
-    Column("user_uuid", ForeignKey("users.uuid")),
-    Column("external_account_id", ForeignKey(
-        "external_accounts.external_account_id")),
-)
+# Many-to-many
+
 
 users_files_links = Table(
     "users_files_links",
     Base.metadata,
     Column("user_uuid", ForeignKey("users.uuid")),
     Column("file_id", ForeignKey("files.id")),
-)
-
-users_oauth_tokens_links = Table(
-    "users_oauth_tokens_links",
-    Base.metadata,
-    Column("user_uuid", ForeignKey("users.uuid")),
-    Column("oauth_token_id", ForeignKey("oauth_tokens.id")),
 )

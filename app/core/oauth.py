@@ -4,10 +4,25 @@ This module provides OAuth integration using Authlib with Starlette.
 It handles OAuth client setup and token management, including fetching and updating tokens.
 """
 
+import json
+import os
+import time
 from authlib.integrations.starlette_client import OAuth
+from authlib.integrations.starlette_client import StarletteOAuth1App as OAuth1App
+from authlib.integrations.starlette_client import StarletteOAuth2App as OAuth2App
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.core.config import settings
+from app.core.config import settings, logger
+from app.core.security import TokenData, create_access_token
+from app.db_objects.db_models import User as User_DB
+from app.core.email import send_validation_email
 from app.db_objects.oauth import (fetch_token, update_token)
+from app.providers.twitch import get_acc_info as get_twitch_info
+from app.providers.google import get_acc_info as get_google_info
+from app.providers.discord import get_acc_info as get_discord_info
+from app.providers.github import get_acc_info as get_github_info
 
 
 oauth = OAuth(
@@ -130,3 +145,141 @@ if settings.API_CLIENT_ID_DISCORD and settings.API_CLIENT_SECRET_DISCORD:
 # )
 
 oauth_clients_names = list(oauth._clients)  # pylint: disable=protected-access
+
+
+async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
+    """
+    Get user information from OAuth provider.
+
+    :param OAuth1App | OAuth2App provider_client: The OAuth client to use.
+    :param dict token: The OAuth token to use.
+    :return dict: The user information.
+    :raises HTTPException: If the user information cannot be fetched.
+    """
+    match provider_client.name:
+        case "github":
+            user_info = await provider_client.userinfo(token=token)
+            emails = await provider_client.get("https://api.github.com/user/emails", token=token)
+            emails.raise_for_status()
+            user_info["emails"] = emails.json()
+        case "twitter":
+            # url = "https://api.twitter.com/2/users/me"
+            # url += "?user.fields=id,name,profile_image_url,username"
+            # user_info = await provider_client.get(url, token=token)
+            # user_info.raise_for_status()
+            # user_info = user_info.json()
+            raise HTTPException(
+                status_code=400,
+                detail="Twitter is not supported yet due to lack of way to get user email."
+            )
+        case _:
+            user_info = await provider_client.userinfo(token=token)
+    if not user_info:
+        raise HTTPException(
+            status_code=400, detail="Unable to fetch user information")
+    logger.debug("\n%s", json.dumps(user_info, indent=4))
+    return user_info
+
+
+def get_external_account_info(provider: str, user_info: dict) -> dict:
+    """
+    Extract the relevant information from the user info provided by the OAuth provider.
+
+    :param str provider: The name of the OAuth provider.
+    :param dict user_info: The user information returned by the OAuth provider.
+    :return dict: A dictionary containing the following information:
+        - provider: The name of the OAuth provider.
+        - id: The user ID.
+        - username: The username.
+        - display_name: The display name.
+        - emails: A list of emails associated with the user.
+        - picture_url: The URL of the user's profile picture.
+
+    :raises HTTPException: If the user information does not contain the necessary information.
+    """
+    data = {"provider": provider}
+    match provider:
+        case "twitch":
+            data = get_twitch_info(user_info)
+            if not user_info["email_verified"]:
+                raise HTTPException(
+                    status_code=401,
+                    detail="You need to verify your email associated with your Google account."
+                )
+
+        case "google":
+            data = get_google_info(user_info)
+            if not user_info["email_verified"]:
+                raise HTTPException(
+                    status_code=401,
+                    detail="You need to verify your email associated with your Google account."
+                )
+
+        case "discord":
+            data = get_discord_info(user_info)
+            if not user_info["verified"]:
+                raise HTTPException(
+                    status_code=401,
+                    detail="You need to verify your Discord account. (Email)"
+                )
+
+        case "github":
+            data = get_github_info(user_info)
+            if not data["emails"]:
+                raise HTTPException(
+                    status_code=401,
+                    detail="You need to verify at least one email associated with your GitHub account."
+                )
+
+        case _:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported provider"
+            )
+    return data
+
+
+async def create_user_from_oauth(
+    db: Session,
+    provider,
+    new_user: User_DB
+):
+    """
+    Create a new user from OAuth information.
+
+    If the username is already taken, append a timestamp to the username
+    and retry the creation process. Upon successful creation, send an email
+    verification.
+
+    :param Session db: The current database session.
+    :param str provider: The name of the OAuth provider.
+    :param User_DB new_user: The user object to create.
+    :return User_DB: The newly created user object.
+    :raises IntegrityError: If a database integrity error occurs other than a username conflict.
+    """
+    # Create user
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        os.makedirs(os.path.join("..", "data", "files",
+                    "users", new_user.uuid), exist_ok=True)
+    except IntegrityError as e:
+        db.rollback()
+        # Check if the username is already taken, if so add numbers to the username and try again
+        if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.username'):
+            added_str = str(int(time.time()))
+            new_user.username = new_user.username+added_str
+            new_user.display_name = new_user.display_name+added_str
+            return create_user_from_oauth(db, provider, new_user)
+        raise e
+    # Send the email verification
+    email_token = create_access_token(
+        sub=TokenData(
+            purpose="email-verification",
+            uuid=new_user.uuid,
+            email=new_user.email
+        )
+    )
+    await send_validation_email(new_user.email, email_token)
+    return new_user

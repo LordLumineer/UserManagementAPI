@@ -1,4 +1,5 @@
 """This module contains the API endpoints related to the users (e.g. create, read, update, delete)."""
+import os
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Header, Query
@@ -55,8 +56,8 @@ async def new_user(
         token_data = decode_access_token(token)
         if token_data.purpose != "login":
             raise HTTPException(status_code=401, detail="Unauthorized")
-        admin_user = get_user(db, token_data.uuid)
-        if admin_user.permission == "admin" and token_data.permission == "admin":
+        db_user = get_user(db, token_data.uuid)
+        if db_user.permission == "admin" and token_data.permission == "admin":
             return create_user(db, user)
     user.permission = "user"        # NOTE: Override to ensure default permission
     user.email_verified = False     # NOTE: Override to ensure email verification
@@ -113,25 +114,21 @@ async def new_user_image(
             status_code=400, detail=f"Image must be below 512x512 px ({img.width}x{img.height}px)")
     file.file.seek(0)  # Reset pointer to the beginning of the file
 
+    db_user = get_user(db, uuid)
     file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
     new_file = FileCreate(
         description=description,
-        file_name=file.filename,
+        file_name=os.path.join("users", db_user.uuid, file.filename),
         created_by=current_user.uuid
     )
-    db_user = get_user(db, uuid)
     if db_user.profile_picture_id:
-        try:
-            delete_file(db, get_file(db, db_user.profile_picture_id))
-        except HTTPException as e:
-            if e.status_code == 404:
-                pass
-            else:
-                raise e
+        db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
+        if db_file:
+            delete_file(db, db_file)
 
     file_db = await create_file(db, new_file, file)
-    link_file_user(db, uuid, file_db.id)
-    await update_user(db, uuid, UserUpdate(profile_picture_id=file_db.id))
+    link_file_user(db, db_user, file_db)
+    await update_user(db, db_user, UserUpdate(profile_picture_id=file_db.id))
     return file_db
 
 
@@ -166,13 +163,15 @@ async def new_user_file(
     """
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
+
     new_file = FileCreate(
         description=description,
-        file_name=file.filename,
+        file_name=os.path.join("files", file.filename),
         created_by=current_user.uuid
     )
+    db_user = get_user(db, uuid)
     file_db = await create_file(db, new_file, file)
-    link_file_user(db, uuid, file_db.id)
+    link_file_user(db, db_user, file_db)
     return file_db
 
 # ------- Read ------- #
@@ -271,7 +270,8 @@ def read_user(uuid: str, db: Session = Depends(get_db)):
     UserRead
         The user object.
     """
-    return get_user(db, uuid)
+    db_user = get_user(db, uuid)
+    return db_user
 
 
 @router.get("/{uuid}/image", response_class=FileResponse)
@@ -295,17 +295,13 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
     -----
     If the user does not have a profile picture, a default profile picture is generated.
     """
-    user = get_user(db, uuid)
-    try:
-        file = get_file(db, user.profile_picture_id)
-    except HTTPException as e:
-        if e.status_code == 404:
-            file = None
-    if not file:
-        letters = extract_initials_from_text(user.username)
+    db_user = get_user(db, uuid)
+    db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
+    if not db_file:
+        letters = extract_initials_from_text(db_user.username)
         return await generate_profile_picture(letters)
     return FileResponse(
-        file.file_path,
+        db_file.file_path,
         # filename=file.file_name,
         # media_type=f"image/{file.file_type}"
     )

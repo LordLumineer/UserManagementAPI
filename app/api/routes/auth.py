@@ -6,7 +6,6 @@ the routes for logging in and out, as well as the routes for generating
 and verifying the One-Time-Password (OTP) QR code.
 """
 from io import BytesIO
-import re
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, Form, Header, Query
@@ -118,7 +117,12 @@ async def signup(
     if signup_form.password != signup_form.confirm_password:
         raise HTTPException(
             status_code=400, detail="Passwords do not match")
-    user_new = await create_user(db, UserCreate(username=signup_form.username, email=signup_form.email, password=signup_form.password))
+    user_new = await create_user(db,
+                                 UserCreate(
+                                     username=signup_form.username,
+                                     email=signup_form.email,
+                                     password=signup_form.password
+                                 ))
     return create_access_token(
         sub=TokenData(
             purpose="login",
@@ -158,28 +162,28 @@ def login_otp(
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "OTP":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user = get_user(db, token_data.uuid)
-    if user.uuid != token_data.uuid:
+    db_user = get_user(db, token_data.uuid)
+    if db_user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if user.otp_method == "none":
+    if db_user.otp_method == "none":
         raise HTTPException(status_code=401, detail="OTP not enabled")
     if not validate_otp(
-        user_username=user.username,
-        user_otp_secret=user.otp_secret,
+        user_username=db_user.username,
+        user_otp_secret=db_user.otp_secret,
         otp=otp_code,
-        method=user.otp_method
+        method=db_user.otp_method
     ):
         raise HTTPException(status_code=401, detail="Invalid OTP code")
     return create_access_token(
         sub=TokenData(
             purpose="login",
-            uuid=user.uuid,
-            permission=user.permission
+            uuid=db_user.uuid,
+            permission=db_user.permission
         ))
 
 
 @router.get("/QR", response_class=Response)
-async def get_otp_qr(current_user: User_DB = Depends(get_current_user)):
+async def get_otp_qr(current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     Generate a QR code with the user's OTP URI and return it as an image.
 
@@ -194,7 +198,7 @@ async def get_otp_qr(current_user: User_DB = Depends(get_current_user)):
         An HTTP response with the QR code image.
     """
     uri, secret = await generate_otp(
-        current_user.uuid, current_user.username, current_user.otp_secret)
+        db, current_user.uuid, current_user.username, current_user.otp_secret)
     qr = qrcode.make(uri)
     img_io = BytesIO()
     qr.save(img_io, 'PNG')

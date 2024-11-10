@@ -1,11 +1,9 @@
 """This module contains functions for CRUD operations on external accounts."""
 from fastapi.exceptions import HTTPException
-from sqlalchemy import delete, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db_objects.db_models import ExternalAccount as ExternalAccount_DB
-from app.db_objects.db_models import users_external_accounts_links
 from app.templates.schemas.external_account import ExternalAccountBase
 
 
@@ -34,38 +32,28 @@ def create_external_account(db: Session, external_account: ExternalAccountBase) 
         db.add(db_external_account)
         db.commit()
         db.refresh(db_external_account)
-        # Link User to External Account
-        db.execute(
-            insert(users_external_accounts_links).values(
-                user_uuid=db_external_account.user_uuid,
-                external_account_id=db_external_account.external_account_id
-            )
-        )
-        db.commit()
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        raise e
     return db_external_account
 
 
 # ------- Read ------- #
 
 
-def get_external_account(db: Session, external_account_id: str) -> ExternalAccount_DB:
+def get_external_account(db: Session, external_account_id: str, raise_error: bool = True) -> ExternalAccount_DB:
     """
     Get an external account by its ID.
 
-    This function retrieves an external account from the database by its ID.
-
     :param Session db: The current database session.
     :param str external_account_id: The ID of the external account to get.
+    :param bool raise_error: Whether to raise an exception if the external account is not found.
     :return ExternalAccount_DB: The external account model object.
-    :raises HTTPException: If the external account is not found.
+    :raises HTTPException: If the external account is not found and `raise_error` is `True`.
     """
-
     db_external_account = db.query(ExternalAccount_DB).filter(
         ExternalAccount_DB.external_account_id == external_account_id).first()
-    if not db_external_account:
+    if not db_external_account and raise_error:
         raise HTTPException(
             status_code=404, detail="External account not found")
     return db_external_account
@@ -107,7 +95,9 @@ def get_external_accounts_list(db: Session, external_account_id_list: list[str])
     :param list[str] external_account_id_list: The IDs of the external accounts to get.
     :return list[ExternalAccount_DB]: A list of external account model objects.
     """
-    return db.query(ExternalAccount_DB).filter(ExternalAccount_DB.external_account_id.in_(external_account_id_list)).all()
+    return db.query(ExternalAccount_DB).filter(
+        ExternalAccount_DB.external_account_id.in_(external_account_id_list)
+    ).all()
 
 
 # ------- Update ------- #
@@ -144,7 +134,7 @@ def update_external_account(
         db.refresh(db_external_account)
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        raise e
     return db_external_account
 
 
@@ -164,11 +154,6 @@ def delete_external_account(db: Session, db_external_account: ExternalAccount_DB
         object to delete.
     :return bool: True if the operation is successful.
     """
-    db.execute(
-        delete(users_external_accounts_links).where(
-            users_external_accounts_links.c.external_account_id == db_external_account.user_uuid
-        )
-    )
     db.delete(db_external_account)
     db.commit()
     return True

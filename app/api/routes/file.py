@@ -1,4 +1,5 @@
 """This module contains the API endpoints related to the files (e.g. upload, download, delete, update)."""
+import os
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Query
@@ -6,7 +7,10 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
-from app.db_objects.file import create_file, delete_file, get_file, get_files, get_files_list, get_nb_files, update_file
+from app.db_objects.file import (
+    create_file, update_file, delete_file,
+    get_file, get_files, get_files_list, get_nb_files
+)
 from app.db_objects.user import get_current_user
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.file import FileCreate, FileRead, FileReadDB, FileUpdate
@@ -48,7 +52,7 @@ async def new_file(
         db,
         FileCreate(
             description=description,
-            file_name=file.filename,
+            file_name=os.path.join("files", file.filename),
             created_by=current_user.uuid
         ),
         file

@@ -1,4 +1,5 @@
 """This module contains functions for CRUD operations on files."""
+import os
 from fastapi import UploadFile
 from fastapi.exceptions import HTTPException
 from sqlalchemy import delete, insert, select
@@ -30,6 +31,7 @@ async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> Fi
     with open(new_file.file_path, "wb") as f:
         f.write(file.file.read())
     db_file = File_DB(**new_file.model_dump())
+    db_file.file_name = os.path.basename(new_file.file_name)
     try:
         db.add(db_file)
         db.commit()
@@ -44,24 +46,25 @@ async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> Fi
         db.commit()
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        raise e
     return db_file
 
 
 # ------- Read ------- #
 
 
-def get_file(db: Session, file_id: int) -> File_DB:
+def get_file(db: Session, file_id: int, raise_error: bool = True) -> File_DB:
     """
     Get a file by its ID.
 
     :param Session db: The database session.
     :param int file_id: The ID of the file to get.
+    :param bool raise_error: If True, raises an HTTPException if the file is not found.
     :return File_DB: The file object.
-    :raises HTTPException: If the file is not found.
+    :raises HTTPException: If the file is not found and `raise_error` is `True`.
     """
     db_file = db.query(File_DB).filter(File_DB.id == file_id).first()
-    if not db_file:
+    if not db_file and raise_error:
         raise HTTPException(status_code=404, detail="File not found")
     return db_file
 
@@ -125,7 +128,7 @@ def update_file(db: Session, db_file: File_DB, new_file: FileUpdate) -> File_DB:
         db.refresh(db_file)
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        raise e
     return db_file
 
 
@@ -144,7 +147,7 @@ def delete_file(db: Session, file: File_DB) -> bool:
     :param File_DB file: The file object to delete.
     :return bool: True if the operation was successful.
     """
-    
+
     db.execute(
         delete(users_files_links).where(
             users_files_links.c.file_id == file.id

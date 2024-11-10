@@ -21,7 +21,6 @@ from app.core.config import settings, logger
 engine = create_engine(url=settings.SQLALCHEMY_DATABASE_URI)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
 def get_db() -> Generator[Session, None, None]:
     """
     Generator to provide a database session to FastAPI requests.

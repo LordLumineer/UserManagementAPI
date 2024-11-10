@@ -109,8 +109,7 @@ class UserRead(UserReadDB):
         from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            db_user = get_user(db, self.uuid)
-            return db_user.external_accounts
+            return get_user(db, self.uuid, raise_error=False).external_accounts
         finally:
             db.close()
 
@@ -120,8 +119,7 @@ class UserRead(UserReadDB):
         from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
         db = next(get_db())
         try:
-            db_user = get_user(db, self.uuid)
-            return db_user.files
+            return get_user(db, self.uuid, raise_error=False).files
         finally:
             db.close()
 
@@ -155,7 +153,8 @@ class UserUpdate(UserBase):
     password: str | None = None
     # otp_method change done in a specific endpoint
     otp_method: Literal["none", "authenticator",
-                        "email"] | None = Field(default="none", exclude=True)
+                        "email"] | None = Field(default=None, exclude=True)
+    otp_secret: str | None = Field(default=None, exclude=True)
     permission: Literal["user", "manager", "admin"] | None = None
     is_external_only: bool | None = None
     isActive: bool | None = None

@@ -21,7 +21,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings, logger
-from app.core.db import get_db
 from app.core.email import send_otp_email
 from app.core.utils import generate_random_letters, validate_email
 
@@ -211,7 +210,12 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
         ) from e
 
 
-async def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str | None = None) -> list[str, str]:
+async def generate_otp(
+    db: Session,
+    user_uuid: str,
+    user_username: str,
+    user_otp_secret: str | None = None
+) -> list[str, str]:
     """
     Generate a new OTP URI and secret for a user.
 
@@ -224,21 +228,18 @@ async def generate_otp(user_uuid: str, user_username: str, user_otp_secret: str 
     """
     if not user_otp_secret or user_otp_secret == "changeme":
         from app.db_objects.db_models import User as User_DB  # pylint: disable=import-outside-toplevel
-        db = next(get_db())
+        user_otp_secret = generate_random_letters(
+            length=32, seed=user_uuid)
         try:
-            user_otp_secret = generate_random_letters(
-                length=32, seed=user_uuid)
-            try:
-                db_user = db.query(User_DB).filter(User_DB.uuid == user_uuid).first()
-                db_user.otp_secret = user_otp_secret
-                db.add(db_user)
-                db.commit()
-                db.refresh(db_user)
-            except IntegrityError as e:
-                db.rollback()
-                raise HTTPException(status_code=400, detail=str(e.orig)) from e
-        finally:
-            db.close()
+            user_db = db.query(User_DB).filter(
+                User_DB.uuid == user_uuid).first()
+            user_db.otp_secret = user_otp_secret
+            db.add(user_db)
+            db.commit()
+            db.refresh(user_db)
+        except IntegrityError as e:
+            db.rollback()
+            raise e
     totp = pyotp.TOTP(
         s=user_otp_secret,
         name=user_username,
@@ -311,41 +312,39 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
     # TODO: remove comments to force first login with email
     # if username in ["user", "manager", "admin"]:
     #     raise error_msg
-    try:
-        if username == "admin@example.com":
-            username = "admin"
-        email = validate_email(username)
-        user = get_user_by_email(db=db, email=email)
-        if not user.email_verified:
-            raise error_msg
-    except HTTPException as e:
-        if e.status_code != 404:
-            raise e
-        user = get_user_by_username(db=db, username=username)
-    if not user:
+    if username == "admin@example.com":
+        username = "admin"
+    email = validate_email(username)
+    db_user = get_user_by_email(db=db, email=email, raise_error=False)
+    if db_user and not db_user.is_active:
         raise error_msg
-    if not user.is_active:
+    if not db_user:
+        db_user = get_user_by_username(
+            db=db, username=username, raise_error=False)
+    if not db_user:
+        raise error_msg
+    if not db_user.is_active:
         raise HTTPException(
             status_code=400, detail=f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.")
-    if verify_password(password, user.hashed_password):
-        if user.otp_method == "none":
-            return user
+    if verify_password(password, db_user.hashed_password):
+        if db_user.otp_method == "none":
+            return db_user
 
-        if not user.otp_secret:
-            logger.debug("Generating OTP for user %s", user.username)
-            otp_secret = (await generate_otp(user_uuid=user.uuid, user_username=user.username))[1]
+        if not db_user.otp_secret:
+            logger.debug("Generating OTP for user %s", db_user.username)
+            otp_secret = (await generate_otp(db, user_uuid=db_user.uuid, user_username=db_user.username))[1]
         else:
-            otp_secret = user.otp_secret
-        if user.otp_method == "email":
+            otp_secret = db_user.otp_secret
+        if db_user.otp_method == "email":
             totp = pyotp.TOTP(
                 s=otp_secret,
-                name=user.username,
+                name=db_user.username,
                 interval=settings.OTP_EMAIL_INTERVAL,
                 issuer=settings.PROJECT_NAME,
                 digits=settings.OTP_LENGTH
             )
             await send_otp_email(
-                recipient=user.email,
+                recipient=db_user.email,
                 otp_code=totp.now(),
                 request=request
             )
@@ -353,13 +352,13 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         otp_request_token = create_access_token(
             sub=TokenData(
                 purpose="OTP",
-                uuid=user.uuid
+                uuid=db_user.uuid
             ))
         raise HTTPException(
             status_code=401,
             detail=jsonable_encoder({
                 "message": "Please enter OTP",
-                "method": user.otp_method,
+                "method": db_user.otp_method,
                 "token": str(otp_request_token)
             }),
         )

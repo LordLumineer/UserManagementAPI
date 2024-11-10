@@ -1,3 +1,10 @@
+"""
+This module contains the functions to interact with the users table in the database.
+
+It provides functions to create, read, update and delete users, as well as functions to
+get the users associated with a file and to get the files associated with a user.
+"""
+
 import os
 import time
 from fastapi import Depends, HTTPException
@@ -8,15 +15,13 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import logger
 from app.core.db import get_db
 from app.core.email import send_validation_email
-from app.db_objects.external_account import delete_external_account
-from app.db_objects.file import delete_file, get_file_users
-from app.db_objects.oauth import delete_oauth_token
+from app.db_objects.file import delete_file, get_file, get_file_users
 from app.core.security import (
     TokenData, create_access_token, decode_access_token,
     generate_otp, hash_password, oauth2_scheme
 )
 from app.db_objects.db_models import User as User_DB
-from app.db_objects.db_models import users_files_links, users_external_accounts_links, users_oauth_tokens_links
+from app.db_objects.db_models import users_files_links
 from app.templates.schemas.user import UserCreate, UserUpdate
 
 
@@ -30,7 +35,8 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
     """
     Create a new user.
 
-    If a user with the same email already exists and is external only, then update that user with the provided password and set is_external_only to False.
+    If a user with the same email already exists and is external only, 
+    then update that user with the provided password and set is_external_only to False.
 
     :param Session db: The current database session.
     :param UserCreate user: The user to create.
@@ -42,27 +48,39 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        os.makedirs(os.path.join("..", "data", "files", db_user.uuid), exist_ok=True)
+        os.makedirs(os.path.join("..", "data", "files",
+                    "users", db_user.uuid), exist_ok=True)
     except IntegrityError as e:
         db.rollback()
-        # Check if the email is already taken, if so, and the user is external only then update
+        # Link New Local User and External User
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
             existing_user = get_user_by_email(db, user.email)
-            if not existing_user.is_external_only:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Email already taken"
-                ) from e
-            db_user = await update_user(
-                db,
-                existing_user,
-                UserUpdate(
-                    email=user.email,
-                    password=user.password,
-                    is_external_only=False
+            if existing_user.is_external_only:
+                db_user = await update_user(
+                    db,
+                    existing_user,
+                    UserUpdate(
+                        email=user.email,
+                        password=user.password,
+                        is_external_only=False
+                    )
                 )
-            )
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+            else:
+                raise e
+        if not (str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email')):
+            raise e
+        existing_user = get_user_by_email(db, user.email)
+        if not existing_user.is_external_only:
+            raise e
+        # db_user = await update_user(
+        #     db,
+        #     existing_user,
+        #     UserUpdate(
+        #         email=user.email,
+        #         password=user.password,
+        #         is_external_only=False
+        #     )
+        # )
     email_token = create_access_token(
         sub=TokenData(
             purpose="email-verification",
@@ -76,17 +94,18 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
 # ------- Read ------- #
 
 
-def get_user(db: Session, uuid: str) -> User_DB:
+def get_user(db: Session, uuid: str, raise_error: bool = True) -> User_DB:
     """
-    Get a user by its UUID.
+    Retrieve a user by their UUID.
 
     :param Session db: The current database session.
-    :param str uuid: The UUID of the user to get.
-    :return User_DB: The user model object.
-    :raises HTTPException: If the user is not found.
+    :param str uuid: The UUID of the user to retrieve.
+    :param bool raise_error: Whether to raise an HTTPException if the user is not found (default is True).
+    :return User_DB: The user model object if found, else None if raise_error is False.
+    :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
     db_user = db.query(User_DB).filter(User_DB.uuid == uuid).first()
-    if not db_user:
+    if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
@@ -127,34 +146,35 @@ def get_users_list(db: Session, id_list: list[str]) -> list[User_DB]:
 # ** Specific User (Username, Email) ** #
 
 
-def get_user_by_username(db: Session, username: str) -> User_DB:
+def get_user_by_username(db: Session, username: str, raise_error: bool = True) -> User_DB:
     """
-    Get a user by its username.
+    Retrieve a user by their username.
 
     :param Session db: The current database session.
-    :param str username: The username of the user to get.
-    :return User_DB: The user model object.
-    :raises HTTPException: If the user is not found.
+    :param str username: The username of the user to retrieve.
+    :param bool raise_error: Whether to raise an HTTPException if the user is not found (default is True).
+    :return User_DB: The user model object if found, else None if raise_error is False.
+    :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
     db_user = db.query(User_DB).filter(
         User_DB.username == username).first()
-    if not db_user:
+    if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
 
-def get_user_by_email(db: Session, email: str) -> User_DB:
+def get_user_by_email(db: Session, email: str, raise_error: bool = True) -> User_DB:
     """
-    Get a user by its email.
+    Retrieve a user by their email.
 
     :param Session db: The current database session.
-    :param str email: The email of the user to get.
-    :return User_DB: The user model object.
-    :raises HTTPException: If the user is not found.
+    :param str email: The email of the user to retrieve.
+    :param bool raise_error: Whether to raise an HTTPException if the user is not found (default is True).
+    :return User_DB: The user model object if found, else None if raise_error is False.
+    :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
-
     db_user = db.query(User_DB).filter(User_DB.email == email).first()
-    if not db_user:
+    if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
@@ -181,6 +201,7 @@ async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_D
     # (triggered when the email is updated at first login)
     if db_user.email == "admin@example.com":
         await generate_otp(
+            db,
             user_uuid=db_user.uuid,
             user_username=db_user.username,
             user_otp_secret=db_user.otp_secret
@@ -202,8 +223,7 @@ async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_D
         db.refresh(db_user)
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
-
+        raise e
     # Send email verification if the email has changed
     if email_to_verify:
         email_token = create_access_token(
@@ -231,33 +251,25 @@ def delete_user(db: Session, user: User_DB) -> bool:
     :param User_DB user: The user model object to delete.
     :return bool: True if the operation is successful.
     """
+    # Dlete User's Profile Picture
+    if user.profile_picture_id:
+        delete_file(db, get_file(db, user.profile_picture_id))
     # Delete the user's files
-    db.execute(
-        delete(users_files_links).where(
-            users_files_links.c.user_uuid == user.uuid)
-    )
     for file in user.files:
+        db.execute(
+            delete(users_files_links).where(
+                users_files_links.c.user_uuid == user.uuid,
+                users_files_links.c.file_id == file.id
+            )
+        )
         # NOTE: Add to the if condition for other tables to check
         if get_file_users(db, file):
             continue
         delete_file(db, file)
-    # Delete the user's OAuth tokens
-    db.execute(
-        delete(users_oauth_tokens_links).where(
-            users_oauth_tokens_links.c.user_uuid == user.uuid)
-    )
-    for oauth_token in user.oauth_tokens:
-        delete_oauth_token(db, oauth_token)
-    # Delete the user's External Accounts
-    db.execute(
-        delete(users_external_accounts_links).where(
-            users_external_accounts_links.c.user_uuid == user.uuid)
-    )
-    for external_account in user.external_accounts:
-        delete_external_account(db, external_account)
     # Delete the user
     db.delete(user)
     db.commit()
+    os.rmdir(os.path.join("..", "data", "files", "users", user.uuid))
     return True
 
 
@@ -279,8 +291,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User_DB:
         user = get_user(db, token_data.uuid)
         if user.permission != token_data.permission:
             raise HTTPException(status_code=401, detail="Unauthorized")
-    except HTTPException as e:
-        raise e
     finally:
         db.close()
     return user
@@ -322,6 +332,8 @@ def init_default_user() -> None:
             db.add(default_user)
             db.commit()
             db.refresh(default_user)
+            os.makedirs(os.path.join("..", "data", "files",
+                        "users", default_user.uuid), exist_ok=True)
             logger.critical(
                 "\nDefault user created:\n\n"
                 "    Username: %s\n"
@@ -334,6 +346,7 @@ def init_default_user() -> None:
                 default_user.permission,
             )
     except IntegrityError as e:
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        db.rollback()
+        logger.error("Failed to create default user: %s", e.orig)
     finally:
         db.close()

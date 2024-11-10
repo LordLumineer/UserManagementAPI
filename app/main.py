@@ -11,12 +11,14 @@ for creating the FastAPI application and setting up the routes and middleware.
 from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import DebugUndefined, Template
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.exc import IntegrityError
 
 
 from app.api.router import api_router, tags_metadata
@@ -39,7 +41,8 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
     logger.info("Starting up...")
     # Create folders
     logger.info("Creating folders...")
-    os.makedirs(os.path.join("..", "data", "files"), exist_ok=True)
+    os.makedirs(os.path.join("..", "data", "files", "users"), exist_ok=True)
+    os.makedirs(os.path.join("..", "data", "files", "files"), exist_ok=True)
     # Database
     logger.info("Creating or Loading the database tables...")
     Base.metadata.create_all(bind=database.engine)
@@ -101,16 +104,24 @@ app.add_middleware(
 
 # ----- Exceptions Handler ----- #
 
+
+@app.exception_handler(IntegrityError)
+def _catch_integrity_error(request: Request, exc: IntegrityError):
+    # TODO: Handle IntegrityError and pretty-up the error message
+
+    raise HTTPException(status_code=400, detail=str(exc.orig))
+
+
 @app.exception_handler(Exception)
-def _debug_exception_handler(request: Request, exc: Exception):
-    logger.error(exc)
-    return JSONResponse(
-        content={
+def _debug_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
+    logger.critical(exc)
+    raise HTTPException(
+        status_code=500,
+        detail=jsonable_encoder({
             "error": str(exc),
             "support": f"{settings.FRONTEND_URL}/support",
             "contact": settings.CONTACT_EMAIL
-        },
-        status_code=500
+        })
     )
 
 

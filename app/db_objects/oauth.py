@@ -1,12 +1,10 @@
 """This module contains functions for CRUD operations on OAuth tokens from external services."""
 from fastapi.exceptions import HTTPException
-from sqlalchemy import delete, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import logger
 from app.core.db import get_db
-from app.db_objects.db_models import users_oauth_tokens_links
 from app.db_objects.db_models import OAuthToken as OAuthToken_DB
 from app.templates.schemas.oauth import OAuthTokenBase
 
@@ -35,38 +33,31 @@ def create_oauth_token(db: Session, token: OAuthTokenBase) -> OAuthToken_DB:
         db.add(db_token)
         db.commit()
         db.refresh(db_token)
-        # Link User to External Account
-        db.execute(
-            insert(users_oauth_tokens_links).values(
-                user_uuid=db_token.user_uuid,
-                oauth_token_id=db_token.id
-            )
-        )
-        db.commit()
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        raise e
     return db_token
 
 
 # ------- Read ------- #
 
 
-def get_oauth_token(db: Session, name: str, user_uuid: str) -> OAuthToken_DB:
+def get_oauth_token(db: Session, name: str, user_uuid: str, raise_error: bool = True) -> OAuthToken_DB:
     """
-    Get an OAuth token by its name and associated user UUID.
+    Get an OAuth token by name for a user.
 
     :param Session db: The current database session.
-    :param str name: The name of the OAuth client.
-    :param str user_uuid: The UUID of the user associated with the OAuth token.
-    :return OAuthToken_DB: The OAuth token model object.
-    :raises HTTPException: If the token is not found.
+    :param str name: The name of the OAuth token to retrieve.
+    :param str user_uuid: The UUID of the user owning the OAuth token.
+    :param bool raise_error: Whether to raise an error if the token is not found (default: True).
+    :return OAuthToken_DB: The retrieved OAuth token model object.
+    :raises HTTPException: If the token is not found and `raise_error` is `True`.
     """
     db_token = db.query(OAuthToken_DB).filter(
         OAuthToken_DB.name == name,
         OAuthToken_DB.user_uuid == user_uuid
     ).first()
-    if not db_token:
+    if not db_token and raise_error:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
 
@@ -97,7 +88,7 @@ def update_oauth_token(db: Session, db_token: OAuthToken_DB, token: OAuthTokenBa
         db.refresh(db_token)
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e.orig)) from e
+        raise e
     return db_token
 
 
@@ -116,11 +107,6 @@ def delete_oauth_token(db: Session, oauth_token: OAuthToken_DB) -> bool:
     :param OAuthToken_DB oauth_token: The OAuth token model object to delete.
     :return bool: True if the operation is successful.
     """
-    db.execute(
-        delete(users_oauth_tokens_links).where(
-            users_oauth_tokens_links.c.oauth_token_id == oauth_token.id
-        )
-    )
     db.delete(oauth_token)
     db.commit()
     return True
@@ -193,6 +179,6 @@ def update_token(name, token, refresh_token=None, access_token=None):
             db.refresh(item)
         except IntegrityError as e:
             db.rollback()
-            raise HTTPException(status_code=400, detail=str(e.orig)) from e
+            raise e
     finally:
         db.close()
