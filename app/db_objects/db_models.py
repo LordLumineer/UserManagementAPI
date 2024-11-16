@@ -33,7 +33,7 @@ class OAuthToken(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     oauth_version: Mapped[str] = mapped_column(String(1))
-    name: Mapped[str] = mapped_column(String(40))
+    provider: Mapped[str] = mapped_column(String(40))
     # OAuth1
     oauth_token: Mapped[str | None]
     oauth_token_secret: Mapped[str | None]
@@ -51,8 +51,12 @@ class ExternalAccount(Base):
     """External Accounts model."""
     __tablename__ = "external_accounts"
 
-    external_account_id: Mapped[str] = mapped_column(String, primary_key=True)
     provider: Mapped[str]
+    external_account_id: Mapped[str] = mapped_column(String, primary_key=True)
+    username: Mapped[str | None]
+    display_name: Mapped[str | None]
+    email: Mapped[str | None]
+    picture_url: Mapped[str | None]
 
     # Foreign keys
     user_uuid: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
@@ -119,6 +123,7 @@ class User(Base):
         Boolean,
         default=True
     )
+    deactivated_reason: Mapped[str | None]
 
     # Foreign keys
     profile_picture_id: Mapped[str | None] = mapped_column(

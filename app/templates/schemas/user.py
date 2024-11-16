@@ -49,6 +49,7 @@ class UserBase(BaseModel):
     is_active: bool = Field(
         default=True
     )
+    deactivated_reason: str | None = None
 
     @field_validator("username")
     @classmethod
@@ -152,9 +153,9 @@ class UserUpdate(UserBase):
     email_verified: bool | None = None
     password: str | None = None
     # otp_method change done in a specific endpoint
-    otp_method: Literal["none", "authenticator",
-                        "email"] | None = Field(default=None, exclude=True)
-    otp_secret: str | None = Field(default=None, exclude=True)
+    # otp_method: Literal["none", "authenticator",
+    #                     "email"] | None = Field(default=None, exclude=True)
+    # otp_secret: str | None = Field(default=None, exclude=True)
     permission: Literal["user", "manager", "admin"] | None = None
     is_external_only: bool | None = None
     isActive: bool | None = None

@@ -13,11 +13,10 @@ from email.mime.text import MIMEText
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse
-from jinja2 import DebugUndefined, Template
 from mailjet_rest import Client
 
 from app.core.config import settings, logger
-from app.core.utils import get_info_from_request
+from app.core.utils import get_info_from_request, render_html_template
 
 
 async def send_mj_email(recipients: list[str] | str, subject: str, html_content: str):
@@ -122,20 +121,7 @@ async def send_email(recipients: list[str], subject: str, html_content: str):
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
-    context = {
-        # TODO: UPDATE CONTEXT
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
-        "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
-        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
-        "LOGO_URL": "https://picsum.photos/600/300",
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-    }
-    html_content = Template(html_content).render(context)
+    html_content = render_html_template(html_content)
 
     match settings.EMAIL_METHOD:
         case "smtp":
@@ -161,12 +147,12 @@ async def send_test_email(recipient: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open("./templates/html/test_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/send-test-email/test/todo",
         "PARAMS": "?test=123456789&token=123456789"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     logger.debug("Testing Email to %s", recipient)
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Test Email", html)
 
@@ -181,12 +167,12 @@ async def send_validation_email(recipient: str, token_str: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open("./templates/html/validate_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/auth/email/verify",
         "PARAMS": f"?token={token_str}"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     logger.debug("Sending Validation Email: %s", recipient)
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Activate your account", html)
 
@@ -205,7 +191,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     """
     location, device, browser, ip_address = get_info_from_request(request)
     with open("./templates/html/otp_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     expiration_date = datetime.now(
         timezone.utc) + timedelta(seconds=settings.OTP_EMAIL_INTERVAL)
     context = {
@@ -217,7 +203,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
         "EXPIRATION_DATE": expiration_date.strftime("%B %d, %Y %H:%M:%S %Z"),
         "RESET_PASSWORD_URL": f"{settings.FRONTEND_URL}/reset-password"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     logger.debug("Sending One-Time Password Email: %s", recipient)
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
@@ -232,11 +218,11 @@ async def send_reset_password_email(recipient: str, token_str: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open("./templates/html/reset_password_email.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/reset-password",
         "PARAMS": f"?token={token_str}"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     logger.debug("Sending Reset Password Email: %s", recipient)
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Reset your password", html)

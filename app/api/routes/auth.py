@@ -6,6 +6,7 @@ the routes for logging in and out, as well as the routes for generating
 and verifying the One-Time-Password (OTP) QR code.
 """
 from io import BytesIO
+from typing import Literal
 from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, Form, Header, Query
@@ -13,6 +14,7 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 import qrcode
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -29,7 +31,7 @@ from app.core.security import (
 )
 from app.core.utils import validate_password
 from app.db_objects.db_models import User as User_DB
-from app.templates.schemas.user import UserCreate, UserUpdate
+from app.templates.schemas.user import UserCreate, UserRead, UserUpdate
 
 
 router = APIRouter()
@@ -180,6 +182,57 @@ def login_otp(
             uuid=db_user.uuid,
             permission=db_user.permission
         ))
+
+
+@router.patch("/OTP/{method}", response_model=UserRead)
+def change_otp_method(
+    method: Literal['authenticator', 'email', 'none'],
+    otp_code: str | int = Query(...),
+    current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """
+    Change the OTP method for the current user.
+
+    Parameters
+    ----------
+    method : Literal['authenticator', 'email', 'none']
+        The new OTP method to set for the user.
+    otp_code : str | int
+        The OTP code to validate the change.
+    current_user : User_DB
+        The current user object.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    UserRead
+        The updated user object with the new OTP method.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the OTP code is invalid.
+    IntegrityError
+        If there is an error during the database transaction.
+    """
+    current_user.otp_method = method
+    if method != "none":
+        if not validate_otp(
+            user_username=current_user.username,
+            user_otp_secret=current_user.otp_secret,
+            otp=otp_code,
+            method=method
+        ):
+            raise HTTPException(status_code=401, detail="Invalid OTP code")
+    try:
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
+    except IntegrityError as e:
+        db.rollback()
+        raise e
+    return current_user
 
 
 @router.get("/QR", response_class=Response)

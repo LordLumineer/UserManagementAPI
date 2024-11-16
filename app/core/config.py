@@ -1,19 +1,28 @@
 """This module contains the settings for the application. It also sets up the logger."""
 import logging
+import os
+import platform
+import time
 from typing import Literal, Self
+from colorama import Fore
 from pydantic import Field, PostgresDsn, model_validator, computed_field
-from pydantic_core import MultiHostUrl
+# from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
+from uvicorn.logging import ColourizedFormatter
 
-
-logger = logging.getLogger("uvicorn")
-if not logger:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(levelname)s:     %(message)s",
-        handlers=[logging.StreamHandler()]  # Output to stdout
-    )
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.access")
+for handler in logger.handlers:
+    handler.setFormatter(ColourizedFormatter(
+        fmt=(
+            f"{Fore.LIGHTBLACK_EX}%(asctime)s GMT | {Fore.RESET}"
+            f"%(levelprefix)-8s %(message)s"
+        ),
+        datefmt="%Y/%m/%d %H:%M:%S",
+        style="%",
+        use_colors=True
+    ))
+    handler.formatter.converter = time.gmtime
 
 
 class _Settings(BaseSettings):
@@ -78,6 +87,65 @@ class _Settings(BaseSettings):
     # API_CLIENT_ID_MICROSOFT: str | None = None
     # API_CLIENT_SECRET_MICROSOFT: str | None = None
 
+    def _detect_docker(self):
+        if os.path.exists('/.dockerenv'):
+            return True
+        try:
+            with open('/proc/self/cgroup', 'r', encoding='utf-8') as f:
+                if 'docker' in f.read():
+                    return True
+        except FileNotFoundError:
+            pass
+        return False
+
+    @computed_field
+    def MACHINE(self) -> dict:  # pylint: disable=C0103
+        """The machine the application is running on."""
+        machine = {
+            "platform": platform.platform(),
+            "system": platform.system(),
+            "version": platform.version(),
+            "release": platform.release(),
+            "architecture": platform.machine(),
+            "processor": platform.processor(),
+            "cpu_count": os.cpu_count(),
+            "python_version": platform.python_version(),
+            "is_docker": self._detect_docker()
+        }
+        match machine["system"]:
+            # case "Java":
+            #     machine["details"] = {
+            #         "java_ver": platform.java_ver()
+            #     }
+            case "Windows":
+                machine["details"] = {
+                    "win32_ver": platform.win32_ver(),
+                    "win32_is_iot": platform.win32_is_iot(),
+                    "win32_edition": platform.win32_edition(),
+                }
+            case "Linux":
+                machine["details"] = {
+                    "freedesktop_os_release": platform.freedesktop_os_release()
+                }
+            case "Darwin":
+                machine["details"] = {
+                    "mac_ver": platform.mac_ver()
+                }
+            case "iOS" | "iPadOS":
+                machine["details"] = {
+                    "ios_ver": platform.ios_ver()  # pylint: disable=E1101
+                }
+            case "Android":
+                machine["details"] = {
+                    "android_ver": platform.android_ver()  # pylint: disable=E1101
+                }
+            case _:
+                machine["details"] = {
+                    "platform": "Unknown OS",
+                    "libc_ver": platform.libc_ver()
+                }
+        return machine
+
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:  # pylint: disable=C0103
         """
@@ -86,14 +154,22 @@ class _Settings(BaseSettings):
         """
         if not (self.POSTGRES_SERVER and self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB):
             return self.DATABASE_URI
-        return MultiHostUrl.build(
-            scheme="postgresql",
+        return URL.create(
+            "postgresql+pg8000",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
             host=self.POSTGRES_SERVER,
             port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
+            database=self.POSTGRES_DB,
         )
+        # return MultiHostUrl.build(
+        #         scheme="postgresql",
+        #         username=self.POSTGRES_USER,
+        #         password=self.POSTGRES_PASSWORD,
+        #         host=self.POSTGRES_SERVER,
+        #         port=self.POSTGRES_PORT,
+        #         path=self.POSTGRES_DB,
+        #     )
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

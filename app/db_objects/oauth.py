@@ -42,19 +42,19 @@ def create_oauth_token(db: Session, token: OAuthTokenBase) -> OAuthToken_DB:
 # ------- Read ------- #
 
 
-def get_oauth_token(db: Session, name: str, user_uuid: str, raise_error: bool = True) -> OAuthToken_DB:
+def get_oauth_token(db: Session, provider: str, user_uuid: str, raise_error: bool = True) -> OAuthToken_DB:
     """
-    Get an OAuth token by name for a user.
+    Get an OAuth token by provider name for a user.
 
     :param Session db: The current database session.
-    :param str name: The name of the OAuth token to retrieve.
+    :param str provider: The name of the provider of the OAuth token to retrieve.
     :param str user_uuid: The UUID of the user owning the OAuth token.
     :param bool raise_error: Whether to raise an error if the token is not found (default: True).
     :return OAuthToken_DB: The retrieved OAuth token model object.
     :raises HTTPException: If the token is not found and `raise_error` is `True`.
     """
     db_token = db.query(OAuthToken_DB).filter(
-        OAuthToken_DB.name == name,
+        OAuthToken_DB.provider == provider,
         OAuthToken_DB.user_uuid == user_uuid
     ).first()
     if not db_token and raise_error:
@@ -115,21 +115,21 @@ def delete_oauth_token(db: Session, oauth_token: OAuthToken_DB) -> bool:
 # ----- authlib OAuth client functions ----- #
 
 
-def fetch_token(name, request) -> dict:
+def fetch_token(provider, request) -> dict:
     """
     Fetch an OAuth token from the database.
 
     This function is used by authlib as the fetch_token function
     for the OAuth client.
 
-    :param name: The name of the OAuth client
+    :param provider: The name of the provider of the OAuth client
     :param request: The request object
     :return: The OAuth token as a dictionary
     """
     db = next(get_db())
     try:
         item = db.query(OAuthToken_DB).filter(
-            OAuthToken_DB.name == name,
+            OAuthToken_DB.provider == provider,
             OAuthToken_DB.user_uuid == request.session.get("user_uuid")
         ).first()
         if not item:
@@ -140,30 +140,30 @@ def fetch_token(name, request) -> dict:
     return token.to_token()
 
 
-def update_token(name, token, refresh_token=None, access_token=None):
+def update_token(provider, token, refresh_token=None, access_token=None):
     """
     Update an OAuth token in the database.
 
     This function is used by authlib as the update_token function
     for the OAuth client.
 
-    :param name: The name of the OAuth client
+    :param provider: The provider name of the OAuth client
     :param token: The new OAuth token
     :param refresh_token: The refresh token to update
     :param access_token: The access token to update
     :return: None
     """
-    logger.debug("Updating token: %s", name)
+    logger.debug("Updating token: %s", provider)
     db = next(get_db())
     try:
         if refresh_token:
             item = db.query(OAuthToken_DB).filter(
-                OAuthToken_DB.name == name,
+                OAuthToken_DB.provider == provider,
                 OAuthToken_DB.refresh_token == refresh_token
             ).first()
         elif access_token:
             item = db.query(OAuthToken_DB).filter(
-                OAuthToken_DB.name == name,
+                OAuthToken_DB.provider == provider,
                 OAuthToken_DB.access_token == access_token
             ).first()
         else:

@@ -177,7 +177,7 @@ async def otp_email(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if current_user.permission != "admin":
+    if current_user.permission != "admin" and current_user.email != recipient:
         raise HTTPException(status_code=401, detail="Unauthorized")
     totp = pyotp.TOTP(
         s=current_user.otp_secret,

@@ -14,10 +14,13 @@ from app.api.routes import (
     email,
     file,
     user,
+    admin,
+    provider_router
 )
 
 
 api_router = APIRouter()
+api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
 # Important
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(oauth.router, prefix="/oauth", tags=["OAuth2"])
@@ -28,6 +31,8 @@ api_router.include_router(file.router, prefix="/file", tags=["File"])
 # Management
 api_router.include_router(db.router, prefix="/db", tags=["Database"])
 api_router.include_router(email.router, prefix="/email", tags=["Email"])
+
+api_router.include_router(provider_router.router, prefix="/providers", tags=["Providers"])
 
 tags_metadata = [
     {
@@ -48,5 +53,9 @@ tags_metadata = [
     }, {
         "name": "Email",
         "description": "The **Email** logic is implemented here. It is only accessible to admins.",
+    }, {
+        "name": "Admin",
+        "description": "The **Admin** Control Panel is implemented here. It is only accessible to admins.",
     }
 ]
+tags_metadata.extend(provider_router.tags_metadata)

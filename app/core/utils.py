@@ -5,6 +5,7 @@ from a FastAPI Request object, a function to generate a profile picture from a s
 functions to get information about a request, and a function to convert a FastAPI
 route to a URL.
 """
+from datetime import datetime, timezone
 from io import BytesIO
 import os
 import time
@@ -46,7 +47,7 @@ def validate_username(username: str) -> str:
     )
 
 
-def validate_email(email: str) -> str:
+def validate_email(email: str, raise_error: bool = True) -> str:
     """
     Validates the provided email address.
 
@@ -59,6 +60,9 @@ def validate_email(email: str) -> str:
             return email
         email_info = email_validation(email, check_deliverability=True)
     except EmailNotValidError as e:
+        if not raise_error:
+            logger.debug("Invalid email format: %s", email)
+            return False
         if settings.ENVIRONMENT == "local":
             logger.warning("Invalid email format: %s", email)
             return email
@@ -86,6 +90,7 @@ def validate_password(password: str) -> str:
         detail="Password must be at least 10 characters long, contain at least one uppercase letter, \
             one lowercase letter, one number, and one special character (@$!%*#?&)."
     )
+
 
 # ----- GENERATORS ----- #
 
@@ -205,6 +210,31 @@ def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 
 
+def render_html_template(html_content: str, context: dict = None) -> str:
+    """
+    Renders an HTML template with the given content and context.
+
+    :param str html_content: The HTML content to be rendered.
+    :param dict context: A dictionary of context variables to be used in rendering the template.
+    :return str: The rendered HTML as a string.
+    """
+    base_context = {
+        "PROJECT_NAME": settings.PROJECT_NAME,
+        "FRONTEND_URL": settings.FRONTEND_URL,
+        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
+        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+        "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
+        "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
+        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
+        "LOGO_URL": "https://picsum.photos/600/300",
+        "BASE_URL": settings.BASE_URL,
+        "API_STR": settings.API_STR,
+    }
+    base_context.update(context or {})
+    return Template(
+        html_content, undefined=DebugUndefined).render(base_context)
+
+
 # ----- UTILS ----- #
 
 
@@ -215,11 +245,8 @@ def not_found_page() -> Response:
     :return Response: The 404 response.
     """
     with open("./templates/html/404.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
-    context = {
-        "FRONTEND_URL": settings.FRONTEND_URL,
-    }
-    html = template.render(context)
+        html_content = f.read()
+    html = render_html_template(html_content)
     return HTMLResponse(content=html, status_code=404)
 
 
@@ -231,6 +258,7 @@ def remove_file(file_path: str):
     """
     if os.path.exists(file_path):
         os.remove(file_path)
+
 
 # ----- REQUEST ----- #
 

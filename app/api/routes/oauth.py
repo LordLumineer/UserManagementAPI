@@ -5,7 +5,7 @@ Logging, Signing up, and linking third-party accounts.
 from io import BytesIO
 import os
 from authlib.integrations.starlette_client import OAuthError
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Response, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends
 from fastapi.responses import HTMLResponse
@@ -22,13 +22,13 @@ from app.core.oauth import (
 from app.core.security import TokenData, create_access_token
 from app.db_objects.file import create_file
 from app.db_objects.oauth import (
-    create_oauth_token, get_oauth_token, update_oauth_token
+    create_oauth_token, delete_oauth_token, get_oauth_token, update_oauth_token
 )
 from app.db_objects.user import (
-    get_current_user, get_user, get_user_by_email,
+    delete_user, get_current_user, get_user, get_user_by_email,
     update_user
 )
-from app.db_objects.external_account import get_external_account, create_external_account
+from app.db_objects.external_account import delete_external_account, get_external_account, create_external_account
 from app.db_objects.file import link_file_user
 from app.templates.schemas.file import FileCreate
 from app.templates.schemas.oauth import OAuthTokenBase
@@ -131,7 +131,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
 
     # Link External Account to Logged In User
     if is_link:
-        if get_external_account(db, user_info["id"]):
+        if get_external_account(db, provider, user_info["id"]):
             raise HTTPException(
                 status_code=409,
                 detail=f"This {
@@ -144,19 +144,37 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
             external_account=ExternalAccountBase(
                 external_account_id=user_info["id"],
                 provider=provider,
-                user_uuid=db_user.uuid
+                user_uuid=db_user.uuid,
+                username=user_info["username"],
+                display_name=user_info["display_name"],
+                email=user_info["emails"][0],
+                picture_url=user_info["picture_url"]
             )
         )
 
     # Connect / Sign Up from External Account
     else:
-        external_account = get_external_account(db, user_info["id"], raise_error=False)
+        external_account = get_external_account(
+            db, provider, user_info["id"], raise_error=False)
         if external_account:
             db_user = get_user(db, external_account.user_uuid)
         else:
             for email in user_info["emails"]:
                 db_user = get_user_by_email(db, email, raise_error=False)
                 if db_user:
+                    # Create Third Party Account
+                    create_external_account(
+                        db,
+                        external_account=ExternalAccountBase(
+                            external_account_id=user_info["id"],
+                            provider=provider,
+                            user_uuid=db_user.uuid,
+                            username=user_info["username"],
+                            display_name=user_info["display_name"],
+                            email=user_info["emails"][0],
+                            picture_url=user_info["picture_url"]
+                        )
+                    )
                     break
             if not db_user:
                 # Create local user
@@ -166,7 +184,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     new_user=User_DB(
                         username=user_info["username"],
                         display_name=user_info["display_name"],
-                        email=user_info["email"],
+                        email=user_info["emails"][0],
                         hashed_password="ThirdPartyOnlyAcc",
                         is_external_only=True
                     )
@@ -199,10 +217,13 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     external_account=ExternalAccountBase(
                         external_account_id=user_info["id"],
                         provider=provider,
-                        user_uuid=db_user.uuid
+                        user_uuid=db_user.uuid,
+                        username=user_info["username"],
+                        display_name=user_info["display_name"],
+                        email=user_info["emails"][0],
+                        picture_url=user_info["picture_url"]
                     )
                 )
-
     # Save Token | Response
     request.session.update({"user_uuid": db_user.uuid})
     oauth_version = type(provider_client).__name__.replace(
@@ -211,7 +232,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     if oauth_version == "1":
         oauth_token = OAuthTokenBase(
             oauth_version=oauth_version,
-            name=provider,
+            provider=provider,
             oauth_token=token["token"],
             oauth_token_secret=token["token_secret"],
             user_uuid=db_user.uuid
@@ -219,7 +240,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     else:
         oauth_token = OAuthTokenBase(
             oauth_version=oauth_version,
-            name=provider,
+            provider=provider,
             token_type=token["token_type"],
             access_token=token["access_token"],
             refresh_token=token["refresh_token"],
@@ -254,35 +275,74 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
     )
 
 
-# # TODO: Revoke/Unlink
+@router.post("/{provider}/revoke")
+@router.post("/{provider}/unlink")
+async def oauth_revoke(
+    provider: str,
+    request: Request,
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Revoke the OAuth token for the given provider and delete the associated
+    external account.
 
+    This endpoint is used to delete the OAuth token for a given provider and
+    to delete the associated external account. If the user is external only and
+    no longer has any external accounts linked, the user is deleted.
 
-# @router.post("/{provider}/revoke")
-# async def oauth_revoke(
-#     provider: str,
-#     request: Request,
-#     current_user: User_DB = Depends(get_current_user),
-#     db: Session = Depends(get_db)
-# ):
-#     if provider not in oauth_clients_names:
-#         raise HTTPException(status_code=404, detail="Unsupported provider")
-#     provider_client = oauth.create_client(provider)
+    Parameters
+    ----------
+    provider : str
+        The OAuth provider to revoke the token for.
+    request : Request
+        The request object.
+    current_user : User_DB
+        The current user object.
+    db : Session
+        The current database session.
 
-#     resp = await provider_client.revoke_token(request)
-#     resp.raise_for_status()
+    Raises
+    ------
+    HTTPException
+        If the provider is not supported or if the user doesn't have any
+        external accounts linked to their account.
 
-#     delete_oauth_token(db, get_oauth_token(db, provider, current_user.uuid))
+    Returns
+    -------
+    Response
+        A response object with a status code of 200.
+    """
+    if not current_user.external_accounts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You don't have any {
+                provider} account linked to your account."
+        )
+    if provider not in oauth_clients_names:
+        raise HTTPException(status_code=404, detail="Unsupported provider")
+    provider_client = oauth.create_client(provider)
+    resp = await provider_client.revoke_token(request)
+    resp.raise_for_status()
 
-#     external_accounts = current_user.external_accounts
-#     external_account = next(
-#         (account for account in external_accounts if account.provider == provider), None)
+    # Delete OAuth Token
+    delete_oauth_token(db, get_oauth_token(db, provider, current_user.uuid))
 
-#     if external_account:
-#         delete_external_account(db, external_account)
-#     if current_user.is_external_only and len(external_accounts) == 1:
-#         ...
-#         # TODO: Delete account
+    # Delete External Account
+    external_account = next(
+        (account for account in current_user.external_accounts if account.provider == provider), None)
+    if not external_account:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You don't have any {
+                provider} account linked to your account."
+        )
+    delete_external_account(db, get_external_account(
+        db, provider, external_account.external_account_id))
 
-#     return Response(status_code=200)
+    # Delete User if External Only and no longer linked to any account
+    if not current_user.external_accounts and current_user.is_external_only:
+        await delete_user(db, current_user)
 
+    return Response(status_code=200)
 # ~~~~~ Utility Functions ~~~~~ #

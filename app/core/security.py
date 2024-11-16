@@ -309,15 +309,21 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         detail="Incorrect username/email or password or email not verified",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    # TODO: remove comments to force first login with email
+    # FIXME: remove comments to force first login with email
     # if username in ["user", "manager", "admin"]:
     #     raise error_msg
     if username == "admin@example.com":
         username = "admin"
-    email = validate_email(username)
+    email = validate_email(username, raise_error=False)
     db_user = get_user_by_email(db=db, email=email, raise_error=False)
     if db_user and not db_user.is_active:
-        raise error_msg
+        raise HTTPException(
+            status_code=400,
+            detail="\n".join([
+                f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.",
+                db_user.deactivated_reason
+            ])
+        )
     if not db_user:
         db_user = get_user_by_username(
             db=db, username=username, raise_error=False)
@@ -325,7 +331,12 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         raise error_msg
     if not db_user.is_active:
         raise HTTPException(
-            status_code=400, detail=f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.")
+            status_code=400,
+            detail="\n".join([
+                f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.",
+                db_user.deactivated_reason
+            ])
+        )
     if verify_password(password, db_user.hashed_password):
         if db_user.otp_method == "none":
             return db_user

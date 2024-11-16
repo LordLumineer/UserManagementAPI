@@ -25,6 +25,11 @@ class ExternalAccountBase(BaseModel):
     provider: str
     user_uuid: str
 
+    username: str | None
+    display_name: str | None
+    email: str | None
+    picture_url: str | None
+
     @field_validator("provider")
     @classmethod
     def _validate_platform(cls, v: str) -> str:

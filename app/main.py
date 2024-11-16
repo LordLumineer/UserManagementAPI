@@ -13,9 +13,8 @@ import os
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from jinja2 import DebugUndefined, Template
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +29,8 @@ from app.core.utils import (
     custom_generate_unique_id,
     extract_initials_from_text,
     generate_profile_picture,
-    not_found_page
+    not_found_page,
+    render_html_template
 )
 from app.db_objects._base import Base
 
@@ -87,8 +87,8 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
     },
     generate_unique_id_function=custom_generate_unique_id,
 )
-# TODO: Change the secret key
-app.add_middleware(SessionMiddleware, secret_key="some-random-string")
+
+app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET_KEY)
 app.include_router(api_router, prefix=settings.API_STR)
 app.mount(f"{settings.API_STR}/static",
           StaticFiles(directory="../assets"), name="Assets")
@@ -106,10 +106,15 @@ app.add_middleware(
 
 
 @app.exception_handler(IntegrityError)
-def _catch_integrity_error(request: Request, exc: IntegrityError):
-    # TODO: Handle IntegrityError and pretty-up the error message
-
-    raise HTTPException(status_code=400, detail=str(exc.orig))
+def _catch_integrity_error(request: Request, exc: IntegrityError):  # pylint: disable=unused-argument
+    # NOTE: Handle IntegrityError and pretty-up the error message
+    exc = str(exc.orig)
+    if exc.startswith("UNIQUE"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"This {exc.split(' ')[-1]} already exists.", # pylint: disable=C0207
+        )
+    raise HTTPException(status_code=400, detail=exc)
 
 
 @app.exception_handler(Exception)
@@ -131,6 +136,11 @@ def _debug_exception_handler(request: Request, exc: Exception):  # pylint: disab
 def _ping():
     logger.info("Pong!")
     return "pong"
+
+
+@app.get("/machine", tags=["DEBUG"])
+def _machine():
+    return JSONResponse(jsonable_encoder(settings.MACHINE))
 
 
 @app.get("/version", tags=["DEBUG"])
@@ -186,19 +196,11 @@ def _support():
 @app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _login():
     with open("./templates/html/login_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/auth/login",
-        # ----------
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     return HTMLResponse(content=html)
 
 
@@ -210,75 +212,44 @@ def _sign_in():
 @app.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _otp():
     with open("./templates/html/otp_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/auth/OTP",
         "OTP_LENGTH": settings.OTP_LENGTH,
-        # ----------
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     return HTMLResponse(content=html)
 
 
+@app.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 @app.get("/signup", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _signup():
     with open("./templates/html/signup_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/auth/signup",
-        # ----------
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     return HTMLResponse(content=html)
 
 
 @app.get("/logout", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _logout():
     with open("./templates/html/logout_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/auth/logout",
-        # ----------
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     return HTMLResponse(content=html)
 
 
 @app.get("/reset-password", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _reset_password():
     with open("./templates/html/reset_password_page.html", "r", encoding="utf-8") as f:
-        template = Template(f.read(), undefined=DebugUndefined)
+        html_content = f.read()
     context = {
         "ENDPOINT": "/auth/password/reset",
-        # ----------
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms"
     }
-    html = template.render(context)
+    html = render_html_template(html_content, context)
     return HTMLResponse(content=html)

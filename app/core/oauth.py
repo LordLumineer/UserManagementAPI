@@ -100,50 +100,6 @@ if settings.API_CLIENT_ID_DISCORD and settings.API_CLIENT_SECRET_DISCORD:
                        'code_challenge_method': 'S256'},
     )
 
-# NOTE: Not supported yet
-# oauth.register(
-#     'twitter',
-#     client_id=settings.API_CLIENT_ID_TWITTER,
-#     client_secret=settings.API_CLIENT_SECRET_TWITTER,
-#     # server_metadata_url='.well-known/openid-configuration',
-#     access_token_url='https://api.x.com/2/oauth2/token',
-#     access_token_params=None,
-#     authorize_url='https://twitter.com/i/oauth2/authorize',
-#     authorize_params=None,
-#     api_base_url='https://api.x.com',
-#     userinfo_endpoint='https://api.twitter.com/2/users/me',
-#     client_kwargs={'scope': 'offline.access users.read tweet.read',
-#                 'code_challenge_method': 'S256'}
-# )
-
-# NOTE: Not supported yet
-# if settings.API_CLIENT_ID_REDDIT and settings.API_CLIENT_SECRET_REDDIT:
-#     oauth.register(
-#         'reddit',
-#         client_id=settings.API_CLIENT_ID_REDDIT,
-#         client_secret=settings.API_CLIENT_SECRET_REDDIT,
-#         # server_metadata_url='.well-known/openid-configuration',
-#         access_token_url='https://www.reddit.com/api/v1/access_token',
-#         access_token_params=None,
-#         authorize_url='https://www.reddit.com/api/v1/authorize',
-#         authorize_params=None,
-#         api_base_url='https://www.reddit.com',
-#         userinfo_endpoint='https://www.reddit.com/api/v1/me',
-#         client_kwargs={'scope': 'identity',
-#                     'code_challenge_method': 'S256'}
-#     )
-
-# NOTE: Not supported yet
-# if settings.API_CLIENT_SECRET_MICROSOFT and settings.API_CLIENT_SECRET_MICROSOFT:
-# oauth.register(
-#     'microsoft',
-#     client_id=settings.API_CLIENT_SECRET_MICROSOFT,
-#     client_secret=settings.API_CLIENT_SECRET_MICROSOFT,
-#     server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
-#     client_kwargs={'scope': 'openid profile email offline_access',
-#                    'code_challenge_method': 'S256'}
-# )
-
 oauth_clients_names = list(oauth._clients)  # pylint: disable=protected-access
 
 
@@ -271,7 +227,7 @@ async def create_user_from_oauth(
             added_str = str(int(time.time()))
             new_user.username = new_user.username+added_str
             new_user.display_name = new_user.display_name+added_str
-            return create_user_from_oauth(db, provider, new_user)
+            return await create_user_from_oauth(db, provider, new_user)
         raise e
     # Send the email verification
     email_token = create_access_token(

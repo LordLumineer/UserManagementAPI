@@ -177,7 +177,7 @@ async def new_user_file(
 # ------- Read ------- #
 
 
-@router.get("/", response_model=list[UserReadDB])
+@router.get("/", response_model=list[UserRead])
 def read_users(
     skip: int = Query(default=0), limit: int = Query(default=100),
     current_user: User_DB = Depends(get_current_user),
@@ -401,7 +401,7 @@ def patch_user_file():
 
 
 @router.delete("/{uuid}", response_class=Response)
-def remove_user(
+async def remove_user(
     uuid: str,
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -426,7 +426,7 @@ def remove_user(
     """
     if current_user.uuid != uuid and current_user.permission != "admin":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if not delete_user(db, get_user(db, uuid)):
+    if not await delete_user(db, get_user(db, uuid)):
         raise HTTPException(status_code=400, detail="Failed to delete user")
     return Response(status_code=200)
 

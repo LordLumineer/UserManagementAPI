@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, model_validator
 class OAuthTokenBase(BaseModel):
     """Base model for OAuth2 tokens."""
     oauth_version: Literal["1", "2"] = Field(default="2", max_length=1)
-    name: str = Field(max_length=40)
+    provider: str = Field(max_length=40)
     # OAuth1
     oauth_token: str | None = Field(default=None)
     oauth_token_secret: str | None = Field(default=None)

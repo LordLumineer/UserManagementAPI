@@ -5,6 +5,7 @@ It provides functions to create, read, update and delete users, as well as funct
 get the users associated with a file and to get the files associated with a user.
 """
 
+from datetime import datetime, timezone
 import os
 import time
 from fastapi import Depends, HTTPException
@@ -72,15 +73,6 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
         existing_user = get_user_by_email(db, user.email)
         if not existing_user.is_external_only:
             raise e
-        # db_user = await update_user(
-        #     db,
-        #     existing_user,
-        #     UserUpdate(
-        #         email=user.email,
-        #         password=user.password,
-        #         is_external_only=False
-        #     )
-        # )
     email_token = create_access_token(
         sub=TokenData(
             purpose="email-verification",
@@ -239,7 +231,7 @@ async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_D
 # ------- Delete ------- #
 
 
-def delete_user(db: Session, user: User_DB) -> bool:
+async def delete_user(db: Session, db_user: User_DB) -> bool:
     """
     Delete a user from the database.
 
@@ -251,14 +243,17 @@ def delete_user(db: Session, user: User_DB) -> bool:
     :param User_DB user: The user model object to delete.
     :return bool: True if the operation is successful.
     """
+    # Deactivate the user
+    reason = f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}: Deleted"
+    db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
     # Dlete User's Profile Picture
-    if user.profile_picture_id:
-        delete_file(db, get_file(db, user.profile_picture_id))
+    if db_user.profile_picture_id:
+        delete_file(db, get_file(db, db_user.profile_picture_id))
     # Delete the user's files
-    for file in user.files:
+    for file in db_user.files:
         db.execute(
             delete(users_files_links).where(
-                users_files_links.c.user_uuid == user.uuid,
+                users_files_links.c.user_uuid == db_user.uuid,
                 users_files_links.c.file_id == file.id
             )
         )
@@ -267,9 +262,9 @@ def delete_user(db: Session, user: User_DB) -> bool:
             continue
         delete_file(db, file)
     # Delete the user
-    db.delete(user)
+    db.delete(db_user)
     db.commit()
-    os.rmdir(os.path.join("..", "data", "files", "users", user.uuid))
+    os.rmdir(os.path.join("..", "data", "files", "users", db_user.uuid))
     return True
 
 

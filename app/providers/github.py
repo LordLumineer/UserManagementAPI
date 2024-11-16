@@ -24,12 +24,12 @@ def get_acc_info(user_info: dict) -> dict:
         if email["verified"] and email["email"].split("@")[-1] != "users.noreply.github.com"
     ]
     primary_emails = [
-        email for email in emails if email["primary"]]
+        email['email'] for email in emails if email["primary"]]
     other_emails = [
-        email for email in emails if not email["primary"]]
+        email['email'] for email in emails if not email["primary"]]
     return {
         "provider": "github",
-        "id": user_info["id"],
+        "id": str(user_info["id"]),
         "username": user_info["login"].lower().replace(" ", "_"),
         "display_name": user_info["login"],
         "emails": primary_emails + other_emails,
