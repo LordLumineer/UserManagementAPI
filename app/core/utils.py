@@ -533,7 +533,7 @@ def get_repository_info():
             ['git', 'config', '--get', 'remote.origin.pushurl'],
             text=True,
             capture_output=True,
-            check=True
+            check=False
         ).stdout else fetch_url
         return {
             "owner": owner,
