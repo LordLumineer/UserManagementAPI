@@ -15,6 +15,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, sessionmaker
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
+from alembic.runtime.migration import MigrationContext
 
 from app.core.config import settings, logger
 
@@ -36,7 +38,7 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def run_migrations() -> None:
+async def run_migrations() -> None:
     """
     Run Alembic migrations to the latest version.
 
@@ -49,7 +51,22 @@ def run_migrations() -> None:
     """
     alembic_cfg = Config("alembic.ini")
     logger.info("Running Alembic migrations...")
-    command.upgrade(alembic_cfg, "head")
+    script = ScriptDirectory.from_config(alembic_cfg)
+    head = str(script.get_current_head())
+    with engine.connect() as conn:
+        context = MigrationContext.configure(conn)
+        current = context.get_current_revision()
+    if head != current:
+        # logger.info("Backing up database...")
+        # db = next(get_db())
+        # try:
+        #     path = await export_db(db, f"../data/backup-{int(time.time())}.db")
+        # finally:
+        #     db.close()
+        # logger.info("Backing up database completed. You can find the backup in the `%s` file.", path)
+        command.upgrade(alembic_cfg, "head")
+    else:
+        logger.info("Database already up-to-date.")
     logger.disabled = False
     logging.getLogger("uvicorn.access").disabled = False
     logger.info("Alembic migrations completed.")
@@ -185,7 +202,7 @@ async def process_table(
     session.commit()
 
 
-async def export_db(db: Session) -> str:
+async def export_db(db: Session, path = None) -> str:
     """
     Export the current database to a file.
 
@@ -198,7 +215,7 @@ async def export_db(db: Session) -> str:
     Raises:
         HTTPException: If the database file is not found.
     """
-    export_path = "./output.db"
+    export_path = path or "./output.db"
     if "sqlite" in str(engine.url):
         # If it's SQLite, serve the actual database file
         engine_db_path = engine.url.database

@@ -5,8 +5,18 @@ from sqlalchemy import pool
 
 from alembic import context
 
+# add your model's MetaData object here
+# for 'autogenerate' support
+# IMPORTANT to also import the tables models
+# pylint: disable=W0611
+from app.db_objects.db_models import (
+    Base,
+    File,
+    OAuthToken,
+    ExternalAccount,
+    User,
+)
 from app.core.config import settings
-from app.db_objects._base import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -21,10 +31,7 @@ if config.config_file_name is not None:
 DATABASE_URL = settings.SQLALCHEMY_DATABASE_URI
 config.set_main_option('sqlalchemy.url', DATABASE_URL)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
+# target_metadata = Base.metadata
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -72,7 +79,12 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            transaction_per_migration=True,
+            connect_args={
+              "options": "-c lock_timeout=4000 -c statement_timeout=5000"
+            }
         )
 
         with context.begin_transaction():

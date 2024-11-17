@@ -44,17 +44,18 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
     logger.info("Creating folders...")
     os.makedirs(os.path.join("..", "data", "files", "users"), exist_ok=True)
     os.makedirs(os.path.join("..", "data", "files", "files"), exist_ok=True)
+    # Alembic
+    await run_migrations()
     # Database
     logger.info("Creating or Loading the database tables...")
     Base.metadata.create_all(bind=database.engine)
-    # Alembic
-    run_migrations()
     # Init Default User Database
     init_default_user()
     # Scheduler
     # scheduler = BackgroundScheduler()
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)
     # scheduler.start()
+    logger.info("Initialization completed.")
     yield  # This is when the application code will run
     # scheduler.shutdown()
     logger.info("Shutting down...")

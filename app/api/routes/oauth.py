@@ -276,7 +276,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
 
 
 @router.post("/{provider}/revoke")
-@router.post("/{provider}/unlink")
+@router.post("/{provider}/unlink", include_in_schema=False)
 async def oauth_revoke(
     provider: str,
     request: Request,

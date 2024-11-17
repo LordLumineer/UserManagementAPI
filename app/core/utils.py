@@ -358,6 +358,7 @@ def detect_docker():
         pass
     return False
 
+
 def get_machine_info():
     """
     Gets the information about the machine the application is running on.
@@ -430,6 +431,7 @@ def get_machine_info():
             }
     return machine
 
+
 def get_latest_commit_info():
     """
     Retrieves information about the latest commit in the repository.
@@ -468,6 +470,7 @@ def get_latest_commit_info():
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")
         return None
+
 
 def get_repository_info():
     """
@@ -526,7 +529,12 @@ def get_repository_info():
         push_url = subprocess.check_output(
             ['git', 'config', '--get', 'remote.origin.pushurl'],
             text=True
-        ).strip() if subprocess.run(['git', 'config', '--get', 'remote.origin.pushurl'], text=True, capture_output=True).stdout else fetch_url
+        ).strip() if subprocess.run(
+            ['git', 'config', '--get', 'remote.origin.pushurl'],
+            text=True,
+            capture_output=True,
+            check=True
+        ).stdout else fetch_url
         return {
             "owner": owner,
             "repo_name": repo_name,

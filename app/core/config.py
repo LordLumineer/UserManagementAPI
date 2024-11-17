@@ -93,6 +93,7 @@ class _Settings(BaseSettings):
 
     @computed_field
     def REPOSITORY(self) -> dict:  # pylint: disable=C0103
+        """Retrieves the repository information and the latest commit details."""
         from app.core.utils import get_latest_commit_info, get_repository_info  # pylint: disable=C0415
         commit_info = get_latest_commit_info()
         repo_info = get_repository_info()
