@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException, Request
+import fastapi
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -112,7 +113,8 @@ def _catch_integrity_error(request: Request, exc: IntegrityError):  # pylint: di
     if exc.startswith("UNIQUE"):
         raise HTTPException(
             status_code=400,
-            detail=f"This {exc.split(' ')[-1]} already exists.", # pylint: disable=C0207
+            detail=f"This {
+                exc.split(' ')[-1]} already exists.",  # pylint: disable=C0207
         )
     raise HTTPException(status_code=400, detail=exc)
 
@@ -143,10 +145,18 @@ def _machine():
     return JSONResponse(jsonable_encoder(settings.MACHINE))
 
 
+@app.get("/repository", tags=["DEBUG"])
+def _repository():
+    return JSONResponse(jsonable_encoder(settings.REPOSITORY))
+
+
 @app.get("/version", tags=["DEBUG"])
 def _version():
-    logger.info("Version!")
-    return app.version
+    return JSONResponse(jsonable_encoder({
+        "FastAPI_Version": fastapi.__version__,
+        "Project_Version": app.version,
+        "Python_Version": settings.MACHINE["python_version"],
+    }))
 
 
 @app.get(

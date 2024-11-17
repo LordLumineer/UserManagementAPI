@@ -1,7 +1,5 @@
 """This module contains the settings for the application. It also sets up the logger."""
 import logging
-import os
-import platform
 import time
 from typing import Literal, Self
 from colorama import Fore
@@ -87,64 +85,23 @@ class _Settings(BaseSettings):
     # API_CLIENT_ID_MICROSOFT: str | None = None
     # API_CLIENT_SECRET_MICROSOFT: str | None = None
 
-    def _detect_docker(self):
-        if os.path.exists('/.dockerenv'):
-            return True
-        try:
-            with open('/proc/self/cgroup', 'r', encoding='utf-8') as f:
-                if 'docker' in f.read():
-                    return True
-        except FileNotFoundError:
-            pass
-        return False
-
     @computed_field
     def MACHINE(self) -> dict:  # pylint: disable=C0103
         """The machine the application is running on."""
-        machine = {
-            "platform": platform.platform(),
-            "system": platform.system(),
-            "version": platform.version(),
-            "release": platform.release(),
-            "architecture": platform.machine(),
-            "processor": platform.processor(),
-            "cpu_count": os.cpu_count(),
-            "python_version": platform.python_version(),
-            "is_docker": self._detect_docker()
-        }
-        match machine["system"]:
-            # case "Java":
-            #     machine["details"] = {
-            #         "java_ver": platform.java_ver()
-            #     }
-            case "Windows":
-                machine["details"] = {
-                    "win32_ver": platform.win32_ver(),
-                    "win32_is_iot": platform.win32_is_iot(),
-                    "win32_edition": platform.win32_edition(),
-                }
-            case "Linux":
-                machine["details"] = {
-                    "freedesktop_os_release": platform.freedesktop_os_release()
-                }
-            case "Darwin":
-                machine["details"] = {
-                    "mac_ver": platform.mac_ver()
-                }
-            case "iOS" | "iPadOS":
-                machine["details"] = {
-                    "ios_ver": platform.ios_ver()  # pylint: disable=E1101
-                }
-            case "Android":
-                machine["details"] = {
-                    "android_ver": platform.android_ver()  # pylint: disable=E1101
-                }
-            case _:
-                machine["details"] = {
-                    "platform": "Unknown OS",
-                    "libc_ver": platform.libc_ver()
-                }
-        return machine
+        from app.core.utils import get_machine_info  # pylint: disable=C0415
+        return get_machine_info()
+
+    @computed_field
+    def REPOSITORY(self) -> dict:  # pylint: disable=C0103
+        from app.core.utils import get_latest_commit_info, get_repository_info  # pylint: disable=C0415
+        commit_info = get_latest_commit_info()
+        repo_info = get_repository_info()
+        repository = {}
+        if commit_info:
+            repository["latest_commit"] = commit_info
+        if repo_info:
+            repository["repository"] = repo_info
+        return repository
 
     @computed_field
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn | None:  # pylint: disable=C0103

@@ -8,6 +8,8 @@ route to a URL.
 from datetime import datetime, timezone
 from io import BytesIO
 import os
+import platform
+import subprocess
 import time
 import random
 import re
@@ -334,3 +336,206 @@ def get_info_from_request(request: Request = None):
         if data:
             location = f"{data['city']}, {data['region']}, {data['country']}"
     return location, device, browser, request.client.host
+
+
+def detect_docker():
+    """Detects if the code is currently running inside a docker container.
+
+    Two methods are used to detect if the code is running inside a docker container:
+    1. Checking for the existence of the file '/.dockerenv'.
+    2. Checking for the string 'docker' in the file '/proc/self/cgroup'.
+
+    If either of these methods returns True, then the function returns True.
+    Otherwise, it returns False.
+    """
+    if os.path.exists('/.dockerenv'):
+        return True
+    try:
+        with open('/proc/self/cgroup', 'r', encoding='utf-8') as f:
+            if 'docker' in f.read():
+                return True
+    except FileNotFoundError:
+        pass
+    return False
+
+def get_machine_info():
+    """
+    Gets the information about the machine the application is running on.
+
+    The function collects the following information:
+
+    - The platform name.
+    - The system name.
+    - The version of the system.
+    - The release of the system.
+    - The architecture of the system.
+    - The processor of the system.
+    - The number of CPUs of the system.
+    - The Python version.
+    - Whether the code is running inside a Docker container.
+
+    The function also collects the following information based on the system:
+
+    - For Windows: The Windows version, whether it is an IoT version, and the edition.
+    - For Linux: The freedesktop.org OS release.
+    - For Darwin (macOS): The macOS version.
+    - For iOS and iPadOS: The iOS version.
+    - For Android: The Android version.
+    - For other systems: The libc version.
+
+    Returns a dictionary containing the collected information.
+    """
+    machine = {
+        "platform": platform.platform(),
+        "system": platform.system(),
+        "version": platform.version(),
+        "release": platform.release(),
+        "architecture": platform.machine(),
+        "processor": platform.processor(),
+        "cpu_count": os.cpu_count(),
+        "python_version": platform.python_version(),
+        "is_docker": detect_docker()
+    }
+    match machine["system"]:
+        # case "Java":
+        #     machine["details"] = {
+        #         "java_ver": platform.java_ver()
+        #     }
+        case "Windows":
+            machine["details"] = {
+                "win32_ver": platform.win32_ver(),
+                "win32_is_iot": platform.win32_is_iot(),
+                "win32_edition": platform.win32_edition(),
+            }
+        case "Linux":
+            machine["details"] = {
+                "freedesktop_os_release": platform.freedesktop_os_release()
+            }
+        case "Darwin":
+            machine["details"] = {
+                "mac_ver": platform.mac_ver()
+            }
+        case "iOS" | "iPadOS":
+            machine["details"] = {
+                "ios_ver": platform.ios_ver()  # pylint: disable=E1101
+            }
+        case "Android":
+            machine["details"] = {
+                "android_ver": platform.android_ver()  # pylint: disable=E1101
+            }
+        case _:
+            machine["details"] = {
+                "platform": "Unknown OS",
+                "libc_ver": platform.libc_ver()
+            }
+    return machine
+
+def get_latest_commit_info():
+    """
+    Retrieves information about the latest commit in the repository.
+
+    The information is obtained via the 'git log' command with the following format:
+    '%H%n%cd%n%an%n%ae%n%s%n%b'. This format returns the commit hash, date, author name,
+    author email, commit subject, and commit body.
+
+    If an error occurs while running the command, the function returns None.
+
+    :return dict: A dictionary containing the commit information.
+    """
+    try:
+        # Get detailed information of the latest commit
+        commit_info = subprocess.check_output(
+            ['git', 'log', '-1', '--pretty=format:%H%n%cd%n%an%n%ae%n%s%n%b'],
+            text=True
+        ).strip()
+
+        # Split the output into parts and handle missing values
+        parts = commit_info.split('\n', 5)
+        while len(parts) < 6:
+            parts.append('')
+
+        commit_hash, commit_date, author_name, author_email, subject, body = parts
+
+        return {
+            "hash": commit_hash,
+            "date": commit_date,
+            "author_name": author_name,
+            "author_email": author_email,
+            "subject": subject,
+            "body": body.strip()
+        }
+
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def get_repository_info():
+    """
+    Retrieves information about the Git repository.
+
+    The information is obtained via the following git commands:
+    1. 'git config --get remote.origin.url' to get the remote URL.
+    2. 'git rev-parse --abbrev-ref HEAD' to get the current branch name.
+    3. 'git remote show origin' to get detailed information about the remote.
+    4. 'git config --get remote.origin.pushurl' to get the push URL.
+
+    If an error occurs while running the commands, the function returns None.
+
+    :return dict: A dictionary containing the repository information.
+    """
+    def parse_remote_details(remote_details):
+        details_dict = {}
+        lines = remote_details.split('\n')
+        for idx, line in enumerate(lines):
+            if ':' in line:
+                if line.strip().endswith(':'):
+                    details_dict[line[:-1].strip()] = lines[idx+1].strip()
+                else:
+                    key, value = line.split(':', 1)
+                    details_dict[key.strip()] = value.strip()
+        return details_dict
+    try:
+        # Get the remote URL
+        remote_url = subprocess.check_output(
+            ['git', 'config', '--get', 'remote.origin.url'],
+            text=True
+        ).strip()
+        # Extract repository owner and name from the remote URL
+        match = re.search(r'[:/]([\w-]+)/([\w-]+)(\.git)?$', remote_url)
+        if match:
+            owner = match.group(1)
+            repo_name = match.group(2)
+        else:
+            owner, repo_name = '<unknown>', '<unknown>'
+        # Get the current branch name
+        branch_name = subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            text=True
+        ).strip()
+        # Get detailed information about the remote
+        remote_details = subprocess.check_output(
+            ['git', 'remote', 'show', 'origin'],
+            text=True
+        ).strip()
+        remote_details = parse_remote_details(remote_details)
+        # Get fetch and push URLs
+        fetch_url = subprocess.check_output(
+            ['git', 'config', '--get', 'remote.origin.url'],
+            text=True
+        ).strip()
+        push_url = subprocess.check_output(
+            ['git', 'config', '--get', 'remote.origin.pushurl'],
+            text=True
+        ).strip() if subprocess.run(['git', 'config', '--get', 'remote.origin.pushurl'], text=True, capture_output=True).stdout else fetch_url
+        return {
+            "owner": owner,
+            "repo_name": repo_name,
+            "branch_name": branch_name,
+            "remote_url": remote_url,
+            "fetch_url": fetch_url,
+            "push_url": push_url,
+            "remote_details": remote_details
+        }
+    except subprocess.CalledProcessError as e:
+        print(f"An error occurred: {e}")
+        return None
