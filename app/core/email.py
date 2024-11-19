@@ -208,7 +208,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
 
-async def send_reset_password_email(recipient: str, token_str: str):
+async def send_reset_password_email(recipient: str, token_str: str, request: Request = None):
     """
     Send a reset password email to a single recipient.
 
@@ -217,9 +217,14 @@ async def send_reset_password_email(recipient: str, token_str: str):
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
+    info = get_info_from_request(request)
     with open("./templates/html/reset_password_email.html", "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
+        "LOCATION": info["location"],
+        "DEVICE": info["device"],
+        "BROWSER": info["browser"],
+        "IP_ADDRESS": info["ip_address"],
         "ENDPOINT": "/reset-password",
         "PARAMS": f"?token={token_str}"
     }

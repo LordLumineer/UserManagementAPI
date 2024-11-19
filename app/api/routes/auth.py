@@ -296,7 +296,10 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
 
 
 @router.get("/password/reset", response_class=Response)
-async def request_password_reset(current_user: User_DB = Depends(get_current_user)):
+async def request_password_reset(
+    request: Request,
+    current_user: User_DB = Depends(get_current_user)
+):
     """
     Request a password reset for the current user.
 
@@ -321,7 +324,7 @@ async def request_password_reset(current_user: User_DB = Depends(get_current_use
             uuid=current_user.uuid,
             username=current_user.username
         ))
-    return await send_reset_password_email(current_user.email, token)
+    return await send_reset_password_email(current_user.email, token, request)
 
 
 class _ResetPasswordForm(BaseModel):

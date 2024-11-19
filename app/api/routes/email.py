@@ -195,6 +195,7 @@ async def otp_email(
 
 @router.post("/send-reset-password-email")
 async def reset_password_email(
+    request: Request,
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -225,7 +226,7 @@ async def reset_password_email(
             uuid=user.uuid,
             username=user.username
         ))
-    return await send_reset_password_email(recipient, token)
+    return await send_reset_password_email(recipient, token, request)
 
 
 @router.post("/send-validation-email")
