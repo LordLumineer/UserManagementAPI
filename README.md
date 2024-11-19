@@ -16,6 +16,7 @@ pytest --tb=no --md-report --md-report-output=reports/pytest.md
 coverage run -m pytest --tb=no --md-report
 coverage run -m pytest --tb=no --md-report --md-report-output=reports/pytest.md 
 coverage report | tee reports/coverage.txt
+coverage run -m pytest --tb=no --md-report --md-report-verbose=1 | coverage html
 
 cd app
 alembic revision --autogenerate -m "describe your changes"

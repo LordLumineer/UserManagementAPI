@@ -1,0 +1,127 @@
+{
+    "files": [
+        ".gitignore",
+        "comments.txt",
+        "LICENSE",
+        "README.md"
+    ],
+    "app": {
+        "files": [
+            ".coverage",
+            ".env",
+            ".pylintrc",
+            "alembic.ini",
+            "main.py",
+            "requirements.txt"
+        ],
+        "alembic": {
+            "files": [
+                "env.py",
+                "README",
+                "script.py.mako"
+            ],
+            "versions": {
+                "files": [
+                    "2024_11_17_1453-5a4d12dcbd0b_semi_finalized.py"
+                ]
+            }
+        },
+        "api": {
+            "files": [
+                "router.py"
+            ],
+            "routes": {
+                "files": [
+                    "admin.py",
+                    "auth.py",
+                    "db.py",
+                    "email.py",
+                    "file.py",
+                    "oauth.py",
+                    "provider_router.py",
+                    "user.py"
+                ],
+                "providers": {
+                    "files": [
+                        "discord.py",
+                        "github.py",
+                        "google.py",
+                        "twitch.py"
+                    ]
+                }
+            }
+        },
+        "core": {
+            "files": [
+                "config.py",
+                "db.py",
+                "email.py",
+                "not yet suported providers.txt",
+                "oauth.py",
+                "security.py",
+                "utils.py"
+            ]
+        },
+        "db_objects": {
+            "files": [
+                "db_models.py",
+                "external_account.py",
+                "file.py",
+                "oauth.py",
+                "user.py",
+                "_base.py"
+            ]
+        },
+        "providers": {
+            "files": [
+                "discord.py",
+                "github.py",
+                "google.py",
+                "twitch.py"
+            ]
+        },
+        "templates": {
+            "html": {
+                "files": [
+                    "404.html",
+                    "login_page.html",
+                    "logout_page.html",
+                    "otp_email.html",
+                    "otp_page.html",
+                    "reset_password_email.html",
+                    "reset_password_page.html",
+                    "signup_page.html",
+                    "test_email.html",
+                    "validate_email.html"
+                ]
+            },
+            "schemas": {
+                "files": [
+                    "external_account.py",
+                    "file.py",
+                    "oauth.py",
+                    "user.py"
+                ]
+            }
+        },
+        "test": {
+            "files": [
+                "requirements.txt"
+            ]
+        }
+    },
+    "assets": {
+        "files": [
+            "favicon.ico",
+            "logo.png"
+        ]
+    },
+    "data": {
+        "files": {
+            "files": {},
+            "users": {
+                "2ac758a5-14a8-499f-b427-09f5a3ade672": {}
+            }
+        }
+    }
+}

@@ -49,7 +49,7 @@ def validate_username(username: str) -> str:
     )
 
 
-def validate_email(email: str, raise_error: bool = True) -> str:
+def validate_email(email: str, raise_error: bool = True, check_deliverability: bool = True) -> str:
     """
     Validates the provided email address.
 
@@ -60,7 +60,7 @@ def validate_email(email: str, raise_error: bool = True) -> str:
     try:
         if email == "admin@example.com":
             return email
-        email_info = email_validation(email, check_deliverability=True)
+        email_info = email_validation(email, check_deliverability=check_deliverability)
     except EmailNotValidError as e:
         if not raise_error:
             logger.debug("Invalid email format: %s", email)
@@ -107,7 +107,7 @@ def generate_random_letters(length: int, seed: int | str = None) -> str:
     """
     if seed is None:
         seed = int(time.time())  # Use current time if no seed is provided
-    random.seed(seed+str(int(time.time())))
+    random.seed(str(seed)+str(int(time.time())))
 
     letters = string.ascii_letters
     return ''.join(random.choice(letters) for _ in range(length))
@@ -123,7 +123,7 @@ def generate_random_digits(length: int, seed: int | str = None) -> str:
     """
     if seed is None:
         seed = int(time.time())  # Use current time if no seed is provided
-    random.seed(seed+str(int(time.time())))
+    random.seed(str(seed)+str(int(time.time())))
     return ''.join(str(random.randint(0, 9)) for _ in range(length))
 
 
