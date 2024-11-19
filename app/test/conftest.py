@@ -24,12 +24,7 @@ def mock_db(mocker):
     db_mock = mocker.patch('app.core.db.get_db')
     yield db_mock
 
-# @pytest.fixture(scope="function")
-# def mock_settings(request):
-#     environment = request.param
-#     with patch.object(settings, "ENVIRONMENT", environment):
-#         yield settings
-        
+
 @pytest.fixture(scope="function")
 def mock_settings(request):
     mock_data = request.param
@@ -37,6 +32,7 @@ def mock_settings(request):
         for key, value in mock_data.items():
             setattr(settings, key, value)
         yield settings
+
 
 @pytest.fixture
 def mock_logger():

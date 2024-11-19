@@ -7,7 +7,7 @@ This module defines the base model for OAuth2 tokens, supporting both OAuth1 and
 """
 
 from typing import Literal, Self
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # pylint: disable=R0903
 
@@ -62,6 +62,4 @@ class OAuthTokenBase(BaseModel):
             "expires_at": self.expires_at,
         }
 
-    class Config:
-        """ORM model configuration"""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

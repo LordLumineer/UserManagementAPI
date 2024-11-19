@@ -78,7 +78,7 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
     lifespan=lifespan,
     terms_of_service=f"{settings.FRONTEND_URL}/terms",
     contact={
-        "name": settings.CONTACT_EMAIL.split("@")[0],
+        "name": settings.CONTACT_EMAIL.split("@")[0] if settings.CONTACT_EMAIL else "Unknown",
         "url": f"{settings.FRONTEND_URL}/contact",
         "email": settings.CONTACT_EMAIL,
     },

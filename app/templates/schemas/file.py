@@ -6,7 +6,7 @@ Pydantic models for the File objects.
 @author: LordLumineer (https://github.com/LordLumineer)
 """
 import os
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.core.config import settings
 
@@ -30,9 +30,7 @@ class FileReadDB(FileBase):
     created_at: int
     created_by: str
 
-    class Config:
-        """ORM model configuration"""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FileRead(FileReadDB):

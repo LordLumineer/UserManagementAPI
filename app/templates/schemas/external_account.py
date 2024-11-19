@@ -5,7 +5,7 @@ This module contains the pydantic models for External accounts.
 @date: 10/12/2024
 @author: LordLumineer (https://github.com/LordLumineer)
 """
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.core.oauth import oauth_clients_names
 
@@ -37,6 +37,4 @@ class ExternalAccountBase(BaseModel):
             raise ValueError("Invalid Provider")
         return v
 
-    class Config:
-        """ORM model configuration"""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

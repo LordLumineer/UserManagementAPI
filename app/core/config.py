@@ -29,9 +29,11 @@ class _Settings(BaseSettings):
     )
 
     PROJECT_NAME: str = Field(default="OpenShelf")
-    BASE_URL: str = Field(default="http://127.0.0.1:8000")  # .env
+    # Field(default="http://127.0.0.1:8000")  # .env
+    BASE_URL: str = Field(default="http://localhost")
     API_STR: str = Field(default="/api")
-    FRONTEND_URL: str = Field(default="http://127.0.0.1:8000")
+    # Field(default="http://127.0.0.1:8000")
+    FRONTEND_URL: str = Field(default="http://localhost")
 
     LOG_LEVEL: Literal["debug", "info", "warning", "error", "critical"] = Field(
         default="info"

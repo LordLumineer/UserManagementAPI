@@ -8,7 +8,7 @@ The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserRead
 """
 from typing import Literal, Self
 from fastapi.exceptions import HTTPException
-from pydantic import BaseModel, computed_field, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
 
 from app.core.config import settings
 from app.core.db import get_db
@@ -92,9 +92,7 @@ class UserReadDB(UserBase):
     created_at: int
     updated_at: int
 
-    class Config:
-        """ORM model configuration"""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserRead(UserReadDB):
