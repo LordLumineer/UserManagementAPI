@@ -298,7 +298,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
     db_user = get_user(db, uuid)
     db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
     if not db_file:
-        letters = extract_initials_from_text(db_user.username)
+        letters = extract_initials_from_text(db_user.display_name)
         return await generate_profile_picture(letters)
     return FileResponse(
         db_file.file_path,

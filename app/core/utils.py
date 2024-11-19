@@ -60,7 +60,8 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
     try:
         if email == "admin@example.com":
             return email
-        email_info = email_validation(email, check_deliverability=check_deliverability)
+        email_info = email_validation(
+            email, check_deliverability=check_deliverability)
     except EmailNotValidError as e:
         if not raise_error:
             logger.debug("Invalid email format: %s", email)
@@ -174,32 +175,40 @@ async def generate_profile_picture(letters: str = 'OS') -> Response:
     :return Response: The generated image as a PNG response.
     """
     img_size = 100
-    max_dim = img_size * 0.8  # 90% of the image size
+    max_dim = img_size * 0.8  # 80% of the image size
     img = Image.new('RGB', (img_size, img_size), color='gray')
     draw = ImageDraw.Draw(img)
 
-    font_size = 150
-    font = ImageFont.truetype("arial.ttf", font_size)
+    font = ImageFont.load_default(150)
 
+    # Adjust font size to fit within bounds
     while True:
         bbox = draw.textbbox((0, 0), letters, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
+
         if text_width <= max_dim and text_height <= max_dim:
             break
-        font_size -= 1
-        if font_size <= 0:
-            break
-        font = ImageFont.truetype("arial.ttf", font_size)
 
+        font_size = font.size - 1
+        if font_size <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to fit text within the image."
+            )
+
+        font = ImageFont.load_default(font_size)
+
+    # Center the text
     bbox = draw.textbbox((0, 0), letters, font=font)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
-    position = ((img_size - text_width) // 2,
-                (((img_size - text_height) // 2) - (text_height / 4)))
+    position = (((img_size - text_width) // 2) -
+                bbox[0], ((img_size - text_height) // 2)-bbox[1])
 
     draw.text(position, letters, fill="white", font=font)
 
+    # Save the image to a BytesIO buffer
     img_io = BytesIO()
     img.save(img_io, 'PNG')
     img_io.seek(0)
@@ -265,7 +274,7 @@ def remove_file(file_path: str):
 # ----- REQUEST ----- #
 
 
-def extract_info(user_agent):
+def extract_info(user_agent: str):
     """
     Extracts OS and browser information from the given user agent string.
 
@@ -279,18 +288,33 @@ def extract_info(user_agent):
     if os_match:
         os_info = os_match.group(1)
 
+    # Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0
     if "Firefox" in user_agent:
         browser_info = "Firefox"
-    elif "Edg" in user_agent:
-        browser_info = "Edge"
-    elif "Chrome" in user_agent and "Safari" in user_agent:
-        browser_info = "Chrome"
-    elif "Safari" in user_agent and "Chrome" not in user_agent:
-        browser_info = "Safari"
-    elif "Opera" in user_agent:
-        browser_info = "Opera"
+    # Mozilla/5.0 (Windows NT 10.0; Trident/7.0; rv:11.0) like Gecko
     elif "Trident" in user_agent:
         browser_info = "Internet Explorer"
+    # ... AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15
+    elif "Safari" in user_agent and not "Chrome" in user_agent:
+        browser_info = "Safari"
+    # Chrome based browsers
+    elif "Chrome" in user_agent and "Safari" in user_agent:
+        shortened_version = user_agent.replace(
+            "Chrome/", "").replace("Safari/", "")
+        # ... (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36
+        browser_info = "Chrome"
+        # ... Chrome/131.0.0.0 Safari/537.36 Edg/131.0.2903.51
+        if "Edg" in shortened_version:
+            browser_info = "Edge"
+        # ... (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/114.0.0.0
+        elif "OPR" in shortened_version:
+            browser_info = "Opera"
+        # ... Chrome/131.0.0.0 Safari/537.36 Vivaldi/7.0.3495.15
+        elif "Vivaldi" in shortened_version:
+            browser_info = "Vivaldi"
+        # ... Chrome/131.0.0.0 YaBrowser/24.10.1.669 Yowser/2.5 Safari/537.36
+        elif "YaBrowser" in shortened_version or "Yowser" in shortened_version:
+            browser_info = "Yandex"
 
     return os_info, browser_info
 
@@ -319,7 +343,12 @@ def get_info_from_request(request: Request = None):
     :return tuple: A tuple containing the location, device type, browser type and IP address as strings.
     """
     if not request:
-        return "Unknown Location", "Unknown Device", "Unknown Browser", "Unknown IP"
+        return {
+            "location": "Unknown Location",
+            "device": "Unknown OS",
+            "browser": "Unknown Browser",
+            "ip_address": "Unknown IP"
+        }
     device, browser = extract_info(request.headers["User-Agent"])
     location = "Unknown Location"
     client_host = request.client.host
@@ -327,15 +356,20 @@ def get_info_from_request(request: Request = None):
         location = "Loopback (localhost | 127.~.~.~)"
     elif client_host.startswith("10."):
         location = "Private (class A | 10.~.~.~)"
-    elif client_host.startswith("172.") and 16 <= client_host.split(".")[1] <= "31":
+    elif client_host.startswith("172.") and "16" <= (client_host.split(".")[1]) <= "31":
         location = "Private (class B | 172.16.~.~ - 172.31.~.~)"
     elif client_host.startswith("192.168."):
-        location = "Private (class C | 192.168.~.~ - 192.168.~.~)"
+        location = "Private (class C | 192.168.~.~)"
     else:
         data = get_location_from_ip(client_host)
         if data:
             location = f"{data['city']}, {data['region']}, {data['country']}"
-    return location, device, browser, request.client.host
+    return {
+        "location": location,
+        "device": device,
+        "browser": browser,
+        "ip_address": request.client.host
+    }
 
 
 def detect_docker():
@@ -395,13 +429,10 @@ def get_machine_info():
         "processor": platform.processor(),
         "cpu_count": os.cpu_count(),
         "python_version": platform.python_version(),
-        "is_docker": detect_docker()
+        "is_docker": detect_docker(),
+        "uname": platform.uname()._asdict(),
     }
     match machine["system"]:
-        # case "Java":
-        #     machine["details"] = {
-        #         "java_ver": platform.java_ver()
-        #     }
         case "Windows":
             machine["details"] = {
                 "win32_ver": platform.win32_ver(),
@@ -418,16 +449,15 @@ def get_machine_info():
             }
         case "iOS" | "iPadOS":
             machine["details"] = {
-                "ios_ver": platform.ios_ver()  # pylint: disable=E1101
+                "ios_ver": platform.ios_ver()._asdict()  # pylint: disable=E1101
             }
         case "Android":
             machine["details"] = {
-                "android_ver": platform.android_ver()  # pylint: disable=E1101
+                "android_ver": platform.android_ver()._asdict()  # pylint: disable=E1101
             }
         case _:
             machine["details"] = {
                 "platform": "Unknown OS",
-                "libc_ver": platform.libc_ver()
             }
     return machine
 
@@ -471,6 +501,31 @@ def get_latest_commit_info():
         print(f"An error occurred: {e}")
         return None
 
+def parse_remote_details(remote_details):
+    """
+    Parse the output of the 'git remote -v' command and return a dictionary containing the parsed details.
+
+    The function takes a string as an argument, which is the output of the 'git remote -v' command.
+    The string is split into lines, and each line is processed to extract key-value pairs.
+    The extracted key-value pairs are stored in a dictionary, which is then returned.
+
+    :param str remote_details: The output of the 'git remote -v' command.
+    :return dict: A dictionary containing the parsed details.
+    """
+    details_dict = {}
+    lines = remote_details.split('\n')
+    for idx, line in enumerate(lines):
+        if ':' in line:
+            if line.strip().endswith(':'):
+                if ": " in lines[idx+1]:
+                    details_dict[line[:-1].strip()] = "<unknown>"
+                else:
+                    details_dict[line[:-1].strip()] = lines[idx+1].strip()
+            else:
+                if ": " in line:
+                    key, value = line.split(':', 1)
+                    details_dict[key.strip()] = value.strip()
+    return details_dict
 
 def get_repository_info():
     """
@@ -486,17 +541,6 @@ def get_repository_info():
 
     :return dict: A dictionary containing the repository information.
     """
-    def parse_remote_details(remote_details):
-        details_dict = {}
-        lines = remote_details.split('\n')
-        for idx, line in enumerate(lines):
-            if ':' in line:
-                if line.strip().endswith(':'):
-                    details_dict[line[:-1].strip()] = lines[idx+1].strip()
-                else:
-                    key, value = line.split(':', 1)
-                    details_dict[key.strip()] = value.strip()
-        return details_dict
     try:
         # Get the remote URL
         remote_url = subprocess.check_output(

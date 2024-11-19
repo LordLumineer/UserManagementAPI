@@ -189,16 +189,16 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
-    location, device, browser, ip_address = get_info_from_request(request)
+    info = get_info_from_request(request)
     with open("./templates/html/otp_email.html", "r", encoding="utf-8") as f:
         html_content = f.read()
     expiration_date = datetime.now(
         timezone.utc) + timedelta(seconds=settings.OTP_EMAIL_INTERVAL)
     context = {
-        "LOCATION": location,
-        "DEVICE": device,
-        "BROWSER": browser,
-        "IP_ADDRESS": ip_address,
+        "LOCATION": info["location"],
+        "DEVICE": info["device"],
+        "BROWSER": info["browser"],
+        "IP_ADDRESS": info["ip_address"],
         "OTP_CODE": otp_code,
         "EXPIRATION_DATE": expiration_date.strftime("%B %d, %Y %H:%M:%S %Z"),
         "RESET_PASSWORD_URL": f"{settings.FRONTEND_URL}/reset-password"
