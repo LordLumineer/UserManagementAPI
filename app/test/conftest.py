@@ -20,7 +20,6 @@ def client():
     with TestClient(app) as test_client:
         yield test_client
 
-
 @pytest.fixture
 def mock_db(mocker):
     """Mocks the database connection or operations if needed."""

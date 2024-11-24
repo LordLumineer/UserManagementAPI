@@ -60,7 +60,7 @@ class _Settings(BaseSettings):
     POSTGRES_PASSWORD: str | None = None
     POSTGRES_DB: str | None = None
 
-    CONTACT_EMAIL: str | None = None
+    CONTACT_EMAIL: str | None = None  # "<no-contact-email>@<domain>"
     EMAIL_METHOD: Literal["none", "smtp", "mj"] = Field(default="none")
 
     MJ_APIKEY_PUBLIC: str | None = None

@@ -22,7 +22,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.routing import Route as StarletteRoute
 from PIL import Image, ImageDraw, ImageFont
 import httpx
 from jinja2 import DebugUndefined, Template
@@ -311,9 +310,6 @@ class FeatureFlagMiddleware(BaseHTTPMiddleware):
         path = request.scope.get("path")
         route = next(
             (route for route in routes if route.path == path), None)
-        if not route or not isinstance(route, (APIRoute, StarletteRoute)):
-            # No matching route or invalid route type; proceed with request
-            return await call_next(request)
         endpoint_function = route.endpoint
 
         # Check if a custom feature name is set by the decorator
@@ -333,7 +329,10 @@ class FeatureFlagMiddleware(BaseHTTPMiddleware):
                     user = get_current_user(token)
                 except HTTPException as e:
                     if e.detail != "Token expired":
-                        raise e
+                        return JSONResponse(
+                            status_code=e.status_code,
+                            content=jsonable_encoder(e.detail)
+                        )
             feature_enabled = can_view_feature(feature_name, user)
             if not feature_enabled:
                 return JSONResponse(
