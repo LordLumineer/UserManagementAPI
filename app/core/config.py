@@ -50,6 +50,8 @@ class _Settings(BaseSettings):
     ENVIRONMENT: Literal["local", "production"] = Field(
         default="local")  # "local" # .env
 
+    FEATURE_FLAGS_FILE: str = Field(default="../data/feature_flags.json")
+
     DATABASE_URI: str = "sqlite:///../data/OpenShelf.db"
 
     POSTGRES_SERVER: str | None = None

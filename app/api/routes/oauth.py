@@ -39,7 +39,7 @@ from app.templates.schemas.user import UserUpdate
 router = APIRouter()
 
 
-@router.get('/{provider}')
+@router.get('/{provider}', include_in_schema=False)
 async def oauth_login(provider: str,  request: Request):
     """
     Redirect user to the OAuth provider login page.
@@ -65,7 +65,7 @@ async def oauth_login(provider: str,  request: Request):
     )
 
 
-@router.get('/{provider}/link')
+@router.get('/{provider}/link', include_in_schema=False)
 async def oauth_link(provider: str, request: Request, current_user: User_DB = Depends(get_current_user),):
     """
     Redirect user to the OAuth provider login page to link a third-party account.
@@ -94,7 +94,7 @@ async def oauth_link(provider: str, request: Request, current_user: User_DB = De
     )
 
 
-@router.get("/{provider}/callback")
+@router.get("/{provider}/callback", include_in_schema=False)
 async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db), is_link: bool = False):
     """
     Handle OAuth callback from a provider.
@@ -206,7 +206,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                             db_user.username} from {provider}",
                         file_name=os.path.join(
                             "users", db_user.uuid, file.filename),
-                        created_by=db_user.uuid
+                        created_by_uuid=db_user.uuid
                     )
                     file_db = await create_file(db, new_file, file)
                     link_file_user(db, db_user, file_db)

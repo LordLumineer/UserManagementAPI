@@ -1,0 +1,10 @@
+{
+    "NAME_OF_FEATURE_DISABLED": false,
+    "NAME_OF_FEATURE_TEST_NEW_PRODUCTS_QUERY": true,
+    "NAME_OF_FEATURE_ADVANCED_ANALYTICS": true,
+    "NAME_OF_FEATURE_EXPERIMENTAL_FEATURE": true,
+    "NAME_OF_FEATURE_MULTIPLE_ALLOWANCES": [
+        {"percentageOfUsers": 0.25, "userRoles": ["user"]},
+        {"userRoles": ["admin", "tester"]}
+    ]
+}

@@ -231,8 +231,11 @@ async def generate_otp(
         user_otp_secret = generate_random_letters(
             length=32, seed=user_uuid)
         try:
-            user_db = db.query(User_DB).filter(
-                User_DB.uuid == user_uuid).first()
+            user_db = (
+                db.query(User_DB)
+                .filter(User_DB.uuid == user_uuid)
+                .first()
+            )
             user_db.otp_secret = user_otp_secret
             db.add(user_db)
             db.commit()
@@ -320,7 +323,8 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         raise HTTPException(
             status_code=400,
             detail="\n".join([
-                f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.",
+                f"Inactive user, please contact support at {
+                    settings.CONTACT_EMAIL}.",
                 db_user.deactivated_reason
             ])
         )
@@ -333,7 +337,8 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         raise HTTPException(
             status_code=400,
             detail="\n".join([
-                f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.",
+                f"Inactive user, please contact support at {
+                    settings.CONTACT_EMAIL}.",
                 db_user.deactivated_reason
             ])
         )

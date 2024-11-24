@@ -39,7 +39,7 @@ async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> Fi
         # Link User to File
         db.execute(
             insert(users_files_links).values(
-                user_uuid=db_file.created_by,
+                user_uuid=db_file.created_by_uuid,
                 file_id=db_file.id
             )
         )

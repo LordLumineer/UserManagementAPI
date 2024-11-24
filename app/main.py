@@ -11,10 +11,12 @@ for creating the FastAPI application and setting up the routes and middleware.
 from contextlib import asynccontextmanager
 import os
 # from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, HTTPException, Request
 import fastapi
+from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -25,13 +27,15 @@ from app.api.router import api_router, tags_metadata
 from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
+from app.core.permissions import load_feature_flags
 from app.db_objects.user import init_default_user
 from app.core.utils import (
+    FeatureFlagMiddleware,
     custom_generate_unique_id,
     extract_initials_from_text,
     generate_profile_picture,
     not_found_page,
-    render_html_template
+    render_html_template,
 )
 from app.db_objects._base import Base
 
@@ -49,12 +53,19 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
     # Database
     logger.info("Creating or Loading the database tables...")
     Base.metadata.create_all(bind=database.engine)
-    # Init Default User Database
-    init_default_user()
+    # Feature Flags
+    logger.info("Loading feature flags...")
+    app_endpoint_functions_name = []
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            app_endpoint_functions_name.append(route.endpoint.__name__.upper())
+    load_feature_flags(app_endpoint_functions_name)
     # Scheduler
     # scheduler = BackgroundScheduler()
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)
     # scheduler.start()
+    # Init Default User Database
+    init_default_user()
     logger.info("Initialization completed.")
     yield  # This is when the application code will run
     # scheduler.shutdown()
@@ -90,10 +101,8 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
     generate_unique_id_function=custom_generate_unique_id,
 )
 
-app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET_KEY)
 app.include_router(api_router, prefix=settings.API_STR)
-app.mount(f"{settings.API_STR}/static",
-          StaticFiles(directory="../assets"), name="Assets")
+app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET_KEY)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -101,9 +110,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.add_middleware(FeatureFlagMiddleware)
+app.mount(f"{settings.API_STR}/static",
+          StaticFiles(directory="../assets"), name="Assets")
 # ** ~~~~~ Debugging ~~~~~ ** #
 
+# from app.core.permissions import feature_flag
+# @app.get("/me", tags=["DEBUG"])
+# @feature_flag("MULTIPLE_ALLOWANCES")
+# async def read_user_me():
+#     return {"message": "Feature flag enforced!"}
 # ----- Exceptions Handler ----- #
 
 
@@ -123,6 +139,9 @@ def _catch_integrity_error(request: Request, exc: IntegrityError):  # pylint: di
 @app.exception_handler(Exception)
 def _debug_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
     logger.critical(exc)
+    if isinstance(exc, HTTPException):
+        if exc.status_code != 500:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail)
     raise HTTPException(
         status_code=500,
         detail=jsonable_encoder({

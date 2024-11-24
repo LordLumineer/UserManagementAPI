@@ -119,7 +119,7 @@ async def new_user_image(
     new_file = FileCreate(
         description=description,
         file_name=os.path.join("users", db_user.uuid, file.filename),
-        created_by=current_user.uuid
+        created_by_uuid=current_user.uuid
     )
     if db_user.profile_picture_id:
         db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
@@ -167,12 +167,51 @@ async def new_user_file(
     new_file = FileCreate(
         description=description,
         file_name=os.path.join("files", file.filename),
-        created_by=current_user.uuid
+        created_by_uuid=current_user.uuid
     )
     db_user = get_user(db, uuid)
     file_db = await create_file(db, new_file, file)
     link_file_user(db, db_user, file_db)
     return file_db
+
+
+@router.put("{uuid}/blocked_users", response_model=list[str])
+def block_users(
+    uuid: str,
+    users_ids: list[str] = Query(default=[]),
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Block a list of users by their UUIDs.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to block.
+    users_ids : list[str]
+        A list of UUIDs of the users to block.
+    current_user : User_DB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    UserRead
+        The updated user object.
+    """
+    if current_user.uuid != uuid and current_user.permission != "admin":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    db_user = get_user(db, uuid)
+    for blocked_uuid in users_ids:
+        if blocked_uuid in db_user.blocked_uuids:
+            continue
+        db_user.blocked_uuids.append(blocked_uuid)
+    db.commit()
+    db.refresh(db_user)
+    return db_user.blocked_uuids
+
 
 # ------- Read ------- #
 
@@ -253,7 +292,7 @@ def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/{uuid}", response_model=UserRead)
+@router.get("/{uuid}/data", response_model=UserRead)
 def read_user(uuid: str, db: Session = Depends(get_db)):
     """
     Get a user by its UUID.
@@ -305,6 +344,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
         # filename=file.file_name,
         # media_type=f"image/{file.file_type}"
     )
+
 
 # ------- Update ------- #
 
@@ -397,6 +437,55 @@ def patch_user_file():
             settings.API_STR}/files/`file_id` instead"""
     )
 
+
+@router.patch("{uuid}/blocked_users", response_model=list[str])
+def update_blocked_users(
+    uuid: str,
+    remove: list[str] | None = Query(default=[]),
+    add: list[str] | None = Query(default=[]),
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update the list of blocked users for a user by its UUID.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to update.
+    add : list[str], optional
+        A list of UUIDs of users to add to the blocked users list (default is an empty list).
+    remove : list[str], optional
+        A list of UUIDs of users to remove from the blocked users list (default is an empty list).
+
+    Returns
+    -------
+    list[str]
+        The updated list of blocked users UUIDs.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the user is not the same as the current user 
+            and the current user does not have permission "admin".
+    """
+
+    if current_user.uuid != uuid and current_user.permission != "admin":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    db_user = get_user(db, uuid)
+    for blocked_uuid in remove:
+        if blocked_uuid not in db_user.blocked_uuids:
+            continue
+        db_user.blocked_uuids.remove(blocked_uuid)
+    for blocked_uuid in add:
+        if blocked_uuid in db_user.blocked_uuids:
+            continue
+        db_user.blocked_uuids.append(blocked_uuid)
+    db.commit()
+    db.refresh(db_user)
+    return db_user.blocked_uuids
+
+
 # ------- Delete ------- #
 
 
@@ -481,3 +570,41 @@ def remove_user_file():
         detail=f"""Invalid endpoint. Use DELETE {settings.BASE_URL}{
             settings.API_STR}/files/`file_id` instead"""
     )
+
+
+@router.delete("{uuid}/blocked_users", response_model=list[str])
+def delete_blocked_users(
+    uuid: str,
+    users_ids: list[str] | None = Query(default=[]),
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a list of blocked users by their UUIDs.
+
+    Parameters
+    ----------
+    uuid : str
+        The UUID of the user to delete the blocked users of.
+    users_ids : list[str]
+        A list of UUIDs of the users to delete from the blocked users list.
+    current_user : User_DB
+        The user object of the user who is making the request.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    list[str]
+        The updated list of blocked users UUIDs.
+    """
+    if current_user.uuid != uuid and current_user.permission != "admin":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    db_user = get_user(db, uuid)
+    for blocked_uuid in users_ids:
+        if blocked_uuid not in db_user.blocked_uuids:
+            continue
+        db_user.blocked_uuids.remove(blocked_uuid)
+    db.commit()
+    db.refresh(db_user)
+    return db_user.blocked_uuids

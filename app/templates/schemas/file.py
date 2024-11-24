@@ -28,7 +28,7 @@ class FileReadDB(FileBase):
     file_type: str
     file_path: str = Field(exclude=True)
     created_at: int
-    created_by: str
+    created_by_uuid: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,7 +44,7 @@ class FileRead(FileReadDB):
 class FileCreate(FileBase):
     """File model for create operations."""
     file_name: str
-    created_by: str
+    created_by_uuid: str
 
     @computed_field
     def file_type(self) -> str:

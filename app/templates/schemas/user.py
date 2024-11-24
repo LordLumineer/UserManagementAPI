@@ -38,6 +38,7 @@ class UserBase(BaseModel):
     permission: Literal["user", "manager", "admin"] = Field(
         default="user",
     )
+    roles: list[str] = Field(default=["user"])
     description: str | None = Field(
         default=None,
         max_length=256
@@ -50,6 +51,8 @@ class UserBase(BaseModel):
         default=True
     )
     deactivated_reason: str | None = None
+
+    blocked_uuids: list[str] = Field(default=[])
 
     @field_validator("username")
     @classmethod
@@ -88,7 +91,8 @@ class UserReadDB(UserBase):
     email_verified: bool
     hashed_password: str = Field(exclude=True)
     otp_secret: str | None = Field(exclude=True)
-    profile_picture_id: int | None
+    profile_picture_id: int | None = Field(exclude=True)
+    profile_picture: FileReadDB | None
     created_at: int
     updated_at: int
 
@@ -155,8 +159,10 @@ class UserUpdate(UserBase):
     #                     "email"] | None = Field(default=None, exclude=True)
     # otp_secret: str | None = Field(default=None, exclude=True)
     permission: Literal["user", "manager", "admin"] | None = None
+    roles: list[str] | None = None
     is_external_only: bool | None = None
     isActive: bool | None = None
+    blocked_uuids: list[str] | None = None
 
     @field_validator('password')
     @classmethod

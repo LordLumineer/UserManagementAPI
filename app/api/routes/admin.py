@@ -6,12 +6,14 @@ It includes functions for managing users, viewing logs, and other admin-related 
 """
 from datetime import datetime, timezone
 from fastapi import APIRouter, Form, Response, Depends
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import logger
 from app.core.db import get_db
+from app.core.permissions import FeatureFlags, save_feature_flags
 from app.db_objects.user import get_current_user, get_user, update_user
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.user import UserUpdate
@@ -66,7 +68,7 @@ async def ban_user(
     return JSONResponse(
         status_code=200,
         content={
-            "Admin": current_user.username, 
+            "Admin": current_user.username,
             "Action": "Banned",
             "User": db_user.username,
             "Reason": reason
@@ -118,9 +120,54 @@ async def unban_user(
     return JSONResponse(
         status_code=200,
         content={
-            "Admin": current_user.username, 
+            "Admin": current_user.username,
             "Action": "Unbanned",
             "User": db_user.username,
             "Reason": reason
         }
     )
+
+
+@router.patch("/feature_flags", response_model=dict)
+def update_feature_flags(
+    remove: FeatureFlags | None = Form(default=None),
+    add: FeatureFlags | None = Form(default=None),
+    current_user: User_DB = Depends(get_current_user),
+):
+    """
+    Update the feature flags in memory and save them to a file.
+
+    Parameters
+    ----------
+    remove : FeatureFlags | None
+        A dictionary of feature names to remove from the feature flags.
+    add : FeatureFlags | None
+        A dictionary of feature names and rules to add to the feature flags.
+    current_user : User_DB
+        The user object of the user who is making the request.
+
+    Returns
+    -------
+    dict
+        The updated feature flags.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the user is not an admin.
+    """
+    if current_user.permission != "admin":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    from app.core.permissions import FEATURE_FLAGS  # pylint: disable=C0415
+    if add is None:
+        add = []
+    if remove is None:
+        remove = []
+    for feature_name, feature_rule in remove.items():
+        if feature_name in FEATURE_FLAGS:
+            del FEATURE_FLAGS[feature_name]
+    for feature_name, feature_rule in add.items():
+        FEATURE_FLAGS[feature_name] = jsonable_encoder(feature_rule)
+    if add or remove:
+        save_feature_flags()
+    return FEATURE_FLAGS

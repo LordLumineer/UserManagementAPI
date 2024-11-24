@@ -1,5 +1,7 @@
 """This module contains the SQLAlchemy models for the application."""
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table
+import json
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, PickleType, String, Table
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.utils import generate_timestamp, generate_uuid
@@ -7,6 +9,25 @@ from app.db_objects._base import Base
 # from app.core.config import settings
 
 # pylint: disable=R0903
+
+
+# Many-to-Many Reference Tables
+# blocked_users_table = Table(
+#     "blocked_users",
+#     Base.metadata,
+#     Column("user_uuid", ForeignKey("users.uuid")),
+#     Column("blocked_user_uuid", ForeignKey("users.uuid"))
+# )
+
+
+users_files_links = Table(
+    "users_files_links",
+    Base.metadata,
+    Column("user_uuid", ForeignKey("users.uuid")),
+    Column("file_id", ForeignKey("files.id")),
+)
+
+# ---- MODELS ----
 
 
 class File(Base):
@@ -23,8 +44,20 @@ class File(Base):
         default=generate_timestamp
     )
 
-    # Foreign keys
-    created_by: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
+    # Relationships
+    #   One-to-One
+    created_by_uuid: Mapped[str] = mapped_column(
+        String, ForeignKey('users.uuid'))
+    created_by: Mapped["User"] = relationship(
+        "User", foreign_keys=[created_by_uuid])
+
+    def __repr__(self) -> str:
+        repr_dict = {
+            "file_name": self.file_name,
+            "file_type": self.file_type,
+            "created_at": self.created_at,
+        }
+        return f"File({json.dumps(repr_dict, indent=4)})"
 
 
 class OAuthToken(Base):
@@ -46,6 +79,14 @@ class OAuthToken(Base):
     # Foreign keys
     user_uuid: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
 
+    def __repr__(self) -> str:
+        repr_dict = {
+            "OAuthVersion": self.oauth_version,
+            "provider": self.provider,
+            "expires_at": self.expires_at,
+        }
+        return f"OAuthToken({json.dumps(repr_dict, indent=4)})"
+
 
 class ExternalAccount(Base):
     """External Accounts model."""
@@ -60,6 +101,18 @@ class ExternalAccount(Base):
 
     # Foreign keys
     user_uuid: Mapped[str] = mapped_column(String, ForeignKey('users.uuid'))
+
+    def __repr__(self) -> str:
+        repr_dict = {
+            "provider": self.provider,
+            "external_account_id": self.external_account_id,
+            "username": self.username,
+            "display_name": self.display_name,
+            "email": self.email,
+            "picture_url": self.picture_url,
+            "user_uuid": self.user_uuid
+        }
+        return f"ExternalAccount({json.dumps(repr_dict, indent=4)})"
 
 
 # pylint: disable=E1136
@@ -102,9 +155,14 @@ class User(Base):
     )
     otp_secret: Mapped[str | None]
 
+    # TODO: Change to List
     permission: Mapped[str] = mapped_column(
         String,
         default="user"
+    )
+    roles: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(PickleType),
+        default=["user"]
     )
     description: Mapped[str | None]
     created_at: Mapped[int] = mapped_column(
@@ -125,36 +183,45 @@ class User(Base):
     )
     deactivated_reason: Mapped[str | None]
 
-    # Foreign keys
+    # Relationships
+
+    #   One-to-One
     profile_picture_id: Mapped[str | None] = mapped_column(
         Integer,
         ForeignKey('files.id'),
     )
+    profile_picture: Mapped["File | None"] = relationship(
+        "File", foreign_keys=[profile_picture_id])
 
-    # Relationships
-    #   One-to-many
-    external_accounts: Mapped[list[ExternalAccount]] = relationship(
+    #   One-to-Many
+    external_accounts: Mapped[list["ExternalAccount"]] = relationship(
         "ExternalAccount",
         cascade="all, delete",
     )
-    oauth_tokens: Mapped[list[OAuthToken]] = relationship(
+    oauth_tokens: Mapped[list["OAuthToken"]] = relationship(
         "OAuthToken",
         cascade="all, delete",
     )
-    #   Many-to-many
-    files: Mapped[list[File]] = relationship(
+
+    blocked_uuids: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(PickleType),
+        default=list
+    )
+
+    #   Many-to-One
+
+    #   Many-to-Many
+    files: Mapped[list["File"]] = relationship(
         "File",
         secondary="users_files_links",
         viewonly=True
     )
 
-
-# Many-to-many
-
-
-users_files_links = Table(
-    "users_files_links",
-    Base.metadata,
-    Column("user_uuid", ForeignKey("users.uuid")),
-    Column("file_id", ForeignKey("files.id")),
-)
+    def __repr__(self) -> str:
+        repr_dict = {
+            "uuid": self.uuid,
+            "username": self.username,
+            "display_name": self.display_name,
+            "email": self.email
+        }
+        return f"ExternalAccount({json.dumps(repr_dict, indent=4)})"

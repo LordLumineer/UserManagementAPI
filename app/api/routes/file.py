@@ -53,7 +53,7 @@ async def new_file(
         FileCreate(
             description=description,
             file_name=os.path.join("files", file.filename),
-            created_by=current_user.uuid
+            created_by_uuid=current_user.uuid
         ),
         file
     )
@@ -154,7 +154,10 @@ def read_file(file_id: int, db: Session = Depends(get_db)):
     FileRead
         The file object.
     """
-    return get_file(db, file_id)
+    # return get_file(db, file_id)
+    file = get_file(db, file_id)
+    print(file.created_by.blocked_uuids)
+    return file
 
 
 @router.get("/{file_id}/file", response_class=FileResponse)
@@ -214,7 +217,7 @@ def patch_file(
         The updated file object.
     """
     db_file = get_file(db, file_id)
-    if current_user.uuid != db_file.created_by and current_user.permission not in ["manager", "admin"]:
+    if current_user.uuid != db_file.created_by_uuid and current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return update_file(db, db_file, file)
 
@@ -246,7 +249,7 @@ def remove_file(
         or a response with a status code of 400 or 401 if there is an error.
     """
     db_file = get_file(db, file_id)
-    if current_user.uuid != db_file.created_by and current_user.permission not in ["manager", "admin"]:
+    if current_user.uuid != db_file.created_by_uuid and current_user.permission not in ["manager", "admin"]:
         raise HTTPException(status_code=401, detail="Unauthorized")
     if not delete_file(db, db_file):
         raise HTTPException(status_code=400, detail="Failed to delete file")

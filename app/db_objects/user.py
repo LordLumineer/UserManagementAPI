@@ -10,7 +10,7 @@ import os
 import time
 from fastapi import Depends, HTTPException
 from sqlalchemy import delete
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import logger
@@ -22,6 +22,7 @@ from app.core.security import (
     generate_otp, hash_password, oauth2_scheme
 )
 from app.db_objects.db_models import User as User_DB
+from app.db_objects.db_models import File as File_DB
 from app.db_objects.db_models import users_files_links
 from app.templates.schemas.user import UserCreate, UserUpdate
 
@@ -96,7 +97,14 @@ def get_user(db: Session, uuid: str, raise_error: bool = True) -> User_DB:
     :return User_DB: The user model object if found, else None if raise_error is False.
     :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
-    db_user = db.query(User_DB).filter(User_DB.uuid == uuid).first()
+    db_user = (
+        db.query(User_DB)
+        .options(
+            joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+        )
+        .filter(User_DB.uuid == uuid)
+        .first()
+    )
     if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
@@ -244,7 +252,8 @@ async def delete_user(db: Session, db_user: User_DB) -> bool:
     :return bool: True if the operation is successful.
     """
     # Deactivate the user
-    reason = f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}: Deleted"
+    reason = f"{datetime.now(timezone.utc).strftime(
+        '%Y-%m-%d %H:%M:%S %Z')}: Deleted"
     db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
     # Dlete User's Profile Picture
     if db_user.profile_picture_id:
