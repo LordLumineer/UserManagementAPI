@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validat
 
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.permissions import UserRole
 from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
 from app.core.security import hash_password
 from app.templates.schemas.file import FileReadDB
@@ -35,10 +36,10 @@ class UserBase(BaseModel):
     otp_method: Literal["none", None, "authenticator", "email"] = Field(
         default="none"
     )
-    permission: Literal["user", "manager", "admin"] = Field(
-        default="user",
-    )
-    roles: list[str] = Field(default=["user"])
+    # permission: Literal["user", "manager", "admin"] = Field(
+    #     default="user",
+    # )
+    roles: list[UserRole] = Field(default=["user"])
     description: str | None = Field(
         default=None,
         max_length=256
@@ -158,8 +159,8 @@ class UserUpdate(UserBase):
     # otp_method: Literal["none", "authenticator",
     #                     "email"] | None = Field(default=None, exclude=True)
     # otp_secret: str | None = Field(default=None, exclude=True)
-    permission: Literal["user", "manager", "admin"] | None = None
-    roles: list[str] | None = None
+    # permission: Literal["user", "manager", "admin"] | None = None
+    roles: list[UserRole] | None = None
     is_external_only: bool | None = None
     isActive: bool | None = None
     blocked_uuids: list[str] | None = None

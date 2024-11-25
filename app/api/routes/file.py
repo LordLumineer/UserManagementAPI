@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
+from app.core.permissions import has_permission
 from app.db_objects.file import (
     create_file, update_file, delete_file,
     get_file, get_files, get_files_list, get_nb_files
@@ -48,6 +49,7 @@ async def new_file(
     FileReadDB
         The new file object.
     """
+    has_permission(current_user, "file", "create")
     return await create_file(
         db,
         FileCreate(
@@ -86,12 +88,11 @@ def read_files(
     list[FileReadDB]
         A list of file objects.
     """
-    if current_user.permission not in ["manager", "admin"]:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "file", "read")
     return get_files(db, skip=skip, limit=limit)
 
 
-@router.get("/files", response_model=list[FileReadDB])
+@router.get("/files", response_model=list[FileRead])
 def read_files_list(
     files_ids: list[int] = Query(default=[]),
     current_user: User_DB = Depends(get_current_user),
@@ -114,13 +115,15 @@ def read_files_list(
     list[FileReadDB]
         A list of file objects.
     """
-    if current_user.permission not in ["manager", "admin"]:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "file", "read")
     return get_files_list(db, files_ids)
 
 
 @router.get("/count", response_model=int)
-def read_files_number(db: Session = Depends(get_db)):
+def read_files_number(
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get the number of files.
 
@@ -134,11 +137,16 @@ def read_files_number(db: Session = Depends(get_db)):
     int
         The number of files.
     """
+    has_permission(current_user, "file", "read")
     return get_nb_files(db)
 
 
 @router.get("/{file_id}", response_model=FileRead)
-def read_file(file_id: int, db: Session = Depends(get_db)):
+def read_file(
+    file_id: int,
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get a file by its ID.
 
@@ -156,12 +164,16 @@ def read_file(file_id: int, db: Session = Depends(get_db)):
     """
     # return get_file(db, file_id)
     file = get_file(db, file_id)
-    print(file.created_by.blocked_uuids)
+    has_permission(current_user, "file", "read", file)
     return file
 
 
 @router.get("/{file_id}/file", response_class=FileResponse)
-async def read_file_file(file_id: int, db: Session = Depends(get_db)):
+async def read_file_file(
+    file_id: int,
+    current_user: User_DB = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get the file content by its ID.
 
@@ -177,14 +189,15 @@ async def read_file_file(file_id: int, db: Session = Depends(get_db)):
     FileResponse
         The file content.
     """
-    file = get_file(db, file_id)
-    if file.file_type in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
+    db_file = get_file(db, file_id)
+    has_permission(current_user, "file", "read", db_file)
+    if db_file.file_type in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
         return FileResponse(
-            file.file_path
+            db_file.file_path
         )
     return FileResponse(
-        file.file_path,
-        filename=file.file_name,
+        db_file.file_path,
+        filename=db_file.file_name,
     )
 
 
@@ -217,8 +230,7 @@ def patch_file(
         The updated file object.
     """
     db_file = get_file(db, file_id)
-    if current_user.uuid != db_file.created_by_uuid and current_user.permission not in ["manager", "admin"]:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "file", "update", db_file)
     return update_file(db, db_file, file)
 
 # ------- Delete ------- #
@@ -249,8 +261,7 @@ def remove_file(
         or a response with a status code of 400 or 401 if there is an error.
     """
     db_file = get_file(db, file_id)
-    if current_user.uuid != db_file.created_by_uuid and current_user.permission not in ["manager", "admin"]:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "file", "delete", db_file)
     if not delete_file(db, db_file):
         raise HTTPException(status_code=400, detail="Failed to delete file")
     return Response(status_code=200)

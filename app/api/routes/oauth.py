@@ -257,7 +257,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         sub=TokenData(
             purpose="login",
             uuid=db_user.uuid,
-            permission=db_user.permission
+            roles=db_user.roles
         ))
     return HTMLResponse(
         f"""

@@ -111,7 +111,7 @@ ROLES: RolesWithPermissions = {
 
 
 @feature_flag_required("ADVANCED_ANALYTICS")
-def has_permission(user: User, resource: str, action: str, data=None) -> bool:
+def has_perrrrmission(user: User, resource: str, action: str, data=None) -> bool:
     for role in user["roles"]:
         permissions = ROLES.get(role, {}).get(resource, {})
         permission = permissions.get(action)

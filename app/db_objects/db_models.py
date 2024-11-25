@@ -155,12 +155,12 @@ class User(Base):
     )
     otp_secret: Mapped[str | None]
 
-    # TODO: Change to List
-    permission: Mapped[str] = mapped_column(
-        String,
-        default="user"
-    )
-    roles: Mapped[list[str]] = mapped_column(
+    # # TODO: Change to List
+    # permission: Mapped[str] = mapped_column(
+    #     String,
+    #     default="user"
+    # )
+    roles: Mapped[str] = mapped_column(
         MutableList.as_mutable(PickleType),
         default=["user"]
     )
@@ -222,6 +222,8 @@ class User(Base):
             "uuid": self.uuid,
             "username": self.username,
             "display_name": self.display_name,
-            "email": self.email
+            "email": self.email,
+            "roles": self.roles,
+            "blocked_uuids": self.blocked_uuids
         }
-        return f"ExternalAccount({json.dumps(repr_dict, indent=4)})"
+        return f"User({json.dumps(repr_dict, indent=4)})"

@@ -19,6 +19,7 @@ from app.core.db import get_db
 from app.core.email import (
     send_email, send_otp_email, send_reset_password_email, send_test_email, send_validation_email
 )
+from app.core.permissions import has_permission
 from app.db_objects.user import get_current_user, get_nb_users, get_user_by_email, get_users
 from app.core.security import TokenData, create_access_token
 from app.db_objects.db_models import User as User_DB
@@ -56,8 +57,9 @@ async def send_email_single(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if not current_user.permission in ["manager", "admin"] or not confirm:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "single")
+    if not confirm:
+        raise HTTPException(status_code=400, detail="You must confirm the email")
     return await send_email([recipient], subject, content)
 
 
@@ -90,8 +92,9 @@ async def send_email_multiple(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if not current_user.permission in ["manager", "admin"] or not confirm:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "multiple")
+    if not confirm:
+        raise HTTPException(status_code=400, detail="You must confirm the email")
     return await send_email(recipients, subject, content)
 
 
@@ -122,8 +125,9 @@ async def send_email_all(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if not current_user.permission in ["admin"] or not confirm:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "all")
+    if not confirm:
+        raise HTTPException(status_code=400, detail="You must confirm the email")
     users = get_users(db, skip=0, limit=get_nb_users(db))
     recipients = [user.email for user in users]
     return await send_email(recipients, subject, content)
@@ -149,14 +153,14 @@ async def test_email(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "test")
     return await send_test_email(recipient)
 
 
 @router.post("/send-otp-email")
 async def otp_email(
     request: Request,
+    confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -177,8 +181,9 @@ async def otp_email(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if current_user.permission != "admin" and current_user.email != recipient:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "auth")
+    if not confirm:
+        raise HTTPException(status_code=400, detail="You must confirm the email")
     totp = pyotp.TOTP(
         s=current_user.otp_secret,
         name=current_user.username,
@@ -196,6 +201,7 @@ async def otp_email(
 @router.post("/send-reset-password-email")
 async def reset_password_email(
     request: Request,
+    confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -217,8 +223,9 @@ async def reset_password_email(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "auth")
+    if not confirm:
+        raise HTTPException(status_code=400, detail="You must confirm the email")
     user = get_user_by_email(db, recipient)
     token = create_access_token(
         sub=TokenData(
@@ -231,6 +238,7 @@ async def reset_password_email(
 
 @router.post("/send-validation-email")
 async def validation_email(
+    confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -252,8 +260,9 @@ async def validation_email(
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "email", "auth")
+    if not confirm:
+        raise HTTPException(status_code=400, detail="You must confirm the email")
     user = get_user_by_email(db, recipient)
     token = create_access_token(
         sub=TokenData(

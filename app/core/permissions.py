@@ -22,50 +22,184 @@ import hashlib
 import inspect
 import json
 import os
-from typing import Literal
+from typing import Callable, Literal, Union
 
 from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app.core.config import settings, logger
-from app.db_objects.db_models import User as User_DB
+from app.db_objects.db_models import (
+    User,
+    File,
+    ExternalAccount,
+    OAuthToken
+)
 
 # ----- PERMISSIONS ----- #
 UserRole = Literal["user", "tester", "moderator", "admin"]
 
+PermissionCheck = Union[bool, Callable[[
+    User, Union[File, User, File, ExternalAccount, OAuthToken]], bool]]
 
-ROLES = {
+RolesWithPermissions = dict[
+    UserRole,
+    dict[str, dict[str, PermissionCheck]]
+]
+
+ROLES: RolesWithPermissions = {
     "admin": {
-        "users": {"view": True, "create": True, "update": True, "delete": True},
-        "files": {"view": True, "create": True, "update": True, "delete": True},
+        "user": {
+            "create": True,
+            "read": True,
+            "update": True,
+            "delete": True
+        },
+        "user_image": {
+            "create": True,
+            "read": True,
+            # "update": True,
+            # "delete": True
+        },
+        "user_file": {
+            "create": True,
+            # "read": True,
+            # "update": True,
+            # "delete": True
+        },
+        "blocked_users": {
+            "create": True,
+            # "read": True,
+            "update": True,
+            "delete": True,
+        },
+        "file": {
+            "create": True,
+            "view": True,
+            "update": True,
+            "delete": True
+        },
+        "database": {
+            "export": True,
+            "backup": True,
+            "import": True,
+            "restore": True,
+        },
+        "email": {
+            "single": True,
+            "multiple": True,
+            "all": True,
+            "test": True,
+            "auth": True
+        },
+        "admin": {
+            "ban": True,
+            "un-ban": True,
+            "feature_flags": True
+        },
+
+
         "external_accounts": {"view": True, "create": True, "update": True, "delete": True},
         "oauth_token": {"view": True, "create": True, "update": True, "delete": True},
     },
     "moderator": {
-        "users": {"view": True, "create": True, "update": False, "delete": False},
-        "files": {"view": True, "create": True, "update": True, "delete": True},
+        "user": {
+            "create": lambda user, new_user: not list(set(["admin", "moderator"]) & set(new_user.roles)),
+            "read": True,
+            "update": lambda user, data: (
+                not list(set(["admin", "moderator"]) & set(data["db_user"].roles)) and
+                not list(set(["admin", "moderator"]) &
+                         set(data["updates"].roles or []))
+            ),
+            "delete": False
+        },
+        "user_image": {
+            "create": False,
+            "read": True,
+            # "update": True,
+            # "delete": True
+        },
+        "user_file": {
+            "create": False,
+            # "read": True,
+            # "update": True,
+            # "delete": True
+        },
+        "blocked_users": {
+            "create": False,
+            # "read": True,
+            "update": False,
+            "delete": False,
+        },
+        "file": {
+            "create": True,
+            "view": True,
+            "update": True,
+            "delete": False
+        },
+        "email": {
+            "single": True,
+            "multiple": True,
+            "all": False,
+            "test": False,
+            "auth": True
+        },
+        "admin": {
+            "ban": lambda user, other_user: not list(set(["admin", "moderator"]) & set(other_user.roles)),
+            "un-ban": False,
+            "feature_flags": False
+        },
+
         "external_accounts": {"view": True, "create": True, "update": False, "delete": False},
         "oauth_token": {"view": False, "create": False, "update": False, "delete": False},
     },
     "user": {
-        "users": {
-            "view": lambda user, other_user: (
-                not (user.uuid in other_user.blocked_uuids) and
-                not (other_user.uuid in user.blocked_uuids)
-            ),
+        "user": {
             "create": False,
+            "read": lambda user, other_user: (
+                user.uuid not in other_user.blocked_uuids and
+                other_user.uuid not in user.blocked_uuids and
+                other_user.is_active
+            ),
+            "update": lambda user, other_user: (
+                user.uuid == other_user.uuid and
+                other_user.roles is None
+            ),
+            "delete": lambda user, other_user: user.uuid == other_user.uuid
+        },
+        "user_image": {
+            "create": lambda user, other_user: user.uuid == other_user.uuid,
+            "read": lambda user, other_user: (
+                user.uuid not in other_user.blocked_uuids and
+                other_user.uuid not in user.blocked_uuids and
+                other_user.is_active
+            ),
+            # "update": True,
+            # "delete": True
+        },
+        "user_file": {
+            "create": lambda user, other_user: user.uuid == other_user.uuid,
+            # "read": True,
+            # "update": True,
+            # "delete": True
+        },
+        "blocked_users": {
+            "create": lambda user, other_user: user.uuid == other_user.uuid,
+            # "read": lambda user, other_user: user.uuid == other_user.uuid,
             "update": lambda user, other_user: user.uuid == other_user.uuid,
             "delete": lambda user, other_user: user.uuid == other_user.uuid,
         },
-        "files": {
-            "view": lambda user, file: (
-                not (user.uuid in file.created_by.blocked_uuids) and
-                not (file.created_by.uuid in user.blocked_uuids)
-            ),
+        "file": {
             "create": True,
-            "update": lambda user, file: user.uuid == file.created_by_uuid.uuid,
-            "delete": lambda user, file: user.uuid == file.created_by_uuid.uuid,
+            "view": lambda user, file: (
+                user.uuid not in file.created_by.blocked_uuids and
+                file.created_by.uuid not in user.blocked_uuids
+            ),
+            "update": lambda user, file: user.uuid == file.created_by_uuid,
+            "delete": lambda user, file: user.uuid == file.created_by_uuid
         },
+
+
+
         "external_accounts": {
             "view": lambda user, external_account: user.uuid == external_account.user_uuid,
             "create": False,
@@ -82,11 +216,11 @@ ROLES = {
 }
 
 
-def has_permission(user: User_DB, resource: str, action: str, data=None) -> bool:
+def has_permission(user: User, resource: str, action: str, data=None, raise_error: bool = True) -> bool:
     """
     Checks if a user has permission to perform an action on a resource.
 
-    :param User_DB user: The user to check the permission for.
+    :param User user: The user to check the permission for.
     :param str resource: The resource to check the permission for.
     :param str action: The action to check the permission for.
     :param object data: The data to pass to the permission function.
@@ -100,20 +234,19 @@ def has_permission(user: User_DB, resource: str, action: str, data=None) -> bool
     The function returns False if the user does not have permission.
     """
     for role in user.roles:
-        permissions = ROLES.get(role, {}).get(resource, {})
-        permission = permissions.get(action)
+        permission = ROLES.get(role, {}).get(resource, {}).get(action)
         if permission is None:
             continue
-
         has_access = False
         if isinstance(permission, bool):
             has_access = permission
-        elif callable(permission):
+        elif callable(permission) and data is not None:
             has_access = permission(user, data)
         if has_access:
             return has_access
-
         # If the user has multiple roles checks the next role
+    if raise_error:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return False
 
 
@@ -195,12 +328,12 @@ def user_is_within_percentage(feature_name: str, allowed_percent: float | None, 
     return hashed_value / int(2**32 - 1) < allowed_percent
 
 
-def can_view_feature(feature_name: str, db_user: User_DB | None) -> bool:
+def can_view_feature(feature_name: str, db_user: User | None) -> bool:
     """
     Check if the user can view a feature.
 
     :param str feature_name: The name of the feature to check.
-    :param User_DB | None db_user: The user object of the user to check.
+    :param User | None db_user: The user object of the user to check.
     :return bool: True if the user can view the feature, False otherwise.
 
     Notes

@@ -293,7 +293,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User_DB:
     db = next(get_db())
     try:
         user = get_user(db, token_data.uuid)
-        if user.permission != token_data.permission:
+        if user.roles != token_data.roles:
             raise HTTPException(status_code=401, detail="Unauthorized")
     finally:
         db.close()
@@ -309,7 +309,7 @@ def init_default_user() -> None:
     - Username: admin
     - Email: admin@example.com
     - Password: changeme
-    - Permission: admin
+    - Role: ["admin", "moderator", "user"]
     - Email verified: True
     - OTP secret: changeme
 
@@ -329,7 +329,8 @@ def init_default_user() -> None:
                 display_name="Admin",
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
-                permission="admin",
+                # permission="admin",
+                roles = ["admin", "moderator", "user"],
                 email_verified=True,
                 otp_secret="changeme",
             )
@@ -343,11 +344,11 @@ def init_default_user() -> None:
                 "    Username: %s\n"
                 "    Email: %s\n"
                 "    Password: changeme\n"
-                "    Permission: %s\n\n"
+                "    Roles: %s\n\n"
                 "Please change the default password and email after first login.\n",
                 default_user.username,
                 default_user.email,
-                default_user.permission,
+                default_user.roles,
             )
     except IntegrityError as e:
         db.rollback()

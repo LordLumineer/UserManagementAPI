@@ -50,7 +50,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     Returns
     -------
     Token
-        access token with user uuid and permission.
+        access token with user uuid and roles.
     """
     user = await authenticate_user(
         db=db, username=form_data.username, password=form_data.password, request=request)
@@ -58,7 +58,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         sub=TokenData(
             purpose="login",
             uuid=user.uuid,
-            permission=user.permission
+            roles=user.roles
         ))
 
 
@@ -113,7 +113,7 @@ async def signup(
     Returns
     -------
     Token
-        The access token with user uuid and permission.
+        The access token with user uuid and roles.
     """
     validate_password(signup_form.password)
     if signup_form.password != signup_form.confirm_password:
@@ -129,7 +129,7 @@ async def signup(
         sub=TokenData(
             purpose="login",
             uuid=user_new.uuid,
-            permission=user_new.permission
+            roles=user_new.roles
         ))
 
 
@@ -154,7 +154,7 @@ def login_otp(
     Returns
     -------
     Token
-        access token with user uuid and permission.
+        access token with user uuid and roles.
 
     Raises
     ------
@@ -180,7 +180,7 @@ def login_otp(
         sub=TokenData(
             purpose="login",
             uuid=db_user.uuid,
-            permission=db_user.permission
+            roles=db_user.roles
         ))
 
 

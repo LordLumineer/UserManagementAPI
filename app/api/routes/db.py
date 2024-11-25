@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db, handle_database_import, export_db
-from app.db_objects.user import get_current_user
+from app.core.permissions import has_permission
 from app.core.utils import remove_file
+from app.db_objects.user import get_current_user
 from app.db_objects.db_models import User as User_DB
 
 
@@ -42,9 +43,7 @@ async def db_export(
     FileResponse
         A response with a file attachment containing the database export.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(
-            status_code=401, detail="Unauthorized")
+    has_permission(current_user, "db", "export")
     file_path = await export_db(db)
     background_tasks.add_task(remove_file, file_path)
     return FileResponse(
@@ -86,9 +85,7 @@ async def db_recover(
     Response
         A response with a status code of 200 and a message indicating that the database recovery was successful.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(
-            status_code=401, detail="Unauthorized")
+    has_permission(current_user, "db", "recover")
     # Save the uploaded file temporarily
     uploaded_db_path = f"../data/temp_{file.filename}"
     with open(uploaded_db_path, "wb") as buffer:
@@ -143,9 +140,7 @@ async def db_import(
 
     The uploaded database file is removed after the import is complete.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(
-            status_code=401, detail="Unauthorized")
+    has_permission(current_user, "db", "import")
 
     # Save the uploaded file temporarily
     uploaded_db_path = f"./temp_{file.filename}"

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import logger
 from app.core.db import get_db
-from app.core.permissions import FeatureFlags, save_feature_flags
+from app.core.permissions import FeatureFlags, has_permission, save_feature_flags
 from app.db_objects.user import get_current_user, get_user, update_user
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.user import UserUpdate
@@ -49,9 +49,10 @@ async def ban_user(
         A response with a status code of 200 if the user is banned successfully, 
         or a response with a status code of 400 or 401 if there is an error.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    if user_id == current_user.uuid:
+        raise HTTPException(status_code=400, detail="You cannot ban yourself")
     db_user = get_user(db, user_id)
+    has_permission(current_user, "admin", "ban", db_user)
 
     reason = f"{datetime.now(timezone.utc).strftime(
         '%Y-%m-%d %H:%M:%S %Z')}: {reason}"
@@ -101,9 +102,8 @@ async def unban_user(
         A response with a status code of 200 if the user is unbanned successfully, 
         or a response with a status code of 400 or 401 if there is an error
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
     db_user = get_user(db, user_id)
+    has_permission(current_user, "admin", "un-ban", db_user)
 
     reason = f"{datetime.now(timezone.utc).strftime(
         '%Y-%m-%d %H:%M:%S %Z')}: Unbanned"
@@ -156,8 +156,7 @@ def update_feature_flags(
     HTTPException
         401 Unauthorized if the user is not an admin.
     """
-    if current_user.permission != "admin":
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    has_permission(current_user, "admin", "feature_flags")
     from app.core.permissions import FEATURE_FLAGS  # pylint: disable=C0415
     if add is None:
         add = []

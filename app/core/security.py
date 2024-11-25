@@ -64,8 +64,8 @@ class TokenData(BaseModel):
         The purpose of the token.
     uuid : str
         The UUID of the user.
-    permission : str | None
-        The permission of the user, if purpose is "login".
+    roles : list[str] | None
+        The roles of the user, if purpose is "login".
     email : str | None
         The email of the user, if purpose is "email-verification".
     username : str | None
@@ -73,7 +73,7 @@ class TokenData(BaseModel):
     """
     purpose: Literal["login", "reset-password", "email-verification", "OTP"]
     uuid: str
-    permission: str | None = None
+    roles: list[str] | None = None
     email: str | None = None
     username: str | None = None
 
@@ -81,13 +81,13 @@ class TokenData(BaseModel):
     def _enforce_data(self) -> Self:
         match self.purpose:
             case "login":
-                if self.permission is None:
-                    raise ValueError("Missing permission")
+                if not self.roles:
+                    raise ValueError("Missing roles")
             case "reset-password":
-                if self.username is None:
+                if not self.username:
                     raise ValueError("Missing username")
             case "email-verification":
-                if self.email is None:
+                if not self.email:
                     raise ValueError("Missing email")
             case "OTP":
                 pass
@@ -160,7 +160,7 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
     :param str token: The JWT to decode.
     :param bool strict: If True, the token must start with "Bearer " or an HTTPException will be raised.
     :param str key: The secret key used to decode the JWT. Defaults to SECRET_KEY.
-    :return TokenData: The decoded JWT data, which is a TokenData object containing the user's UUID and permission.
+    :return TokenData: The decoded JWT data, which is a TokenData object containing the user's UUID and roles.
 
     :raises HTTPException: If the token is invalid, expired, or has an invalid issuer.
     """
