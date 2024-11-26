@@ -14,10 +14,8 @@
                     "color": "terminal.ansiRed",
                     "cwd": "./",
                     "commands": [
-                        "& '.venv/Scripts/Activate.ps1'",
-                        "cd app"
-                    ],
-                    "joinOperator": ";"
+                        "& '.venv/Scripts/Activate.ps1'"
+                    ]
                 }
             ]
         ]

@@ -13,7 +13,6 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 
-import app
 from app.core.config import logger
 from app.core.db import get_db
 from app.core.email import send_validation_email
@@ -331,7 +330,7 @@ def init_default_user() -> None:
                 display_name="Admin",
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
-                roles = ["admin", "moderator", "user"],
+                roles=["admin", "moderator", "user"],
                 email_verified=True,
                 otp_secret="changeme",
             )
@@ -340,7 +339,7 @@ def init_default_user() -> None:
             db.refresh(default_user)
             os.makedirs(app_path(os.path.join("data", "files",
                         "users", default_user.uuid)), exist_ok=True)
-            logger.critical(
+            logger.success(
                 "\nDefault user created:\n\n"
                 "    Username: %s\n"
                 "    Email: %s\n"

@@ -3,11 +3,9 @@ This module contains functions to interact with the database, including
 connection management, session creation, and database management using
 Alembic migrations.
 """
-import logging
 import os
 import shutil
 from typing import Generator
-import alembic
 from fastapi import HTTPException
 from sqlalchemy import (
     Connection, Engine, Inspector, MetaData, Table,
@@ -54,6 +52,7 @@ async def run_migrations() -> None:
     # alembic_cfg = Config("alembic.ini")
     alembic_cfg = Config(
         app_path(os.path.join("app", "alembic.ini")),
+        ini_section="alembic-run",
         config_args={
             "script_location": app_path(os.path.join("app", "alembic")),
         }
@@ -65,18 +64,9 @@ async def run_migrations() -> None:
         context = MigrationContext.configure(conn)
         current = context.get_current_revision()
     if head != current:
-        # logger.info("Backing up database...")
-        # db = next(get_db())
-        # try:
-        #     path = await export_db(db, f"../data/backup-{int(time.time())}.db")
-        # finally:
-        #     db.close()
-        # logger.info("Backing up database completed. You can find the backup in the `%s` file.", path)
         command.upgrade(alembic_cfg, "head")
     else:
         logger.info("Database already up-to-date.")
-    logger.disabled = False
-    logging.getLogger("uvicorn.access").disabled = False
     logger.info("Alembic migrations completed.")
 
 

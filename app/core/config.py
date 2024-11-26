@@ -1,30 +1,40 @@
 """This module contains the settings for the application. It also sets up the logger."""
-import logging
+import sys
 import os
-import time
 from typing import Literal, Self
-from colorama import Fore
 from pydantic import Field, PostgresDsn, model_validator, computed_field
 # from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pytz import utc
 from sqlalchemy import URL
-from uvicorn.logging import ColourizedFormatter
+from loguru import logger as loguru_logger
 
-logger = logging.getLogger("uvicorn.access")
-for handler in logger.handlers:
-    handler.setFormatter(ColourizedFormatter(
-        fmt=(
-            f"{Fore.LIGHTBLACK_EX}%(asctime)s GMT | {Fore.RESET}"
-            f"%(levelprefix)-8s %(message)s"
-        ),
-        datefmt="%Y/%m/%d %H:%M:%S",
-        style="%",
-        use_colors=True
-    ))
-    handler.formatter.converter = time.gmtime
+logger = loguru_logger
+
+
+def _fix_timezone(record):
+    utc_time = record["time"].astimezone(utc)
+    record["time"] = utc_time
+
+
+logger.remove(0)
+logger.add(
+    sys.stderr,
+    level="TRACE",
+    colorize=True,
+    format=(
+        "<green>{time:YYYY/MM/DD HH:mm:ss zz}</green> | "
+        "<level>{level:<8}</level> | "
+        "<cyan>{module}:{function}:{line}</cyan> - "
+        "<level>{message}</level>"
+    )
+)
+logger.configure(patcher=_fix_timezone)
+
 
 app_root_dir = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
 
 class _Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -38,8 +48,8 @@ class _Settings(BaseSettings):
     # Field(default="http://127.0.0.1:8000")
     FRONTEND_URL: str = Field(default="http://localhost")
 
-    LOG_LEVEL: Literal["debug", "info", "warning", "error", "critical"] = Field(
-        default="info"
+    LOG_LEVEL: Literal['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
+        default='INFO'
     )
 
     JWT_ALGORITHM: str = Field(default="HS256")
@@ -200,4 +210,4 @@ class _Settings(BaseSettings):
 
 settings = _Settings()
 
-logger.setLevel(str(settings.LOG_LEVEL).upper())
+logger.level(str(settings.LOG_LEVEL))

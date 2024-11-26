@@ -97,6 +97,7 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
         "url": "https://www.apache.org/licenses/LICENSE-2.0",
     },
     generate_unique_id_function=custom_generate_unique_id,
+    logger=logger,
 )
 
 app.include_router(api_router, prefix=settings.API_STR)
@@ -113,11 +114,7 @@ app.mount(f"{settings.API_STR}/static",
           StaticFiles(directory=app_path("assets")), name="Assets")
 # ** ~~~~~ Debugging ~~~~~ ** #
 
-# from app.core.permissions import feature_flag
-# @app.get("/me", tags=["DEBUG"])
-# @feature_flag("MULTIPLE_ALLOWANCES")
-# async def read_user_me():
-#     return {"message": "Feature flag enforced!"}
+
 # ----- Exceptions Handler ----- #
 
 
@@ -152,7 +149,9 @@ def _debug_exception_handler(request: Request, exc: Exception):  # pylint: disab
 
 # ----- Debugging ----- #
 
+# from app.core.permissions import feature_flag
 @app.get("/ping", tags=["DEBUG"])
+# @feature_flag("_PING")
 def _ping():
     logger.info("Pong!")
     return "pong"

@@ -1,6 +1,6 @@
 """This module contains the SQLAlchemy models for the application."""
 import json
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, PickleType, String, Table
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Table
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,15 +9,6 @@ from app.db_objects._base import Base
 # from app.core.config import settings
 
 # pylint: disable=R0903
-
-
-# Many-to-Many Reference Tables
-# blocked_users_table = Table(
-#     "blocked_users",
-#     Base.metadata,
-#     Column("user_uuid", ForeignKey("users.uuid")),
-#     Column("blocked_user_uuid", ForeignKey("users.uuid"))
-# )
 
 
 users_files_links = Table(
@@ -154,7 +145,6 @@ class User(Base):
         default="none"
     )
     otp_secret: Mapped[str | None]
-    
     roles: Mapped[str] = mapped_column(
         MutableList.as_mutable(JSON),
         default=["user"]
