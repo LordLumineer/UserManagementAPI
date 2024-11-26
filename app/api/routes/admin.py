@@ -61,10 +61,8 @@ async def ban_user(
 
     db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
     logger.warning(
-        "Admin: %s, Action: Banned, User: %s, Reason: %s",
-        current_user.username,
-        db_user.username,
-        reason
+        f"Admin: {current_user.username}, Action: Banned, User: {
+            db_user.username}, Reason: {reason}",
     )
     return JSONResponse(
         status_code=200,
@@ -112,10 +110,8 @@ async def unban_user(
 
     db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
     logger.warning(
-        "Admin: %s, Action: Banned, User: %s, Reason: %s",
-        current_user.username,
-        db_user.username,
-        reason
+        f"Admin: {current_user.username}, Action: Un-Banned, User: {
+            db_user.username}, Reason: {reason}",
     )
     return JSONResponse(
         status_code=200,

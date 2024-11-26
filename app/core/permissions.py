@@ -355,7 +355,7 @@ def can_view_feature(feature_name: str, db_user: User | None) -> bool:
     for rule in rules:
         if not db_user:
             logger.critical(
-                "Server error <%s>: Misconfigured feature flag", feature_name)
+                f"Server error <{feature_name}>: Misconfigured feature flag")
             raise HTTPException(
                 status_code=500,
                 detail=f"Server error: Misconfigured feature flag, contact support: {

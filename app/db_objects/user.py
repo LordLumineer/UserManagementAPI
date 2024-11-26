@@ -341,17 +341,14 @@ def init_default_user() -> None:
                         "users", default_user.uuid)), exist_ok=True)
             logger.success(
                 "\nDefault user created:\n\n"
-                "    Username: %s\n"
-                "    Email: %s\n"
+                f"    Username: {default_user.username}\n"
+                f"    Email: {default_user.email}\n"
                 "    Password: changeme\n"
-                "    Roles: %s\n\n"
+                f"    Roles: {default_user.roles}\n\n"
                 "Please change the default password and email after first login.\n",
-                default_user.username,
-                default_user.email,
-                default_user.roles,
             )
     except IntegrityError as e:
         db.rollback()
-        logger.error("Failed to create default user: %s", e.orig)
+        logger.error(f"Failed to create default user: {e.orig}")
     finally:
         db.close()

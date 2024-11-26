@@ -347,7 +347,7 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
             return db_user
 
         if not db_user.otp_secret:
-            logger.debug("Generating OTP for user %s", db_user.username)
+            logger.debug(f"Generating OTP for user {db_user.username}")
             otp_secret = (await generate_otp(db, user_uuid=db_user.uuid, user_username=db_user.username))[1]
         else:
             otp_secret = db_user.otp_secret

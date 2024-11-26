@@ -134,7 +134,7 @@ async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
     if not user_info:
         raise HTTPException(
             status_code=400, detail="Unable to fetch user information")
-    logger.debug("\n%s", json.dumps(user_info, indent=4))
+    logger.debug(f"\n{json.dumps(user_info, indent=4)}")
     return user_info
 
 

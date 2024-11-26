@@ -42,7 +42,7 @@ def validate_username(username: str) -> str:
     if bool(re.match(username_pattern, username)):
         return username
     if settings.ENVIRONMENT == "local":
-        logger.warning("Invalid username format: %s", username)
+        logger.warning(f"Invalid username format: {username}")
         return username
     raise HTTPException(
         status_code=400,
@@ -67,10 +67,10 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
             email, check_deliverability=check_deliverability)
     except EmailNotValidError as e:
         if not raise_error:
-            logger.debug("Invalid email format: %s", email)
+            logger.debug(f"Invalid email format: {email}")
             return False
         if settings.ENVIRONMENT == "local":
-            logger.warning("Invalid email format: %s", email)
+            logger.warning(f"Invalid email format: {email}")
             return email
         raise HTTPException(
             status_code=400, detail="Email is not valid. " + str(e)) from e
@@ -89,7 +89,7 @@ def validate_password(password: str) -> str:
     if bool(re.match(regex, password)):
         return password
     if settings.ENVIRONMENT == "local":
-        logger.warning("Invalid password format: %s", password)
+        logger.warning(f"Invalid password format: {password}")
         return password
     raise HTTPException(
         status_code=400,
@@ -247,6 +247,7 @@ def render_html_template(html_content: str, context: dict = None) -> str:
     base_context.update(context or {})
     return Template(
         html_content, undefined=DebugUndefined).render(base_context)
+
 
 def app_path(path: str) -> str:
     """Returns the absolute path of the given path relative to the app root directory."""
@@ -576,7 +577,7 @@ def get_latest_commit_info():
         }
 
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return None
 
 
@@ -669,5 +670,5 @@ def get_repository_info():
             "remote_details": remote_details
         }
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return None

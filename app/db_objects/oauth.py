@@ -153,7 +153,7 @@ def update_token(provider, token, refresh_token=None, access_token=None):
     :param access_token: The access token to update
     :return: None
     """
-    logger.debug("Updating token: %s", provider)
+    logger.debug(f"Updating token: {provider}")
     db = next(get_db())
     try:
         if refresh_token:

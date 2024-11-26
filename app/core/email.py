@@ -55,13 +55,12 @@ async def send_mj_email(recipients: list[str] | str, subject: str, html_content:
     result = mailjet.send.create(data=data)
     if result.status_code == 200:
         logger.info(
-            """Email Sent with MailJet API
-            - To %s
-            - From %s
-            - Subject: %s""",
-            recipients, settings.MJ_SENDER_EMAIL, subject)
+            f"""Email Sent with MailJet API
+            - To {recipients}
+            - From {settings.MJ_SENDER_EMAIL}
+            - Subject: {subject}""")
         return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
-    logger.error("Failed to send email to %s", recipients)
+    logger.error(f"Failed to send email to {recipients}")
     logger.error(result.json())
     raise HTTPException(
         status_code=500, detail=f"Failed to send email. {result.json()}")
@@ -97,15 +96,14 @@ async def send_smtp_email(recipients: list[str] | str, subject: str, html_conten
                                 html_message.as_string())
             server.quit()
         logger.info(
-            """Email Sent with SMTP Server
-                - Host: %s
-                - To %s
-                - From %s
-                - Subject: %s""",
-            settings.SMTP_HOST, recipients, settings.SMTP_SENDER_EMAIL, subject)
+            f"""Email Sent with SMTP Server
+                - Host: {settings.SMTP_HOST}
+                - To {recipients}
+                - From {settings.SMTP_SENDER_EMAIL}
+                - Subject: {subject}""")
         return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
     except Exception as e:
-        logger.error("Failed to send email to %s", recipients)
+        logger.error(f"Failed to send email to {recipients}")
         logger.error(e)
         raise HTTPException(
             status_code=500, detail=f"Failed to send email. {e}") from e
@@ -153,7 +151,7 @@ async def send_test_email(recipient: str):
         "PARAMS": "?test=123456789&token=123456789"
     }
     html = render_html_template(html_content, context)
-    logger.debug("Testing Email to %s", recipient)
+    logger.debug(f"Testing Email to {recipient}")
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Test Email", html)
 
 
@@ -173,7 +171,7 @@ async def send_validation_email(recipient: str, token_str: str):
         "PARAMS": f"?token={token_str}"
     }
     html = render_html_template(html_content, context)
-    logger.debug("Sending Validation Email: %s", recipient)
+    logger.debug(f"Sending Validation Email: {recipient}")
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Activate your account", html)
 
 
@@ -204,7 +202,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
         "RESET_PASSWORD_URL": f"{settings.FRONTEND_URL}/reset-password"
     }
     html = render_html_template(html_content, context)
-    logger.debug("Sending One-Time Password Email: %s", recipient)
+    logger.debug(f"Sending One-Time Password Email: {recipient}")
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
 
@@ -229,5 +227,5 @@ async def send_reset_password_email(recipient: str, token_str: str, request: Req
         "PARAMS": f"?token={token_str}"
     }
     html = render_html_template(html_content, context)
-    logger.debug("Sending Reset Password Email: %s", recipient)
+    logger.debug(f"Sending Reset Password Email: {recipient}")
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Reset your password", html)
