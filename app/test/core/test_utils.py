@@ -1,6 +1,7 @@
 """Tests for the core utilities module."""
 from collections import namedtuple
 from io import BytesIO
+import os
 import subprocess
 from unittest.mock import MagicMock, mock_open, patch
 from warnings import warn
@@ -17,6 +18,7 @@ from PIL import Image
 
 # from app.core.config import settings, logger
 from app.core.utils import (
+    app_path,
     generate_profile_picture,
     parse_remote_details,
     validate_username,
@@ -212,6 +214,20 @@ def test_render_html_template():
     rendered = render_html_template(html)
     assert "PROJECT_NAME" not in rendered
     assert "{{ OTHER_VAR }}" in rendered
+
+
+@pytest.mark.parametrize(
+    "input_path, expected",
+    [
+        ("subdir/file.txt", "/mock/app/root/subdir/file.txt"),
+        ("../file.txt", "/mock/app/file.txt"),
+        ("", "/mock/app/root"),
+        ("/absolute/path", "/absolute/path"),
+    ]
+)
+def test_app_path(input_path, expected):
+    with patch("app.core.config.settings.APP_ROOT_DIR", "/mock/app/root"):
+        assert app_path(input_path) == os.path.normpath(expected)
 
 
 def test_not_found_page():
