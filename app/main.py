@@ -4,9 +4,7 @@ Main entrypoint of the application
 This module contains the main entrypoint of the application. It is responsible
 for creating the FastAPI application and setting up the routes and middleware.
 
-@file: ./app/main.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
+# TODO: Check https://unit.nginx.org/howto/fastapi/
 """
 from contextlib import asynccontextmanager
 import os
@@ -22,7 +20,6 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import IntegrityError
 
-
 from app.api.router import api_router, tags_metadata
 from app.core import db as database
 from app.core.config import settings, logger
@@ -31,6 +28,7 @@ from app.core.permissions import load_feature_flags
 from app.db_objects.user import init_default_user
 from app.core.utils import (
     FeatureFlagMiddleware,
+    app_path,
     custom_generate_unique_id,
     extract_initials_from_text,
     generate_profile_picture,
@@ -46,8 +44,8 @@ async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-
     logger.info("Starting up...")
     # Create folders
     logger.info("Creating folders...")
-    os.makedirs(os.path.join("..", "data", "files", "users"), exist_ok=True)
-    os.makedirs(os.path.join("..", "data", "files", "files"), exist_ok=True)
+    os.makedirs(app_path(os.path.join("data", "files", "users")), exist_ok=True)
+    os.makedirs(app_path(os.path.join("data", "files", "files")), exist_ok=True)
     # Alembic
     await run_migrations()
     # Database
@@ -89,7 +87,7 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
     lifespan=lifespan,
     terms_of_service=f"{settings.FRONTEND_URL}/terms",
     contact={
-        "name": settings.CONTACT_EMAIL.split("@")[0] if settings.CONTACT_EMAIL else "Unknown",
+        "name": settings.CONTACT_EMAIL.split("@")[0] if settings.CONTACT_EMAIL else "Contact",
         "url": f"{settings.FRONTEND_URL}/contact",
         "email": settings.CONTACT_EMAIL,
     },
@@ -112,7 +110,7 @@ app.add_middleware(
 )
 app.add_middleware(FeatureFlagMiddleware)
 app.mount(f"{settings.API_STR}/static",
-          StaticFiles(directory="../assets"), name="Assets")
+          StaticFiles(directory=app_path("assets")), name="Assets")
 # ** ~~~~~ Debugging ~~~~~ ** #
 
 # from app.core.permissions import feature_flag
@@ -185,10 +183,10 @@ def _version():
     include_in_schema=False
 )
 async def _favicon():
-    if os.path.exists("../assets/favicon.ico"):
-        return FileResponse("../assets/favicon.ico")
-    if os.path.exists("../assets/logo.png"):
-        return FileResponse("../assets/logo.png")
+    if os.path.exists(app_path(os.path.join("assets", "favicon.ico"))):
+        return FileResponse(app_path(os.path.join("assets", "favicon.ico")))
+    if os.path.exists(app_path(os.path.join("assets", "logo.png"))):
+        return FileResponse(app_path(os.path.join("assets", "logo.png")))
     letters = extract_initials_from_text(settings.PROJECT_NAME)
     return await generate_profile_picture(letters)
 

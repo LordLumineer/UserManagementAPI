@@ -151,9 +151,9 @@ def test_generate_timestamp():
 
 
 @pytest.mark.parametrize("text, expected", [
-    ("OpenAI GPT", "OG"),
-    ("This is a Test", "TIAT"),
-    ("singleword", "S")
+    ("Only Fans", "OF"),
+    ("Twitch Integration Throwing System", "TITS"),
+    ("Bear", "B")
 ])
 def test_extract_initials_from_text(text, expected):
     assert extract_initials_from_text(text) == expected

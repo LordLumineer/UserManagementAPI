@@ -1,5 +1,6 @@
 """This module contains the settings for the application. It also sets up the logger."""
 import logging
+import os
 import time
 from typing import Literal, Self
 from colorama import Fore
@@ -22,13 +23,15 @@ for handler in logger.handlers:
     ))
     handler.formatter.converter = time.gmtime
 
+app_root_dir = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 class _Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", env_ignore_empty=True, extra="ignore"
     )
 
-    PROJECT_NAME: str = Field(default="OpenShelf")
+    PROJECT_NAME: str = Field(default="Project Name")
     # Field(default="http://127.0.0.1:8000")  # .env
     BASE_URL: str = Field(default="http://localhost")
     API_STR: str = Field(default="/api")
@@ -50,9 +53,17 @@ class _Settings(BaseSettings):
     ENVIRONMENT: Literal["local", "production"] = Field(
         default="local")  # "local" # .env
 
-    FEATURE_FLAGS_FILE: str = Field(default="../data/feature_flags.json")
+    APP_ROOT_DIR: str = app_root_dir
 
-    DATABASE_URI: str = "sqlite:///../data/OpenShelf.db"
+    FEATURE_FLAGS_FILE: str = Field(
+        default=os.path.normpath(os.path.join(
+            app_root_dir, "data", "feature_flags.json"
+        )),
+        # default="../data/feature_flags.json"
+    )
+
+    DATABASE_URI: str = f"sqlite:///{os.path.normpath(
+        os.path.join(app_root_dir, "data", "Project.db"))}"
 
     POSTGRES_SERVER: str | None = None
     POSTGRES_PORT: int | None = None

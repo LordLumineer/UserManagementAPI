@@ -4,6 +4,7 @@ Database-related API endpoints.
 This module contains the API endpoints related to the database (e.g. export, import, recover).
 """
 from datetime import datetime, timezone
+import os
 from fastapi import APIRouter, BackgroundTasks, Response, UploadFile, Depends, File
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.db import get_db, handle_database_import, export_db
 from app.core.permissions import has_permission
-from app.core.utils import remove_file
+from app.core.utils import app_path, remove_file
 from app.db_objects.user import get_current_user
 from app.db_objects.db_models import User as User_DB
 
@@ -87,7 +88,7 @@ async def db_recover(
     """
     has_permission(current_user, "db", "recover")
     # Save the uploaded file temporarily
-    uploaded_db_path = f"../data/temp_{file.filename}"
+    uploaded_db_path = app_path(os.path.join("data", f"temp_{file.filename}"))
     with open(uploaded_db_path, "wb") as buffer:
         buffer.write(await file.read())
 

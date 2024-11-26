@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 from typing import Generator
+import alembic
 from fastapi import HTTPException
 from sqlalchemy import (
     Connection, Engine, Inspector, MetaData, Table,
@@ -19,6 +20,7 @@ from alembic.script import ScriptDirectory
 from alembic.runtime.migration import MigrationContext
 
 from app.core.config import settings, logger
+from app.core.utils import app_path
 
 engine = create_engine(url=settings.SQLALCHEMY_DATABASE_URI)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -49,7 +51,13 @@ async def run_migrations() -> None:
 
     The function blocks until the migrations are complete.
     """
-    alembic_cfg = Config("alembic.ini")
+    # alembic_cfg = Config("alembic.ini")
+    alembic_cfg = Config(
+        app_path(os.path.join("app", "alembic.ini")),
+        config_args={
+            "script_location": app_path(os.path.join("app", "alembic")),
+        }
+        )
     logger.info("Running Alembic migrations...")
     script = ScriptDirectory.from_config(alembic_cfg)
     head = str(script.get_current_head())

@@ -154,6 +154,7 @@ class User(Base):
         default="none"
     )
     otp_secret: Mapped[str | None]
+    
     roles: Mapped[str] = mapped_column(
         MutableList.as_mutable(JSON),
         default=["user"]

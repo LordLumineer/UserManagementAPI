@@ -9,6 +9,7 @@ import os
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.core.config import settings
+from app.core.utils import app_path
 
 # pylint: disable=R0903
 
@@ -54,7 +55,7 @@ class FileCreate(FileBase):
     @computed_field
     def file_path(self) -> str:
         """Path of the file on the filesystem."""
-        return os.path.join("..", "data", "files", self.file_name)
+        return app_path(os.path.join("data", "files", self.file_name))
 
 
 class FileUpdate(FileBase):
