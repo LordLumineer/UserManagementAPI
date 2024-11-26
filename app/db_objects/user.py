@@ -329,7 +329,6 @@ def init_default_user() -> None:
                 display_name="Admin",
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
-                # permission="admin",
                 roles = ["admin", "moderator", "user"],
                 email_verified=True,
                 otp_secret="changeme",

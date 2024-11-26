@@ -36,9 +36,6 @@ class UserBase(BaseModel):
     otp_method: Literal["none", None, "authenticator", "email"] = Field(
         default="none"
     )
-    # permission: Literal["user", "manager", "admin"] = Field(
-    #     default="user",
-    # )
     roles: list[UserRole] = Field(default=["user"])
     description: str | None = Field(
         default=None,

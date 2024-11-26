@@ -1,6 +1,6 @@
 """This module contains the SQLAlchemy models for the application."""
 import json
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, PickleType, String, Table
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, PickleType, String, Table
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -154,14 +154,8 @@ class User(Base):
         default="none"
     )
     otp_secret: Mapped[str | None]
-
-    # # TODO: Change to List
-    # permission: Mapped[str] = mapped_column(
-    #     String,
-    #     default="user"
-    # )
     roles: Mapped[str] = mapped_column(
-        MutableList.as_mutable(PickleType),
+        MutableList.as_mutable(JSON),
         default=["user"]
     )
     description: Mapped[str | None]
@@ -203,8 +197,8 @@ class User(Base):
         cascade="all, delete",
     )
 
-    blocked_uuids: Mapped[list[str]] = mapped_column(
-        MutableList.as_mutable(PickleType),
+    blocked_uuids: Mapped[str] = mapped_column(
+        MutableList.as_mutable(JSON),
         default=list
     )
 
