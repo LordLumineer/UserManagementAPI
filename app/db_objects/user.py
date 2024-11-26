@@ -13,9 +13,11 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 
+import app
 from app.core.config import logger
 from app.core.db import get_db
 from app.core.email import send_validation_email
+from app.core.utils import app_path
 from app.db_objects.file import delete_file, get_file, get_file_users
 from app.core.security import (
     TokenData, create_access_token, decode_access_token,
@@ -50,8 +52,8 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        os.makedirs(os.path.join("..", "data", "files",
-                    "users", db_user.uuid), exist_ok=True)
+        os.makedirs(app_path(os.path.join("data", "files",
+                    "users", db_user.uuid)), exist_ok=True)
     except IntegrityError as e:
         db.rollback()
         # Link New Local User and External User
@@ -273,7 +275,7 @@ async def delete_user(db: Session, db_user: User_DB) -> bool:
     # Delete the user
     db.delete(db_user)
     db.commit()
-    os.rmdir(os.path.join("..", "data", "files", "users", db_user.uuid))
+    os.rmdir(app_path(os.path.join("data", "files", "users", db_user.uuid)))
     return True
 
 
@@ -330,15 +332,15 @@ def init_default_user() -> None:
                 email="admin@example.com",
                 hashed_password=hash_password("changeme"),
                 # permission="admin",
-                roles = ["admin", "moderator", "user"],
+                roles=["admin", "moderator", "user"],
                 email_verified=True,
                 otp_secret="changeme",
             )
             db.add(default_user)
             db.commit()
             db.refresh(default_user)
-            os.makedirs(os.path.join("..", "data", "files",
-                        "users", default_user.uuid), exist_ok=True)
+            os.makedirs(app_path(os.path.join("data", "files",
+                        "users", default_user.uuid)), exist_ok=True)
             logger.critical(
                 "\nDefault user created:\n\n"
                 "    Username: %s\n"

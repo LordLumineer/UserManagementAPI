@@ -248,6 +248,9 @@ def render_html_template(html_content: str, context: dict = None) -> str:
     return Template(
         html_content, undefined=DebugUndefined).render(base_context)
 
+def app_path(path: str) -> str:
+    """Returns the absolute path of the given path relative to the app root directory."""
+    return os.path.normpath(os.path.join(settings.APP_ROOT_DIR, path))
 
 # ----- UTILS ----- #
 

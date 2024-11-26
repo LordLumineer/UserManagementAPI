@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings, logger
 from app.core.security import TokenData, create_access_token
+from app.core.utils import app_path
 from app.db_objects.db_models import User as User_DB
 from app.core.email import send_validation_email
 from app.db_objects.oauth import (fetch_token, update_token)
@@ -218,8 +219,8 @@ async def create_user_from_oauth(
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        os.makedirs(os.path.join("..", "data", "files",
-                    "users", new_user.uuid), exist_ok=True)
+        os.makedirs(app_path(os.path.join("data", "files",
+                    "users", new_user.uuid)), exist_ok=True)
     except IntegrityError as e:
         db.rollback()
         # Check if the username is already taken, if so add numbers to the username and try again

@@ -155,11 +155,6 @@ class User(Base):
     )
     otp_secret: Mapped[str | None]
 
-    # # TODO: Change to List
-    # permission: Mapped[str] = mapped_column(
-    #     String,
-    #     default="user"
-    # )
     roles: Mapped[str] = mapped_column(
         MutableList.as_mutable(PickleType),
         default=["user"]
