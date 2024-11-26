@@ -69,7 +69,6 @@ class _Settings(BaseSettings):
         default=os.path.normpath(os.path.join(
             app_root_dir, "data", "feature_flags.json"
         )),
-        # default="../data/feature_flags.json"
     )
 
     DATABASE_URI: str = f"sqlite:///{os.path.normpath(

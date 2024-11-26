@@ -213,7 +213,7 @@ async def export_db(db: Session, path = None) -> str:
     Raises:
         HTTPException: If the database file is not found.
     """
-    export_path = path or "./output.db"
+    export_path = path or app_path("output.db")
     if "sqlite" in str(engine.url):
         # If it's SQLite, serve the actual database file
         engine_db_path = engine.url.database

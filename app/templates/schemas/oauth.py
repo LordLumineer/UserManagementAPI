@@ -1,9 +1,6 @@
 """
-This module defines the base model for OAuth2 tokens, supporting both OAuth1 and OAuth2 token structures.
-
-@file: ./app/templates/schemas/oauth.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
+This module defines the base model for OAuth2 tokens, 
+supporting both OAuth1 and OAuth2 token structures.
 """
 
 from typing import Literal, Self

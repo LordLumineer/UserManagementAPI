@@ -222,10 +222,11 @@ def _support():
 
 @app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _login():
-    with open("./templates/html/login_page.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html", "login_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/login",
+        "FORGOT_PASSWORD_ENDPOINT": "/forgot-password/request-form",
     }
     html = render_html_template(html_content, context)
     return HTMLResponse(content=html)
@@ -238,7 +239,8 @@ def _sign_in():
 
 @app.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _otp():
-    with open("./templates/html/otp_page.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "otp_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/OTP",
@@ -251,7 +253,8 @@ def _otp():
 @app.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 @app.get("/signup", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _signup():
-    with open("./templates/html/signup_page.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "signup_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/signup",
@@ -262,7 +265,8 @@ def _signup():
 
 @app.get("/logout", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _logout():
-    with open("./templates/html/logout_page.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "logout_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/logout",
@@ -273,10 +277,35 @@ def _logout():
 
 @app.get("/reset-password", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _reset_password():
-    with open("./templates/html/reset_password_page.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "reset_password_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/password/reset",
+    }
+    html = render_html_template(html_content, context)
+    return HTMLResponse(content=html)
+
+
+@app.get("/forgot-password/request-form", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _forgot_password_request():
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "forgot_password_form_page.html")), "r", encoding="utf-8") as f:
+        html_content = f.read()
+    context = {
+        "ENDPOINT": "/auth/forgot-password/request",
+    }
+    html = render_html_template(html_content, context)
+    return HTMLResponse(content=html)
+
+
+@app.get("/forgot-password/reset-form", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+def _forgot_password_reset():
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "forgot_password_reset_page.html")), "r", encoding="utf-8") as f:
+        html_content = f.read()
+    context = {
+        "ENDPOINT": "/auth/forgot-password/reset",
     }
     html = render_html_template(html_content, context)
     return HTMLResponse(content=html)

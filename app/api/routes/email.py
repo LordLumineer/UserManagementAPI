@@ -3,12 +3,9 @@ Email-related API endpoints.
 
 This module contains the API endpoints related to the email 
 (e.g. send email, send OTP, send reset password email, send test email, send validation email).
-
-@file: ./app/api/routes/email.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
-from fastapi import APIRouter, Request
+from typing import Literal
+from fastapi import APIRouter, Form, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Body, Depends, Query
 import pyotp
@@ -203,25 +200,39 @@ async def reset_password_email(
     request: Request,
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
+    endpoint: Literal["/reset-password", "/forgot-password/reset-form"] = Form(...),
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
-):
+): # pylint: disable=R0917, R0913
     """
-    Send a reset password email to a single recipient.
+    Send an email to a recipient with a link to reset their password.
 
     Parameters
     ----------
+    request : Request
+        The request object.
+    confirm : bool, optional
+        Whether to proceed with sending the email. Defaults to False.
     recipient : str, optional
         The recipient of the email. Defaults to the contact email in settings.
+    endpoint : Literal["/reset-password", "/forgot-password/reset-form"]
+        The endpoint to use for the reset password link.
     current_user : User_DB
         The user who is sending the email.
     db : Session
         The database session.
 
+    Returns
+    -------
+    Response
+        A response with a status code of 200 if the email is sent successfully.
+
     Raises
     ------
     HTTPException
         401 Unauthorized if the user is not authorized to send the email.
+    HTTPException
+        400 Bad Request if the user is not confirmed.
     """
     has_permission(current_user, "email", "auth")
     if not confirm:
@@ -233,7 +244,7 @@ async def reset_password_email(
             uuid=user.uuid,
             username=user.username
         ))
-    return await send_reset_password_email(recipient, token, request)
+    return await send_reset_password_email(recipient, token, endpoint, request)
 
 
 @router.post("/send-validation-email")

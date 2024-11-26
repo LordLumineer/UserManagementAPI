@@ -1,10 +1,4 @@
-"""
-This module contains the pydantic models for External accounts.
-
-@file: ./app/templates/schemas/external_account.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
-"""
+"""This module contains the pydantic models for External accounts."""
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.core.oauth import oauth_clients_names

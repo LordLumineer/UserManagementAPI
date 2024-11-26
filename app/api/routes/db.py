@@ -144,7 +144,7 @@ async def db_import(
     has_permission(current_user, "db", "import")
 
     # Save the uploaded file temporarily
-    uploaded_db_path = f"./temp_{file.filename}"
+    uploaded_db_path = app_path(f"temp_{file.filename}")
     with open(uploaded_db_path, "wb") as buffer:
         buffer.write(await file.read())
 

@@ -1,6 +1,7 @@
 {
     "files": [
         ".gitignore",
+        "alembic.ini",
         "comments.txt",
         "LICENSE",
         "README.md"
@@ -12,6 +13,7 @@
             ".pylintrc",
             "alembic.ini",
             "main.py",
+            "pytest.ini",
             "requirements.txt"
         ],
         "alembic": {
@@ -20,11 +22,7 @@
                 "README",
                 "script.py.mako"
             ],
-            "versions": {
-                "files": [
-                    "2024_11_17_1453-5a4d12dcbd0b_semi_finalized.py"
-                ]
-            }
+            "versions": {}
         },
         "api": {
             "files": [
@@ -58,6 +56,7 @@
                 "email.py",
                 "not yet suported providers.txt",
                 "oauth.py",
+                "permissions.py",
                 "security.py",
                 "utils.py"
             ]
@@ -80,10 +79,17 @@
                 "twitch.py"
             ]
         },
+        "reports": {
+            "files": [
+                "pytest.md"
+            ]
+        },
         "templates": {
             "html": {
                 "files": [
                     "404.html",
+                    "forgot_password_form_page.html",
+                    "forgot_password_reset_page.html",
                     "login_page.html",
                     "logout_page.html",
                     "otp_email.html",
@@ -106,8 +112,16 @@
         },
         "test": {
             "files": [
+                "conftest.py",
+                "feature_flags.json",
                 "requirements.txt"
-            ]
+            ],
+            "core": {
+                "files": [
+                    "test_midleware.py",
+                    "test_utils.py"
+                ]
+            }
         }
     },
     "assets": {
@@ -120,7 +134,7 @@
         "files": {
             "files": {},
             "users": {
-                "2ac758a5-14a8-499f-b427-09f5a3ade672": {}
+                "3b63f37d-7364-44bb-967a-7f84ab240676": {}
             }
         }
     }

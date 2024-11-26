@@ -7,16 +7,18 @@ can use SMTP or Mailjet to send emails, depending on the EMAIL_METHOD
 setting.
 """
 from datetime import datetime, timedelta, timezone
+import os
 import smtplib
 import ssl
 from email.mime.text import MIMEText
+from typing import Literal
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse
 from mailjet_rest import Client
 
 from app.core.config import settings, logger
-from app.core.utils import get_info_from_request, render_html_template
+from app.core.utils import app_path, get_info_from_request, render_html_template
 
 
 async def send_mj_email(recipients: list[str] | str, subject: str, html_content: str):
@@ -144,7 +146,7 @@ async def send_test_email(recipient: str):
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
-    with open("./templates/html/test_email.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html", "test_email.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/send-test-email/test/todo",
@@ -164,7 +166,8 @@ async def send_validation_email(recipient: str, token_str: str):
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
-    with open("./templates/html/validate_email.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates",
+                                    "html", "validate_email.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/email/verify",
@@ -188,7 +191,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
         otherwise an HTTPException with a 500 status code is raised.
     """
     info = get_info_from_request(request)
-    with open("./templates/html/otp_email.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html", "otp_email.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     expiration_date = datetime.now(
         timezone.utc) + timedelta(seconds=settings.OTP_EMAIL_INTERVAL)
@@ -206,7 +209,11 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     return await send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
 
-async def send_reset_password_email(recipient: str, token_str: str, request: Request = None):
+async def send_reset_password_email(
+        recipient: str,
+        token_str: str,
+        endpoint: Literal["/reset-password", "/forgot-password/reset-form"],
+        request: Request = None):
     """
     Send a reset password email to a single recipient.
 
@@ -216,14 +223,15 @@ async def send_reset_password_email(recipient: str, token_str: str, request: Req
         otherwise an HTTPException with a 500 status code is raised.
     """
     info = get_info_from_request(request)
-    with open("./templates/html/reset_password_email.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html",
+                                    "reset_password_email.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "LOCATION": info["location"],
         "DEVICE": info["device"],
         "BROWSER": info["browser"],
         "IP_ADDRESS": info["ip_address"],
-        "ENDPOINT": "/reset-password",
+        "ENDPOINT": endpoint,
         "PARAMS": f"?token={token_str}"
     }
     html = render_html_template(html_content, context)

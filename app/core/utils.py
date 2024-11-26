@@ -262,7 +262,7 @@ def not_found_page() -> Response:
 
     :return Response: The 404 response.
     """
-    with open("./templates/html/404.html", "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html", "404.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     html = render_html_template(html_content)
     return HTMLResponse(content=html, status_code=404)

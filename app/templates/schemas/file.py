@@ -1,10 +1,4 @@
-"""
-Pydantic models for the File objects.
-
-@file: ./app/templates/schemas/file.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
-"""
+"""Pydantic models for the File objects."""
 import os
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 

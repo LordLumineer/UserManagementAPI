@@ -5,6 +5,7 @@ This module contains the authentication logic for the API. It includes
 the routes for logging in and out, as well as the routes for generating
 and verifying the One-Time-Password (OTP) QR code.
 """
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Literal
 from fastapi import APIRouter, Request
@@ -29,7 +30,7 @@ from app.core.security import (
     authenticate_user, decode_access_token, validate_otp,
     create_access_token, generate_otp, verify_password
 )
-from app.core.utils import validate_password
+from app.core.utils import validate_email, validate_password
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.user import UserCreate, UserRead, UserUpdate
 
@@ -324,7 +325,114 @@ async def request_password_reset(
             uuid=current_user.uuid,
             username=current_user.username
         ))
-    return await send_reset_password_email(current_user.email, token, request)
+    return await send_reset_password_email(current_user.email, token, "/reset-password", request)
+
+
+@router.get("/forgot-password/request", response_class=Response)
+async def forgot_password_request(
+    request: Request,
+    username: str = Query(...),
+    email: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Request a password reset for the given username and email.
+
+    Parameters
+    ----------
+    username : str
+        The username of the user.
+    email : str
+        The email of the user.
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    Response
+        A response with no content.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the user is not authorized to request a password reset.
+    """
+    email = validate_email(email)
+    db_user = get_user_by_username(db, username)
+    if db_user.email != email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    reason = f"{datetime.now(timezone.utc).strftime(
+        '%Y-%m-%d %H:%M:%S %Z')}: Forgot password"
+    await update_user(db, db_user.uuid, UserUpdate(
+        is_active=False,
+        deactivated_reason=db_user.deactivated_reason + reason
+    ))
+
+    token = create_access_token(
+        sub=TokenData(
+            purpose="reset-password",
+            uuid=db_user.uuid,
+            username=db_user.username
+        ))
+    return await send_reset_password_email(db_user.email, token, "/forgot-password/reset-form", request)
+
+
+@router.get("/forgot-password/reset", response_class=Response)
+async def passtttword_reset(
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    authorization_header: str = Header(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Reset the user's password using a reset token.
+
+    Parameters
+    ----------
+    new_password : str
+        The new password for the user.
+    confirm_password : str
+        The confirmation of the new password.
+    authorization_header : str
+        The authorization header containing the reset password token.
+    db : Session
+        The database session.
+
+    Returns
+    -------
+    Response
+        A response with a status code of 200 if the password is reset successfully.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the token is invalid or if the user is unauthorized.
+    HTTPException
+        400 Bad Request if the passwords do not match or if the new password is the
+        same as the old password.
+    """
+    token_data = decode_access_token(authorization_header)
+    if token_data.purpose != "reset-password":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    db_user = get_user_by_username(db, token_data.username)
+    if db_user.uuid != token_data.uuid:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    validate_password(new_password)
+    if new_password != confirm_password:
+        raise HTTPException(
+            status_code=400, detail="Passwords do not match")
+    if verify_password(new_password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=400, detail="New password cannot be the same as old password")
+    reason = f"{datetime.now(timezone.utc).strftime(
+        '%Y-%m-%d %H:%M:%S %Z')}: Successfully forgot password reset"
+    await update_user(db, db_user.uuid, UserUpdate(
+        password=new_password,
+        is_active=True,
+        deactivated_reason=db_user.deactivated_reason + reason
+    ))
+    return Response(content="Password reset successful", status_code=200)
 
 
 class _ResetPasswordForm(BaseModel):

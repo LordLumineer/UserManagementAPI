@@ -1,10 +1,6 @@
 """
 This module contains the pydantic models for the users of the application.
 The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserReadWithFiles models.
-
-@file: ./app/templates/schemas/user.py
-@date: 10/12/2024
-@author: LordLumineer (https://github.com/LordLumineer)
 """
 from typing import Literal, Self
 from fastapi.exceptions import HTTPException

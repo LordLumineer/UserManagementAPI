@@ -1,10 +1,10 @@
 # .app/requirements.txt
 
-alembic==1.13.3
-APScheduler==3.10.4
+alembic==1.14.0
+APScheduler==3.11.0
 Authlib==1.3.2
-bcrypt==4.2.0
-fastapi[standard]==0.115.4
+bcrypt==4.2.1
+fastapi[standard]==0.115.5
 itsdangerous==2.2.0
 loguru==0.7.2
 mailjet_rest==1.3.4
@@ -12,5 +12,5 @@ pillow==11.0.0
 pydantic-settings==2.6.1
 pyotp==2.9.0
 qrcode==8.0.0
-# uvicorn==0.32.0 # included in fastapi
+# uvicorn==0.32.1 # included in fastapi
 # SQLAlchemy==2.0.36 # included in alembic

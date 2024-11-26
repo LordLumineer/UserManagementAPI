@@ -9,5 +9,8 @@
     },
     "hide-files.files": [],
     "pylint.cwd": "${workspaceFolder}/app",
-    "todo-tree.tree.scanMode": "workspace only"
+    "todo-tree.tree.scanMode": "workspace only",
+    "todo-tree.tree.showCountsInTree": true,
+    "todo-tree.tree.disableCompactFolders": true,
+    "todo-tree.tree.showBadges": true
 }
