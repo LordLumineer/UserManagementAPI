@@ -91,7 +91,7 @@ class TokenData(BaseModel):
                     raise ValueError("Missing email")
             case "OTP":
                 pass
-            case _:
+            case _:  # pragma: no cover  # pylint: disable=unreachable
                 raise ValueError(f"Invalid purpose: {self.purpose}")
 
         return self
@@ -131,7 +131,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(
     sub: TokenData,
-    exp: timedelta = ACCESS_TOKEN_EXPIRE_MINUTES,
+    exp: int = ACCESS_TOKEN_EXPIRE_MINUTES,
     key: str = SECRET_KEY
 ) -> Token:
     """
@@ -188,7 +188,6 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
             status_code=401,
             detail="Could not validate credentials | Invalid issuer",
         )
-    iat = datetime.fromtimestamp(int(claims["iat"]), tz=timezone.utc)
     iat = datetime.fromtimestamp(int(claims["iat"]), tz=timezone.utc)
     if iat > datetime.now(timezone.utc):
         raise HTTPException(
@@ -319,15 +318,6 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
         username = "admin"
     email = validate_email(username, raise_error=False)
     db_user = get_user_by_email(db=db, email=email, raise_error=False)
-    if db_user and not db_user.is_active:
-        raise HTTPException(
-            status_code=400,
-            detail="\n".join([
-                f"Inactive user, please contact support at {
-                    settings.CONTACT_EMAIL}.",
-                db_user.deactivated_reason
-            ])
-        )
     if not db_user:
         db_user = get_user_by_username(
             db=db, username=username, raise_error=False)

@@ -249,7 +249,7 @@ def test_not_found_page():
 
             # Verify file read
             mock_file.assert_called_once_with(
-                "./templates/html/404.html", "r", encoding="utf-8")
+                app_path(os.path.join("app", "templates", "html", "404.html")), "r", encoding="utf-8")
 
             # Verify template rendering
             mock_render.assert_called_once_with(mock_html_content)

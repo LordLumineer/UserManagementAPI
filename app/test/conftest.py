@@ -5,9 +5,11 @@ It includes a fixture to provide a test client for the FastAPI app and a fixture
 the database connection. Additionally, it provides a fixture to temporarily override
 application settings for testing purposes.
 """
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+import bcrypt
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.main import app
 from app.core.config import settings  # , logger
@@ -19,6 +21,7 @@ def client():
     """Provides a test client for making requests to the FastAPI app."""
     with TestClient(app) as test_client:
         yield test_client
+
 
 @pytest.fixture
 def mock_db(mocker):
@@ -42,3 +45,27 @@ def mock_logger():
     """Patches the logger object to allow capturing log messages in tests."""
     with patch("app.core.config.logger") as mock_logger_obj:
         yield mock_logger_obj
+
+
+@pytest.fixture
+def mock_db_session():
+    """Mock the SQLAlchemy database session."""
+    session = MagicMock(spec=Session)
+    return session
+
+
+@pytest.fixture
+def mock_user():
+    """Fixture for mocking a user object."""
+    user = MagicMock(
+        uuid="test-uuid",
+        username="testuser",
+        otp_secret="test-otp-secret",
+        otp_method="none",
+        hashed_password=bcrypt.hashpw(
+            b"password", bcrypt.gensalt()).decode("utf-8"),
+        email="testuser@example.com",
+        is_active=True,
+        deactivated_reason="boop"
+    )
+    return user
