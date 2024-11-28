@@ -17,7 +17,7 @@ from app.core.permissions import has_permission
 from app.core.utils import extract_initials_from_text, generate_profile_picture
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.file import FileCreate, FileReadDB
-from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate
+from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate, UserHistory
 
 router = APIRouter()
 
@@ -119,7 +119,14 @@ async def new_user_image(
 
     file_db = await create_file(db, new_file, file)
     link_file_user(db, db_user, file_db)
-    await update_user(db, db_user, UserUpdate(profile_picture_id=file_db.id))
+    await update_user(db, db_user, UserUpdate(
+        profile_picture_id=file_db.id,
+        action=UserHistory(
+            action="profile-picture-updated",
+            comment=f"Profile picture updated to {file_db.file_name}",
+            by=db_user.uuid
+        )
+    ))
     return file_db
 
 
@@ -285,7 +292,7 @@ def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
     response_model_exclude={
         "email",
         "otp_method",
-        "deactivated_reason",
+        "user_history",
         "external_accounts",
         "email_verified",
         "is_external_only"
@@ -394,6 +401,10 @@ async def patch_user(
         # NOTE: Only moderators and admins can update other users,
         # and only admins can update themselves.
         user.roles = None
+    if (not list(set(["moderator", "admin"]) & set(current_user.roles)) or
+            current_user.uuid == uuid):
+        # NOTE: A User can't reactivate / deactivate their own account.
+        user.is_active = None
     db_user = get_user(db, uuid)
     has_permission(current_user, "user", "update", {
                    "db_user": db_user, "updates": user})
@@ -476,6 +487,14 @@ async def remove_user(
     """
     db_user = get_user(db, uuid)
     has_permission(current_user, "user", "delete", db_user)
+
+    db_user = await update_user(db, db_user, UserUpdate(
+        is_active=False,
+        action=UserHistory(
+            action="Deleted",
+            comment="The deletion of this user was requested.",
+            by=current_user.uuid
+        )))
     if not await delete_user(db, db_user):
         raise HTTPException(status_code=400, detail="Failed to delete user")
     return Response(status_code=200)

@@ -6,6 +6,7 @@ of the API. It includes the functions to hash passwords, generate and verify
 the JSON Web Tokens (JWT) and the One-Time-Password (OTP) QR code.
 """
 from datetime import datetime, timedelta, timezone
+import json
 import re
 from typing import Literal, Self
 from authlib.jose import jwt
@@ -324,13 +325,16 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
     if not db_user:
         raise error_msg
     if not db_user.is_active:
+        if db_user.user_history:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"Inactive user, please contact support at {settings.CONTACT_EMAIL}.\n",
+                        f"Reason: {json.dumps(db_user.user_history[-1], indent=4)}")
+            )
         raise HTTPException(
             status_code=400,
-            detail="\n".join([
-                f"Inactive user, please contact support at {
-                    settings.CONTACT_EMAIL}.",
-                db_user.deactivated_reason
-            ])
+            detail=f"Inactive user, please contact support at {
+                settings.CONTACT_EMAIL}."
         )
     if verify_password(password, db_user.hashed_password):
         if db_user.otp_method == "none":

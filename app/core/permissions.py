@@ -93,7 +93,7 @@ ROLES: RolesWithPermissions = {
         },
         "admin": {
             "ban": True,
-            "un-ban": True,
+            "unban": True,
             "feature_flags": True
         },
 
@@ -145,7 +145,7 @@ ROLES: RolesWithPermissions = {
         },
         "admin": {
             "ban": lambda user, other_user: not list(set(["admin", "moderator"]) & set(other_user.roles)),
-            "un-ban": False,
+            "unban": False,
             "feature_flags": False
         },
 

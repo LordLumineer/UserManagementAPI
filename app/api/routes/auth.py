@@ -5,7 +5,6 @@ This module contains the authentication logic for the API. It includes
 the routes for logging in and out, as well as the routes for generating
 and verifying the One-Time-Password (OTP) QR code.
 """
-from datetime import datetime, timezone
 from io import BytesIO
 from typing import Literal
 from fastapi import APIRouter, Request
@@ -32,7 +31,7 @@ from app.core.security import (
 )
 from app.core.utils import validate_email, validate_password
 from app.db_objects.db_models import User as User_DB
-from app.templates.schemas.user import UserCreate, UserRead, UserUpdate
+from app.templates.schemas.user import UserCreate, UserRead, UserUpdate, UserHistory
 
 
 router = APIRouter()
@@ -292,7 +291,11 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, token_data.email)
     if db_user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    await update_user(db, db_user, UserUpdate(email_verified=True))
+    await update_user(db, db_user, UserUpdate(email_verified=True, action=UserHistory(
+        action="email-verified",
+        comment=f"Email {db_user.email} verified",
+        by=db_user.username
+    )))
     return RedirectResponse(url=settings.FRONTEND_URL)
 
 
@@ -359,15 +362,17 @@ async def forgot_password_request(
     """
     email = validate_email(email)
     db_user = get_user_by_username(db, username)
-    if db_user.email != email:
+    if db_user.email != email or username != db_user.username or not db_user.is_active:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    reason = f"{datetime.now(timezone.utc).strftime(
-        '%Y-%m-%d %H:%M:%S %Z')}: Forgot password"
-    await update_user(db, db_user.uuid, UserUpdate(
+    db_user = await update_user(db, db_user, UserUpdate(
         is_active=False,
-        deactivated_reason=db_user.deactivated_reason + reason
-    ))
+        action=UserHistory(
+            action="Forgot password request",
+            comment=f"The user ({
+                                db_user.username}) has requested a password reset while logged OUT.",
+            by="<logged out user>"
+        )))
 
     token = create_access_token(
         sub=TokenData(
@@ -379,7 +384,7 @@ async def forgot_password_request(
 
 
 @router.get("/forgot-password/reset", response_class=Response)
-async def passtttword_reset(
+async def forgot_password_reset(
     new_password: str = Form(...),
     confirm_password: str = Form(...),
     authorization_header: str = Header(...),
@@ -425,13 +430,16 @@ async def passtttword_reset(
     if verify_password(new_password, db_user.hashed_password):
         raise HTTPException(
             status_code=400, detail="New password cannot be the same as old password")
-    reason = f"{datetime.now(timezone.utc).strftime(
-        '%Y-%m-%d %H:%M:%S %Z')}: Successfully forgot password reset"
-    await update_user(db, db_user.uuid, UserUpdate(
+
+    db_user = await update_user(db, db_user, UserUpdate(
         password=new_password,
         is_active=True,
-        deactivated_reason=db_user.deactivated_reason + reason
-    ))
+        action=UserHistory(
+            action="Forgot password Reset",
+            comment=f"The user ({
+                                db_user.username}) has Successfully reset their forgotten password.",
+            by="<logged out user>"
+        )))
     return Response(content="Password reset successful", status_code=200)
 
 
@@ -490,7 +498,13 @@ async def reset_password(
             status_code=400, detail="New password cannot be the same as old password")
     if not verify_password(reset_password_form.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid password")
-    await update_user(db, current_user.uuid, UserUpdate(password=reset_password_form.new_password))
+    await update_user(db, current_user.uuid, UserUpdate(
+        password=reset_password_form.new_password,
+        action=UserHistory(
+            action="Password Reset",
+            comment=f"Password reset for {db_user.username}",
+            by=current_user.uuid
+        )))
     return Response(content="Password reset successful", status_code=200)
 
 

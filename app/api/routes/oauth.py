@@ -34,7 +34,7 @@ from app.templates.schemas.file import FileCreate
 from app.templates.schemas.oauth import OAuthTokenBase
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.external_account import ExternalAccountBase
-from app.templates.schemas.user import UserUpdate
+from app.templates.schemas.user import UserHistory, UserUpdate
 
 router = APIRouter()
 
@@ -208,9 +208,19 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                             "users", db_user.uuid, file.filename),
                         created_by_uuid=db_user.uuid
                     )
+                    # pylint: disable=R0801
                     file_db = await create_file(db, new_file, file)
                     link_file_user(db, db_user, file_db)
-                    await update_user(db, db_user, UserUpdate(profile_picture_id=file_db.id))
+                    await update_user(db, db_user, UserUpdate(
+                        profile_picture_id=file_db.id,
+                        action=UserHistory(
+                            action="profile-picture-updated-from-oauth",
+                            comment=f"Profile picture for {
+                                db_user.username} from {provider} updated",
+                            by=db_user.uuid
+                        )
+                    ))
+                    # pylint: enable=R0801
                 # Create External Account
                 create_external_account(
                     db,

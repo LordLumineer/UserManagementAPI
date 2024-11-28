@@ -2,6 +2,7 @@
 This module contains the pydantic models for the users of the application.
 The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserReadWithFiles models.
 """
+from datetime import datetime, timezone
 from typing import Literal, Self
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
@@ -15,6 +16,15 @@ from app.templates.schemas.file import FileReadDB
 from app.templates.schemas.external_account import ExternalAccountBase
 
 # pylint: disable=R0903
+
+
+class UserHistory(BaseModel):
+    """History of user actions."""
+    time: str = Field(default_factory=lambda: datetime.now(
+        timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z'))
+    action: str
+    comment: str
+    by: str
 
 
 class UserBase(BaseModel):
@@ -44,7 +54,6 @@ class UserBase(BaseModel):
     is_active: bool = Field(
         default=True
     )
-    deactivated_reason: str | None = None
 
     blocked_uuids: list[str] = Field(default=[])
 
@@ -89,6 +98,7 @@ class UserReadDB(UserBase):
     profile_picture: FileReadDB | None
     created_at: int
     updated_at: int
+    user_history: list[UserHistory] = Field(default=[])
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -157,6 +167,7 @@ class UserUpdate(UserBase):
     is_external_only: bool | None = None
     isActive: bool | None = None
     blocked_uuids: list[str] | None = None
+    action: UserHistory | None = None
 
     @field_validator('password')
     @classmethod

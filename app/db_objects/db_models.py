@@ -145,7 +145,7 @@ class User(Base):
         default="none"
     )
     otp_secret: Mapped[str | None]
-    roles: Mapped[str] = mapped_column(
+    roles: Mapped[list[str]] = mapped_column(
         MutableList.as_mutable(JSON),
         default=["user"]
     )
@@ -166,7 +166,10 @@ class User(Base):
         Boolean,
         default=True
     )
-    deactivated_reason: Mapped[str | None]
+    user_history: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(JSON),
+        default=list
+    )
 
     # Relationships
 
@@ -188,7 +191,7 @@ class User(Base):
         cascade="all, delete",
     )
 
-    blocked_uuids: Mapped[str] = mapped_column(
+    blocked_uuids: Mapped[list[str]] = mapped_column(
         MutableList.as_mutable(JSON),
         default=list
     )

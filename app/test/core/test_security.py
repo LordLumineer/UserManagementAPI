@@ -219,43 +219,73 @@ def test_validate_otp(otp_method, expected):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("username, password, active, otp_secret, otp_method, expected_result", [
+@pytest.mark.parametrize("data, expected_result", [
     # admin@example.com / inactive
-    ("admin@example.com", "password", False, "test-otp-secret", "none",
-     HTTPException(status_code=400)),
+    ({
+        "username": "admin@example.com",
+        "password": "password",
+        "active": False,
+        "otp_secret": "test-otp-secret",
+        "otp_method": "none"
+    }, HTTPException(status_code=400)),
     # Valid User / OTP NONE
-    ("testuser", "password", True, "test-otp-secret", "none", True),
+    ({
+        "username": "testuser",
+        "password": "password",
+        "active": True,
+        "otp_secret": "test-otp-secret",
+        "otp_method": "none"
+    }, True),
     # Not None OTP
-    ("testuser", "password", True, generate_random_letters(32),
-     "email", HTTPException(status_code=401)),
+    ({
+        "username": "testuser",
+        "password": "password",
+        "active": True,
+        "otp_secret": generate_random_letters(32),
+        "otp_method": "email"
+    }, HTTPException(status_code=401)),
     # Wrong Password
-    ("testuser", "wrongpassword", True, "test-otp-secret",
-     "authenticator", HTTPException(status_code=401)),
+    ({
+        "username": "testuser",
+        "password": "wrongpassword",
+        "active": True,
+        "otp_secret": "test-otp-secret",
+        "otp_method": "authenticator"
+    }, HTTPException(status_code=401)),
     # No secret
-    ("testuser", "password", True, "",
-     "authenticator", HTTPException(status_code=401)),
+    ({
+        "username": "testuser",
+        "password": "password",
+        "active": True,
+        "otp_secret": None,
+        "otp_method": "authenticator"
+    }, HTTPException(status_code=401)),
     # No User
-    ("none", "password", True, "",
-     "authenticator", HTTPException(status_code=401)),
+    ({
+        "username": "none",
+        "password": "password",
+        "active": True,
+        "otp_secret": "",
+        "otp_method": "authenticator"
+    }, HTTPException(status_code=401)),
 ])
-async def test_authenticate_user(mock_db_session, mock_user, username,
-                                 password, active, otp_secret, otp_method, expected_result):  # pylint: disable=R0913, R0917
+async def test_authenticate_user(mock_db_session, mock_user, data, expected_result):
     """Test user authentication with valid and invalid credentials."""
-    mock_user.is_active = active
-    mock_user.otp_secret = otp_secret
-    mock_user.otp_method = otp_method
+    mock_user.is_active = data["active"]
+    mock_user.otp_secret = data["otp_secret"]
+    mock_user.otp_method = data["otp_method"]
     mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
 
     if isinstance(expected_result, HTTPException):
         with pytest.raises(HTTPException):
             with (patch("app.core.email.send_otp_email", return_value=True),
                   patch("app.core.security.generate_otp",
-                        return_value=otp_secret or "test-otp-secret"),
+                        return_value=data["otp_secret"] or "test-otp-secret"),
                   patch("app.db_objects.user.get_user_by_email",
-                        return_value=None if (username in ("admin@example.com", "none")) else mock_user),
+                        return_value=None if (data["username"] in ("admin@example.com", "none")) else mock_user),
                   patch("app.db_objects.user.get_user_by_username",
-                        return_value=None if (username == "none") else mock_user)):
-                await authenticate_user(mock_db_session, username, password)
+                        return_value=None if (data["username"] == "none") else mock_user)):
+                await authenticate_user(mock_db_session, data["username"], data["password"])
     else:
-        user = await authenticate_user(mock_db_session, username, password)
+        user = await authenticate_user(mock_db_session, data["username"], data["password"])
         assert user == mock_user

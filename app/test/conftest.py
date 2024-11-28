@@ -66,6 +66,6 @@ def mock_user():
             b"password", bcrypt.gensalt()).decode("utf-8"),
         email="testuser@example.com",
         is_active=True,
-        deactivated_reason="boop"
+        user_history=[],
     )
     return user

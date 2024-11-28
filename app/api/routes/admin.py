@@ -4,7 +4,6 @@ Admin module.
 This module contains the API endpoints and logic for the administration panel. 
 It includes functions for managing users, viewing logs, and other admin-related tasks.
 """
-from datetime import datetime, timezone
 from fastapi import APIRouter, Form, Response, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
@@ -16,7 +15,7 @@ from app.core.db import get_db
 from app.core.permissions import FeatureFlags, has_permission, save_feature_flags
 from app.db_objects.user import get_current_user, get_user, update_user
 from app.db_objects.db_models import User as User_DB
-from app.templates.schemas.user import UserUpdate
+from app.templates.schemas.user import UserUpdate, UserHistory
 
 
 router = APIRouter()
@@ -54,12 +53,11 @@ async def ban_user(
     db_user = get_user(db, user_id)
     has_permission(current_user, "admin", "ban", db_user)
 
-    reason = f"{datetime.now(timezone.utc).strftime(
-        '%Y-%m-%d %H:%M:%S %Z')}: {reason}"
-    if db_user.deactivated_reason:
-        reason = db_user.deactivated_reason + f"\n{reason}"
-
-    db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
+    db_user = await update_user(db, db_user, UserUpdate(is_active=False, action=UserHistory(
+        action="ban",
+        comment=reason,
+        by=current_user.uuid
+    )))
     logger.warning(
         f"Admin: {current_user.username}, Action: Banned, User: {
             db_user.username}, Reason: {reason}",
@@ -88,7 +86,7 @@ async def unban_user(
     Parameters
     ----------
     user_id : str
-        The UUID of the user to unban
+        The UUID of the user to un-ban
     current_user : User_DB
         The user object of the user who is making the request
     db : Session
@@ -101,16 +99,17 @@ async def unban_user(
         or a response with a status code of 400 or 401 if there is an error
     """
     db_user = get_user(db, user_id)
-    has_permission(current_user, "admin", "un-ban", db_user)
+    has_permission(current_user, "admin", "unban", db_user)
 
-    reason = f"{datetime.now(timezone.utc).strftime(
-        '%Y-%m-%d %H:%M:%S %Z')}: Unbanned"
-    if db_user.deactivated_reason:
-        reason = db_user.deactivated_reason + f"\n{reason}"
-
-    db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
+    db_user = await update_user(db, db_user, UserUpdate(
+        is_active=True,
+        action=UserHistory(
+            action="Unbanned",
+            comment=reason,
+            by=current_user.uuid
+        )))
     logger.warning(
-        f"Admin: {current_user.username}, Action: Un-Banned, User: {
+        f"Admin: {current_user.username}, Action: Unbanned, User: {
             db_user.username}, Reason: {reason}",
     )
     return JSONResponse(

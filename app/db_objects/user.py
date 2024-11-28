@@ -5,10 +5,10 @@ It provides functions to create, read, update and delete users, as well as funct
 get the users associated with a file and to get the files associated with a user.
 """
 
-from datetime import datetime, timezone
 import os
 import time
 from fastapi import Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import delete
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
@@ -25,7 +25,7 @@ from app.core.security import (
 from app.db_objects.db_models import User as User_DB
 from app.db_objects.db_models import File as File_DB
 from app.db_objects.db_models import users_files_links
-from app.templates.schemas.user import UserCreate, UserUpdate
+from app.templates.schemas.user import UserCreate, UserHistory, UserUpdate
 
 
 # ~~~~~ CRUD ~~~~~ #
@@ -65,7 +65,13 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
                     UserUpdate(
                         email=user.email,
                         password=user.password,
-                        is_external_only=False
+                        is_external_only=False,
+                        action=UserHistory(
+                            action="User Linked to Existing User",
+                            comment=f"User {user.username} Linked to Existing User {
+                                existing_user.username}",
+                            by=user.uuid
+                        )
                     )
                 )
             else:
@@ -214,10 +220,16 @@ async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_D
         email_to_verify = True
 
     # Update the user
-    user_data = user.model_dump(exclude_unset=True, exclude_none=True)
+    user_data = user.model_dump(
+        exclude_unset=True,
+        exclude_none=True,
+        exclude={"action"}
+    )
     for key, value in user_data.items():
         setattr(db_user, key, value)
-    setattr(db_user, "updated_at", int(time.time()))
+    # setattr(db_user, "updated_at", int(time.time()))
+    db_user.updated_at = int(time.time())
+    db_user.user_history.append(jsonable_encoder(user.action))
     try:
         db.add(db_user)
         db.commit()
@@ -252,10 +264,6 @@ async def delete_user(db: Session, db_user: User_DB) -> bool:
     :param User_DB user: The user model object to delete.
     :return bool: True if the operation is successful.
     """
-    # Deactivate the user
-    reason = f"{datetime.now(timezone.utc).strftime(
-        '%Y-%m-%d %H:%M:%S %Z')}: Deleted"
-    db_user = await update_user(db, db_user, UserUpdate(is_active=False, deactivated_reason=reason))
     # Dlete User's Profile Picture
     if db_user.profile_picture_id:
         delete_file(db, get_file(db, db_user.profile_picture_id))
