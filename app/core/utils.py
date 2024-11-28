@@ -239,6 +239,7 @@ def render_html_template(html_content: str, context: dict = None) -> str:
         "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
         "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
         "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
+        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
         # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
         "LOGO_URL": "https://picsum.photos/600/300",
         "BASE_URL": settings.BASE_URL,
