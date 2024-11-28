@@ -3,6 +3,7 @@ This module contains functions to interact with the database, including
 connection management, session creation, and database management using
 Alembic migrations.
 """
+import logging
 import os
 import shutil
 from typing import Generator
@@ -22,6 +23,7 @@ from app.core.utils import app_path
 
 engine = create_engine(url=settings.SQLALCHEMY_DATABASE_URI)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def get_db() -> Generator[Session, None, None]:
     """
@@ -56,7 +58,7 @@ async def run_migrations() -> None:
         config_args={
             "script_location": app_path(os.path.join("app", "alembic")),
         }
-        )
+    )
     logger.info("Running Alembic migrations...")
     script = ScriptDirectory.from_config(alembic_cfg)
     head = str(script.get_current_head())
@@ -67,6 +69,12 @@ async def run_migrations() -> None:
         command.upgrade(alembic_cfg, "head")
     else:
         logger.info("Database already up-to-date.")
+
+    # Reactivate FastAPI LOGGER (Uvicorn)
+    for _logger in logging.root.manager.loggerDict.values():  # pylint: disable=E1101
+        if isinstance(_logger, logging.Logger):
+            if "uvicorn" in _logger.name:
+                _logger.disabled = False
     logger.info("Alembic migrations completed.")
 
 
@@ -200,7 +208,7 @@ async def process_table(
     session.commit()
 
 
-async def export_db(db: Session, path = None) -> str:
+async def export_db(db: Session, path=None) -> str:
     """
     Export the current database to a file.
 
