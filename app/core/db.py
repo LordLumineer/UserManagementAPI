@@ -75,6 +75,7 @@ async def run_migrations() -> None:
         if isinstance(_logger, logging.Logger):
             if "uvicorn" in _logger.name:
                 _logger.disabled = False
+
     logger.info("Alembic migrations completed.")
 
 

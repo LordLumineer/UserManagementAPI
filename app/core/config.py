@@ -1,4 +1,5 @@
 """This module contains the settings for the application. It also sets up the logger."""
+import logging
 import sys
 import os
 from typing import Literal, Self
@@ -210,3 +211,23 @@ class _Settings(BaseSettings):
 settings = _Settings()
 
 logger.level(str(settings.LOG_LEVEL))
+
+
+# NOTE: Uncomment to use the app logger (loguru) for the FastAPI one (uvicorn)
+# STILL BUGGED
+
+# class LoguruHandler(logging.Handler):
+#     def emit(self, record):
+#         logger.opt(depth=6, exception=record.exc_info).log(
+#             record.levelname, record.getMessage())
+
+
+# for _logger in logging.root.manager.loggerDict.values():  # pylint: disable=E1101
+#     if isinstance(_logger, logging.Logger):
+#         if "uvicorn" in _logger.name:
+#             _logger.disabled = False
+#             for handler in _logger.handlers[:]:
+#                 _logger.removeHandler(handler)
+#             loguru_handler = LoguruHandler()
+#             _logger.addHandler(loguru_handler)
+#             _logger.setLevel(settings.LOG_LEVEL)
