@@ -89,8 +89,8 @@ class _SignupForm(BaseModel):
     confirm_password: str
 
 
-@router.post("/signup", response_model=Token)
-async def signup(
+@router.post("/register", response_model=Token)
+async def register(
     signup_form: _SignupForm = Form(...),
     db: Session = Depends(get_db),
 ):

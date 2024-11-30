@@ -39,7 +39,7 @@ from app.db_objects._base import Base
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # pylint: disable=unused-argument, redefined-outer-name
+async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused-argument, redefined-outer-name
     """ Lifespan hook to run on application startup and shutdown. """
     logger.info("Starting up...")
     # Create folders
@@ -119,7 +119,7 @@ app.mount(f"{settings.API_STR}/static",
 
 
 @app.exception_handler(IntegrityError)
-def _catch_integrity_error(request: Request, exc: IntegrityError):  # pylint: disable=unused-argument
+def _catch_integrity_error(request: Request, exc: IntegrityError):   # pragma: no cover   # pylint: disable=unused-argument
     # NOTE: Handle IntegrityError and pretty-up the error message
     exc = str(exc.orig)
     if exc.startswith("UNIQUE"):
@@ -132,7 +132,7 @@ def _catch_integrity_error(request: Request, exc: IntegrityError):  # pylint: di
 
 
 @app.exception_handler(Exception)
-def _debug_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
+def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no cover   # pylint: disable=unused-argument
     logger.critical(exc)
     if isinstance(exc, HTTPException):
         if exc.status_code != 500:
@@ -221,6 +221,7 @@ def _support():
 # ----- BACK UPs ----- #
 
 @app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
+@app.get("/signin", tags=["PAGE"], include_in_schema=False, response_class=RedirectResponse)
 def _login():
     with open(app_path(os.path.join("app", "templates", "html", "login_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
@@ -230,11 +231,6 @@ def _login():
     }
     html = render_html_template(html_content, context)
     return HTMLResponse(content=html)
-
-
-@app.get("/signin", tags=["PAGE"], include_in_schema=False, response_class=RedirectResponse)
-def _sign_in():
-    return RedirectResponse(url=f"{settings.FRONTEND_URL}/login", status_code=308)
 
 
 @app.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
@@ -257,7 +253,7 @@ def _signup():
                                     "html", "signup_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
-        "ENDPOINT": "/auth/signup",
+        "ENDPOINT": "/auth/register",
     }
     html = render_html_template(html_content, context)
     return HTMLResponse(content=html)

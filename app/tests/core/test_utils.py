@@ -161,11 +161,11 @@ def test_extract_initials_from_text(text, expected):
     assert extract_initials_from_text(text) == expected
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("test_letters, ocr, length_error", [
     ("AB", True, False),
     ("AZERTYQWERTY"*100, False, True),
 ])
-@pytest.mark.asyncio
 async def test_generate_profile_picture(test_letters, ocr, length_error):
     # Call the function
     if length_error:
@@ -198,14 +198,14 @@ async def test_generate_profile_picture(test_letters, ocr, length_error):
                 img, config="--psm 7").strip()
             assert extracted_text == test_letters, f"Expected '{
                 test_letters}', but got '{extracted_text}'"
-        except pytesseract.pytesseract.TesseractNotFoundError as e:
+        except pytesseract.pytesseract.TesseractNotFoundError as e:  # pragma: no cover
             warn(f"Tesseract not found: {e} | Skipping image verification.")
 
     # Check for errors when attempting to load the image
     try:
         img = Image.open(BytesIO(img_data))
         img.verify()  # Verifies the integrity of the image
-    except (OSError, SyntaxError) as e:
+    except (OSError, SyntaxError) as e:  # pragma: no cover
         pytest.fail(f"Image verification failed with error: {e}")
 
 

@@ -1,5 +1,4 @@
 """This module contains the settings for the application. It also sets up the logger."""
-import logging
 import sys
 import os
 from typing import Literal, Self

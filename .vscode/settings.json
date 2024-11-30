@@ -14,6 +14,8 @@
     "todo-tree.tree.disableCompactFolders": true,
     "todo-tree.tree.showBadges": true,
     "cSpell.words": [
+        "repr",
+        "Tesseract",
         "unban"
     ]
 }

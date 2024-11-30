@@ -228,6 +228,14 @@ def test_validate_otp(otp_method, expected):
         "otp_secret": "test-otp-secret",
         "otp_method": "none"
     }, HTTPException(status_code=400)),
+    # inactive WITH history
+    ({
+        "username": "no_history",
+        "password": "password",
+        "active": False,
+        "otp_secret": "",
+        "otp_method": "authenticator"
+    }, HTTPException(status_code=401)),
     # Valid User / OTP NONE
     ({
         "username": "testuser",
@@ -274,17 +282,24 @@ async def test_authenticate_user(mock_db_session, mock_user, data, expected_resu
     mock_user.is_active = data["active"]
     mock_user.otp_secret = data["otp_secret"]
     mock_user.otp_method = data["otp_method"]
+    if data["username"] == "no_history":
+        mock_user.user_history = ["BANNED", "LOCKED"]
     mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
 
     if isinstance(expected_result, HTTPException):
         with pytest.raises(HTTPException):
-            with (patch("app.core.email.send_otp_email", return_value=True),
-                  patch("app.core.security.generate_otp",
-                        return_value=data["otp_secret"] or "test-otp-secret"),
-                  patch("app.db_objects.user.get_user_by_email",
-                        return_value=None if (data["username"] in ("admin@example.com", "none")) else mock_user),
-                  patch("app.db_objects.user.get_user_by_username",
-                        return_value=None if (data["username"] == "none") else mock_user)):
+            with (
+                patch("app.core.email.send_otp_email", return_value=True),
+                patch("app.core.security.generate_otp",
+                      return_value=data["otp_secret"] or "test-otp-secret"),
+                patch("app.db_objects.user.get_user_by_email",
+                      return_value=None if (data["username"] in ("admin@example.com", "none")) else mock_user),
+                patch(
+                    "app.db_objects.user.get_user_by_username",
+                    return_value=None if (
+                        data["username"] == "none") else mock_user
+                )
+            ):
                 await authenticate_user(mock_db_session, data["username"], data["password"])
     else:
         user = await authenticate_user(mock_db_session, data["username"], data["password"])
