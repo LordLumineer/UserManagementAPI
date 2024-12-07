@@ -51,8 +51,8 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        os.makedirs(app_path(os.path.join("data", "files",
-                    "users", db_user.uuid)), exist_ok=True)
+        os.makedirs(app_path(os.path.join(
+            "data", "users", db_user.uuid)), exist_ok=True)
     except IntegrityError as e:
         db.rollback()
         # Link New Local User and External User
@@ -282,7 +282,7 @@ async def delete_user(db: Session, db_user: User_DB) -> bool:
     # Delete the user
     db.delete(db_user)
     db.commit()
-    os.rmdir(app_path(os.path.join("data", "files", "users", db_user.uuid)))
+    os.rmdir(app_path(os.path.join("data", "users", db_user.uuid)))
     return True
 
 
@@ -345,8 +345,8 @@ def init_default_user() -> None:
             db.add(default_user)
             db.commit()
             db.refresh(default_user)
-            os.makedirs(app_path(os.path.join("data", "files",
-                        "users", default_user.uuid)), exist_ok=True)
+            os.makedirs(app_path(os.path.join(
+                "data", "users", default_user.uuid)), exist_ok=True)
             logger.success(
                 "\nDefault user created:\n\n"
                 f"    Username: {default_user.username}\n"

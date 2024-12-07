@@ -7,10 +7,9 @@ __pycache__/
 *.so
 
 # Data files
-*.db 
+*.db
 *.sqlite
-data/*.*
-!data/__init__.py
+data/
 
 # Distribution / packaging
 .Python

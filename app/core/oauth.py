@@ -219,8 +219,8 @@ async def create_user_from_oauth(
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        os.makedirs(app_path(os.path.join("data", "files",
-                    "users", new_user.uuid)), exist_ok=True)
+        os.makedirs(app_path(os.path.join(
+            "data", "users", new_user.uuid)), exist_ok=True)
     except IntegrityError as e:
         db.rollback()
         # Check if the username is already taken, if so add numbers to the username and try again

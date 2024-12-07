@@ -49,7 +49,7 @@ class FileCreate(FileBase):
     @computed_field
     def file_path(self) -> str:
         """Path of the file on the filesystem."""
-        return app_path(os.path.join("data", "files", self.file_name))
+        return app_path(os.path.join("data", "users", self.created_by_uuid, self.file_name))
 
 
 class FileUpdate(FileBase):

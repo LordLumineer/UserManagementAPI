@@ -15,6 +15,12 @@
     "todo-tree.tree.showBadges": true,
     "cSpell.words": [
         "APIKEY",
+        "cachetools",
+        "itsdangerous",
+        "loguru",
+        "mailjet",
+        "pyotp",
+        "qrcode",
         "repr",
         "Tesseract",
         "unban"

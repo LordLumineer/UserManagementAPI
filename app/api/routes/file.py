@@ -54,7 +54,7 @@ async def new_file(
         db,
         FileCreate(
             description=description,
-            file_name=os.path.join("files", file.filename),
+            file_name=file.filename,
             created_by_uuid=current_user.uuid
         ),
         file

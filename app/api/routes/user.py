@@ -1,5 +1,4 @@
 """This module contains the API endpoints related to the users (e.g. create, read, update, delete)."""
-import os
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Query
@@ -109,7 +108,7 @@ async def new_user_image(
     file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
     new_file = FileCreate(
         description=description,
-        file_name=os.path.join("users", db_user.uuid, file.filename),
+        file_name=file.filename,
         created_by_uuid=current_user.uuid
     )
     if db_user.profile_picture_id:
@@ -163,7 +162,7 @@ async def new_user_file(
     has_permission(current_user, "user_file", "create", db_user)
     new_file = FileCreate(
         description=description,
-        file_name=os.path.join("files", file.filename),
+        file_name=file.filename,
         created_by_uuid=current_user.uuid
     )
     file_db = await create_file(db, new_file, file)
@@ -292,6 +291,7 @@ def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
     response_model_exclude={
         "email",
         "otp_method",
+        "blocked_uuids",
         "user_history",
         "external_accounts",
         "email_verified",

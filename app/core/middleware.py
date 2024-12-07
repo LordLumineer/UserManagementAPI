@@ -11,15 +11,17 @@ The middleware functions in this module are used to enforce feature flags on
 routes, to set the CSP header, and to log information about the requests.
 
 """
+import time
 from urllib.parse import urlencode
-from fastapi import Request
+from cachetools import TTLCache
+from fastapi import FastAPI, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.routing import Route as StarletteAPIRoute
 
-from app.core.config import settings
+from app.core.config import settings, logger
 
 
 class FeatureFlagMiddleware(BaseHTTPMiddleware):
@@ -123,4 +125,87 @@ class RedirectUriMiddleware(BaseHTTPMiddleware):
             scope = request.scope
             scope["query_string"] = urlencode(query_params).encode("utf-8")
             request = Request(scope, receive=request.receive)
+        return await call_next(request)
+
+
+class GlobalRateLimiterMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to rate limit incoming requests.
+
+    This middleware implements IP-based rate limiting. It stores the number
+    of requests from each IP address in a Redis cache. If Redis is unavailable,
+    it falls back to an in-memory cache.
+
+    The rate limiting is done using a leaky bucket algorithm. The number of
+    requests allowed within the window is `max_requests`. The window size is
+    `window_seconds` seconds.
+
+    Parameters:
+    ----------
+    app : FastAPI
+        The FastAPI application.
+    max_requests : int
+        The maximum number of requests allowed within the window.
+    window_seconds : int
+        The window size in seconds.
+    """
+
+    def __init__(
+        self,
+        app: FastAPI,
+        max_requests: int,
+        window_seconds: int,
+    ):
+        super().__init__(app)
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.cache = TTLCache(maxsize=1000, ttl=window_seconds)
+
+    async def dispatch(self, request: Request, call_next):
+        """Middleware to rate limit incoming requests."""
+        client_ip = request.client.host
+        current_time = time.time()
+        redis_client = request.app.state.redis_client
+
+        if redis_client:
+            # Redis-based rate limiting
+            key = f"rate-limit:{client_ip}"
+            try:
+                pipe = redis_client.pipeline()
+                pipe.incr(key)
+                pipe.expire(key, self.window_seconds)
+                request_count, _ = pipe.execute()
+
+                if request_count > self.max_requests:
+                    logger.warning(
+                        f"Rate limit exceeded for IP: {client_ip}"
+                    )
+                    return Response(status_code=429, content="Too Many Requests")
+
+            except ConnectionError:
+                # Fallback to in-memory cache if Redis connection fails
+                logger.error(
+                    "Redis connection lost. Falling back to in-memory cache.")
+                redis_client = None  # Disable Redis for subsequent requests
+        else:
+            # Cache-based rate limiting
+            if client_ip not in self.cache:
+                self.cache[client_ip] = {
+                    'tokens': self.max_requests, 'last_time': current_time}
+
+            client_data = self.cache[client_ip]
+            elapsed = current_time - client_data['last_time']
+            refill_tokens = min(
+                self.max_requests, client_data['tokens'] + elapsed * (self.max_requests / self.window_seconds))
+            client_data['tokens'] = refill_tokens
+            client_data['last_time'] = current_time
+
+            if client_data['tokens'] < 1:
+                logger.warning(
+                    f"Rate limit exceeded for IP: {client_ip}"
+                )
+                return Response(status_code=429, content="Too Many Requests")
+
+            client_data['tokens'] -= 1
+            self.cache[client_ip] = client_data
         return await call_next(request)

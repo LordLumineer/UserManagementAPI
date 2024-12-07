@@ -21,6 +21,7 @@ from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html
 )
+from redis import Redis, ConnectionError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import IntegrityError
@@ -31,7 +32,7 @@ from app.core.config import settings, logger
 from app.core.db import run_migrations
 from app.core.permissions import has_permission, load_feature_flags
 from app.db_objects.user import get_current_user, init_default_user
-from app.core.middleware import FeatureFlagMiddleware, RedirectUriMiddleware
+from app.core.middleware import FeatureFlagMiddleware, GlobalRateLimiterMiddleware, RedirectUriMiddleware
 from app.core.utils import (
     app_path,
     custom_generate_unique_id,
@@ -49,8 +50,9 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     logger.info("Starting up...")
     # Create folders
     logger.info("Creating folders...")
-    os.makedirs(app_path(os.path.join("data", "files", "users")), exist_ok=True)
-    os.makedirs(app_path(os.path.join("data", "files", "files")), exist_ok=True)
+    os.makedirs(app_path(os.path.join("data", "logs")), exist_ok=True)
+    os.makedirs(app_path(os.path.join("data", "users")), exist_ok=True)
+    # os.makedirs(app_path(os.path.join("data", "files")), exist_ok=True)
     # Alembic
     await run_migrations()
     # Database
@@ -63,6 +65,23 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
         if isinstance(route, APIRoute):
             app_endpoint_functions_name.append(route.endpoint.__name__.upper())
     load_feature_flags(app_endpoint_functions_name)
+    # Rate Limit
+    if settings.RATE_LIMITER_ENABLED:
+        redis_client = None
+        redis_url = settings.REDIS_URL
+        if redis_url is not None:
+            try:
+                redis_client = Redis.from_url(redis_url, decode_responses=True)
+                redis_client.ping()
+                logger.info("Redis available.")
+            except ConnectionError:
+                redis_client = None
+                logger.warning("Redis unavailable. Using in-memory TTL cache.")
+            except ValueError as e:
+                redis_client = None
+                logger.warning(f"Redis unavailable. Using in-memory TTL cache. Error: {e}")
+        app.state.redis_client = redis_client
+
     # Scheduler
     # scheduler = BackgroundScheduler()
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)
@@ -109,9 +128,17 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
 
 app.include_router(api_router, prefix=settings.API_STR)
 
-
+# NOTE: The order of the middlewares is important
+# It's in reverse order of execution (Session->CORS->RateLimiter->FeatureFlag->RedirectUri)
 app.add_middleware(RedirectUriMiddleware)
 app.add_middleware(FeatureFlagMiddleware)
+
+if settings.RATE_LIMITER_ENABLED:
+    app.add_middleware(
+        GlobalRateLimiterMiddleware,
+        max_requests=settings.RATE_LIMITER_MAX_REQUESTS,
+        window_seconds=settings.RATE_LIMITER_WINDOW_SECONDS,
+    )
 
 app.add_middleware(
     CORSMiddleware,

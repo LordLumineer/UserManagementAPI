@@ -11,27 +11,6 @@ from loguru import logger as loguru_logger
 
 logger = loguru_logger
 
-
-def _fix_timezone(record):
-    utc_time = record["time"].astimezone(utc)
-    record["time"] = utc_time
-
-
-logger.remove(0)
-logger.add(
-    sys.stderr,
-    level="TRACE",
-    colorize=True,
-    format=(
-        "<green>{time:YYYY/MM/DD HH:mm:ss zz}</green> | "
-        "<level>{level:<8}</level> | "
-        "<cyan>{module}:{function}:{line}</cyan> - "
-        "<level>{message}</level>"
-    )
-)
-logger.configure(patcher=_fix_timezone)
-
-
 app_root_dir = os.path.normpath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
@@ -54,6 +33,11 @@ class _Settings(BaseSettings):
     LOG_LEVEL: Literal['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
         default='INFO'
     )
+    LOG_FILE_LEVEL: Literal['NONE', 'TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
+        default='NONE'
+    )
+    LOG_FILE_ROTATION: int | str = Field(default=7)
+    LOG_FILE_RETENTION: int | str = Field(default=30)
 
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_SECRET_KEY: str = Field(default="changethis")
@@ -76,6 +60,11 @@ class _Settings(BaseSettings):
 
     DATABASE_URI: str = f"sqlite:///{os.path.normpath(
         os.path.join(app_root_dir, "data", "Project.db"))}"
+
+    RATE_LIMITER_ENABLED: bool = Field(default=True)
+    RATE_LIMITER_MAX_REQUESTS: int = Field(default=5)
+    RATE_LIMITER_WINDOW_SECONDS: int = Field(default=10)
+    REDIS_URL: str | None = None
 
     POSTGRES_SERVER: str | None = None
     POSTGRES_PORT: int | None = None
@@ -205,7 +194,7 @@ class _Settings(BaseSettings):
             )
             return self
         logger.warning(
-            f"EMAIL_METHOD will is set to '{self.EMAIL_METHOD}' ('none').")
+            f"EMAIL_METHOD will is set to 'none'.")
         self.EMAIL_METHOD = "none"  # pylint: disable=C0103
         return self
 
@@ -213,7 +202,42 @@ class _Settings(BaseSettings):
 settings = _Settings()
 
 
-logger.level(str(settings.LOG_LEVEL))
+def _fix_timezone(record):
+    utc_time = record["time"].astimezone(utc)
+    record["time"] = utc_time
+
+
+logger.configure(patcher=_fix_timezone)
+
+logger.remove(0)
+logger.add(
+    sys.stderr,
+    level=settings.LOG_LEVEL,
+    colorize=True,
+    format=(
+        "<green>{time:YYYY/MM/DD HH:mm:ss zz}</green> | "
+        "<level>{level:<8}</level> | "
+        "<cyan>{module}:{function}:{line}</cyan> - "
+        "<level>{message}</level>"
+    ),
+    enqueue=True,
+    diagnose=True,
+)
+
+if settings.LOG_FILE_LEVEL != "NONE":
+    logger.add(
+        os.path.normpath(os.path.join(
+            app_root_dir, "data", "logs",
+            "{time:YYYY_MM_DD_HH_mm_ss_ZZ!UTC}.log")),
+        level=settings.LOG_FILE_LEVEL,
+        rotation=f"{settings.LOG_FILE_ROTATION} hours" if isinstance(
+            settings.LOG_FILE_ROTATION, int) else settings.LOG_FILE_ROTATION,
+        retention=f"{settings.LOG_FILE_RETENTION} days" if isinstance(
+            settings.LOG_FILE_RETENTION, int) else settings.LOG_FILE_RETENTION,
+        compression="zip",
+        delay=True,
+        enqueue=True,
+)
 
 
 # NOTE: Uncomment to use the app logger (loguru) for the FastAPI one (uvicorn)
