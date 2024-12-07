@@ -68,7 +68,7 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
                         is_external_only=False,
                         action=UserHistory(
                             action="User Linked to Existing User",
-                            comment=f"User {user.username} Linked to Existing User {
+                            description=f"User {user.username} Linked to Existing User {
                                 existing_user.username}",
                             by=user.uuid
                         )

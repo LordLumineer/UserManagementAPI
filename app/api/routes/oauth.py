@@ -215,7 +215,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                         profile_picture_id=file_db.id,
                         action=UserHistory(
                             action="profile-picture-updated-from-oauth",
-                            comment=f"Profile picture for {
+                            description=f"Profile picture for {
                                 db_user.username} from {provider} updated",
                             by=db_user.uuid
                         )

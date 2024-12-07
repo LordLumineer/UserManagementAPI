@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, Form, Header, Query
 from fastapi.responses import RedirectResponse, Response
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestFormStrict
 from pydantic import BaseModel
 import qrcode
 from sqlalchemy.exc import IntegrityError
@@ -38,7 +38,11 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
-async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestFormStrict = Depends(),
+    db: Session = Depends(get_db)
+):
     """
     Login user and return an access token.
 
@@ -75,7 +79,7 @@ def logout(request: Request, current_user: User_DB = Depends(get_current_user)):
     Returns
     -------
     Response
-        A response with a status code of 200 if the user is logged out successfully, 
+        A response with a status code of 200 if the user is logged out successfully,
         or a response with a status code of 401 if there is an error.
     """
     request.session.clear()
@@ -136,8 +140,8 @@ async def register(
 @router.post("/OTP", response_model=Token)
 def login_otp(
     otp_code: str | int = Query(...),
-    authorization_header: str = Header(),
-    db: Session = Depends(get_db)
+    authorization_header: str = Header(...),
+    db: Session = Depends(get_db),
 ):
     """
     Verify the OTP code and return an access token.
@@ -293,7 +297,7 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     await update_user(db, db_user, UserUpdate(email_verified=True, action=UserHistory(
         action="email-verified",
-        comment=f"Email {db_user.email} verified",
+        description=f"Email {db_user.email} verified",
         by=db_user.username
     )))
     return RedirectResponse(url=settings.FRONTEND_URL)
@@ -369,7 +373,7 @@ async def forgot_password_request(
         is_active=False,
         action=UserHistory(
             action="Forgot password request",
-            comment=f"The user ({
+            description=f"The user ({
                                 db_user.username}) has requested a password reset while logged OUT.",
             by="<logged out user>"
         )))
@@ -436,7 +440,7 @@ async def forgot_password_reset(
         is_active=True,
         action=UserHistory(
             action="Forgot password Reset",
-            comment=f"The user ({
+            description=f"The user ({
                                 db_user.username}) has Successfully reset their forgotten password.",
             by="<logged out user>"
         )))
@@ -502,7 +506,7 @@ async def reset_password(
         password=reset_password_form.new_password,
         action=UserHistory(
             action="Password Reset",
-            comment=f"Password reset for {db_user.username}",
+            description=f"Password reset for {db_user.username}",
             by=current_user.uuid
         )))
     return Response(content="Password reset successful", status_code=200)

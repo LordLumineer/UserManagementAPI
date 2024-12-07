@@ -223,7 +223,8 @@
         </div>
         <div style="text-align: right; font-size: smaller;">
           <span>
-            <a class="move-button" style="background-color: transparent; font-weight: normal;" href="{{ FORGOT_PASSWORD_ENDPOINT }}">Forgot Password?</a>
+            <a class="move-button" style="background-color: transparent; font-weight: normal;"
+              href="{{ FORGOT_PASSWORD_ENDPOINT }}">Forgot Password?</a>
           </span>
         </div>
       </div>
@@ -233,37 +234,12 @@
       <button type="submit" class="submit-button" disabled>Login</button>
     </form>
 
-    <button class="move-button" onclick="redirectSignUp()">Don't have an account? Sign up</button>
+    <button class="move-button" onclick="toSignUp()">Don't have an account? Sign up</button>
   </div>
 </body>
 
 <script>
   window.onload = function () {
-    // Create a URLSearchParams object to parse the query string
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectUri = urlParams.get('redirect_uri');
-
-    // Store the redirect_uri in sessionStorage
-    if (redirectUri) {
-      const storageRedirectUri = sessionStorage.getItem('redirect_uri');
-      if (storageRedirectUri) {
-        const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
-        parsedStorageRedirectUri.unshift(redirectUri);
-        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
-      } else {
-        sessionStorage.setItem('redirect_uri', JSON.stringify([redirectUri]));
-      }
-      urlParams.delete('redirect_uri');
-    }
-    if (redirectUri) {
-      if (urlParams.toString()) {
-        window.location.href = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
-      } else {
-        window.location.href = window.location.origin + window.location.pathname;
-      }
-      return;
-    }
-
     checkIfAuthTokenExists();
     //document.getElementById("username").value = ""
     //document.getElementById("password").value = ""
@@ -282,14 +258,14 @@
 
     // Check CAPTCHA - For the REAL frontend
 
-    const apiUrl = '{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}';
     const formData = new URLSearchParams();
     formData.append("username", document.getElementById("username").value);
     formData.append("password", document.getElementById("password").value);
+    formData.append("grant_type", "password");
 
 
     // Send a POST request with query parameters in the URL (no body content)
-    fetch(apiUrl, {
+    fetch("{{ LOGIN_URL }}", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -306,7 +282,7 @@
           checkIfAuthTokenExists()
         } else if (data["detail"].message === "Please enter OTP") {
           sessionStorage.setItem("otp_token", data["detail"].token);
-          redirect_uri("{{ FRONTEND_URL }}/otp")
+          window.location.href = "/redirect_uri";
         } else {
           throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
         }
@@ -343,13 +319,22 @@
   function checkIfAuthTokenExists() {
     const auth_token = localStorage.getItem("auth_token");
     if (auth_token) {
-      fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
+      fetch("{{ VALIDATE_TOKEN_URL }}", {
         headers: {
           Authorization: auth_token,
         },
       })
         .then(response => {
-          if (response.ok) redirect_uri();
+          if (response.ok) {
+            fetch("/redirect_uri", {
+              headers: {
+                Authorization: auth_token,
+              },
+            })
+            .then(response => {
+              window.location.replace(response.url);
+            })
+          }
           else localStorage.removeItem("auth_token");
         })
         .catch(error => {
@@ -359,33 +344,8 @@
     }
   }
 
-  function redirect_uri(BASE_URL, new_redirect_uri) {
-    if (new_redirect_uri) {
-      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
-      else window.location.href = new_redirect_uri
-      return;
-    }
-
-    const storageRedirectUri = sessionStorage.getItem('redirect_uri');
-    if (storageRedirectUri) {
-      const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
-      new_redirect_uri = parsedStorageRedirectUri.shift();
-      if (!parsedStorageRedirectUri.length) {
-        sessionStorage.removeItem('redirect_uri');
-      } else {
-        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
-      }
-      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
-      else window.location.href = new_redirect_uri;
-      return;
-    }
-    if (BASE_URL) window.location.href = BASE_URL;
-    else window.location.href = "{{ FRONTEND_URL }}";
-    return;
-  }
-
-  function redirectSignUp() {
-    redirect_uri("{{ FRONTEND_URL }}/signup");
+  function toSignUp() {
+    window.location.href = "/signup";
   }
 </script>
 

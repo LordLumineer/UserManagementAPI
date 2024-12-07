@@ -16,6 +16,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html
+)
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import IntegrityError
@@ -24,10 +29,10 @@ from app.api.router import api_router, tags_metadata
 from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
-from app.core.permissions import load_feature_flags
-from app.db_objects.user import init_default_user
+from app.core.permissions import has_permission, load_feature_flags
+from app.db_objects.user import get_current_user, init_default_user
+from app.core.middleware import FeatureFlagMiddleware, RedirectUriMiddleware
 from app.core.utils import (
-    FeatureFlagMiddleware,
     app_path,
     custom_generate_unique_id,
     extract_initials_from_text,
@@ -84,6 +89,8 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
 """,
     version="0.0.0",
     openapi_tags=tags_metadata,
+    docs_url=None,
+    redoc_url=None,
     lifespan=lifespan,
     terms_of_service=f"{settings.FRONTEND_URL}/terms",
     contact={
@@ -101,7 +108,11 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
 )
 
 app.include_router(api_router, prefix=settings.API_STR)
-app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET_KEY)
+
+
+app.add_middleware(RedirectUriMiddleware)
+app.add_middleware(FeatureFlagMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -109,7 +120,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(FeatureFlagMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET_KEY)
+
+
 app.mount(f"{settings.API_STR}/static",
           StaticFiles(directory=app_path("assets")), name="Assets")
 # ** ~~~~~ Debugging ~~~~~ ** #
@@ -144,6 +157,39 @@ def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no co
             "support": f"{settings.FRONTEND_URL}/support",
             "contact": settings.CONTACT_EMAIL
         })
+    )
+
+
+# ----- DOCS ----- #
+
+@app.get("/interactive-docs", tags=["DOCS"], include_in_schema=False)
+def _custom_swagger_ui_html(request: Request, token: str | None = None):
+    if not token:
+        uri_list = request.session.get("redirect_uri") or []
+        uri_list.append(str(request.url_for("_custom_swagger_ui_html")))
+        request.session.update({"redirect_uri": uri_list})
+        return RedirectResponse(url=request.url_for("_login"))
+    current_user = get_current_user(token)
+    if has_permission(current_user, "docs", "swagger", raise_error=False):
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " - Interactive UI",
+            swagger_favicon_url=request.url_for("_favicon")
+        )
+    return RedirectResponse(url=request.url_for("_redoc_html"))
+
+
+@app.get(app.swagger_ui_oauth2_redirect_url, tags=["DOCS"], include_in_schema=False)
+def _swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
+
+
+@app.get("/docs", tags=["DOCS"], include_in_schema=False)
+def _redoc_html(request: Request):
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
+        redoc_favicon_url=request.url_for("_favicon"),
     )
 
 
@@ -190,9 +236,55 @@ async def _favicon():
     return await generate_profile_picture(letters)
 
 
+@app.get(
+    "/logo.png", tags=["DEBUG"],
+    response_class=FileResponse,
+    include_in_schema=False
+)
+async def _logo():
+    if os.path.exists(app_path(os.path.join("assets", "logo.png"))):
+        return FileResponse(app_path(os.path.join("assets", "logo.png")))
+    if os.path.exists(app_path(os.path.join("assets", "favicon.ico"))):
+        return FileResponse(app_path(os.path.join("assets", "favicon.ico")))
+    letters = extract_initials_from_text(settings.PROJECT_NAME)
+    return await generate_profile_picture(letters)
+
+
 # ** ----- Frontend ----- ** #
 
+@app.get("/redirect_uri", tags=["UTILS"], response_class=RedirectResponse)
+def redirect_uri(request: Request, uri: str | None = None):
+    """
+    Redirects the user to a specified URI or a stored session URI.
+
+    Parameters
+    ----------
+    request : Request
+        The request object containing session data.
+    uri : str | None, optional
+        The URI to redirect to, if provided.
+
+    Returns
+    -------
+    RedirectResponse
+        A response that redirects the user to the specified or stored URI. If no URI is found,
+        redirects to the index page.
+    """
+    authorization_token = request.headers.get("Authorization")
+    if uri:
+        return RedirectResponse(url=uri)
+    uri_list = request.session.get("redirect_uri")
+    if uri_list:
+        uri = uri_list.pop()
+        request.session.update({"redirect_uri": uri_list})
+    uri = uri or request.url_for("_index")
+    logger.debug(f"Redirecting to {uri}")
+    if authorization_token:
+        return RedirectResponse(url=f"{uri}?token={authorization_token}")
+    return RedirectResponse(url=uri)
+
 # ----- PLACEHOLDER ----- #
+
 
 @app.get("/", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 def _index():
@@ -222,14 +314,14 @@ def _support():
 
 @app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 @app.get("/signin", tags=["PAGE"], include_in_schema=False, response_class=RedirectResponse)
-def _login():
+def _login(request: Request):
     with open(app_path(os.path.join("app", "templates", "html", "login_page.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
-        "ENDPOINT": "/auth/login",
-        "FORGOT_PASSWORD_ENDPOINT": "/forgot-password/request-form",
+        "LOGIN_URL": request.url_for("login"),
+        "FORGOT_PASSWORD_URL": request.url_for("_forgot_password_request"),
     }
-    html = render_html_template(html_content, context)
+    html = render_html_template(html_content, context, request)
     return HTMLResponse(content=html)
 
 

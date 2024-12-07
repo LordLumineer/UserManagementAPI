@@ -123,7 +123,7 @@ async def new_user_image(
         profile_picture_id=file_db.id,
         action=UserHistory(
             action="profile-picture-updated",
-            comment=f"Profile picture updated to {file_db.file_name}",
+            description=f"Profile picture updated to {file_db.file_name}",
             by=db_user.uuid
         )
     ))
@@ -492,7 +492,7 @@ async def remove_user(
         is_active=False,
         action=UserHistory(
             action="Deleted",
-            comment="The deletion of this user was requested.",
+            description="The deletion of this user was requested.",
             by=current_user.uuid
         )))
     if not await delete_user(db, db_user):

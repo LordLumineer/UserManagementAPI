@@ -364,6 +364,9 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
                 purpose="OTP",
                 uuid=db_user.uuid
             ))
+        uri_list = request.session.get("redirect_uri") or []
+        uri_list.append(str(request.url_for("_otp")))
+        request.session.update({"redirect_uri": uri_list})
         raise HTTPException(
             status_code=401,
             detail=jsonable_encoder({

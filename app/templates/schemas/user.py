@@ -23,7 +23,7 @@ class UserHistory(BaseModel):
     time: str = Field(default_factory=lambda: datetime.now(
         timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z'))
     action: str
-    comment: str
+    description: str
     by: str
 
 

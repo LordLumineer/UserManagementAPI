@@ -1,27 +1,16 @@
+"""
+Tests for the main entrypoint of the application
 
-import os
+This module contains tests for the main entrypoint of the application, which is
+responsible for creating the FastAPI application and setting up the routes and
+middleware.
+"""
 from unittest.mock import AsyncMock, patch
-
-from fastapi.responses import FileResponse
 import pytest
-# from httpx import AsyncClient
+from fastapi.responses import FileResponse
 from fastapi import status
-from sqlalchemy.exc import IntegrityError
 
 from app.main import _favicon
-# from app.main import app
-# from app.core.config import settings
-
-
-# @pytest.fixture
-# async def client():
-#     async with AsyncClient(app=app, base_url="http://test") as client:
-#         yield client
-
-# from app.main import (
-#     app,
-#     lifespan
-# )
 
 
 @pytest.mark.asyncio
@@ -32,6 +21,8 @@ from app.main import _favicon
     "/version"
 ])
 async def test_debug_and_info_endpoint(endpoint, client):
+    """Test the debug and info endpoints."""
+
     response = client.get(endpoint)
     assert response.status_code == status.HTTP_200_OK
     match endpoint:
@@ -60,8 +51,8 @@ async def test_debug_and_info_endpoint(endpoint, client):
 @patch("app.main.os.path.exists")
 @patch("app.main.generate_profile_picture", new_callable=AsyncMock)
 # Identity function for simplicity
-@patch("app.main.app_path", side_effect=lambda x: x)
-async def test_favicon_cases(mock_app_path, mock_generate_pic, mock_exists, favicon_exists, logo_exists, expected_response_type, client):
+async def test_favicon_cases(mock_generate_pic, mock_exists,
+                             favicon_exists, logo_exists, expected_response_type):
     """Test favicon endpoint under different file existence scenarios."""
 
     # Mock os.path.exists behavior based on input parameters
@@ -71,8 +62,8 @@ async def test_favicon_cases(mock_app_path, mock_generate_pic, mock_exists, favi
 
     # Mock profile picture generation return value for case 3
     mock_generate_pic.return_value = "mocked_profile_pic.png"
-
-    response = await _favicon()
+    with patch("app.main.app_path", side_effect=lambda x: x):
+        response = await _favicon()
 
     if expected_response_type is FileResponse:
         assert isinstance(response, FileResponse)

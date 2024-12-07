@@ -38,7 +38,10 @@ app_root_dir = os.path.normpath(os.path.join(
 
 class _Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", env_ignore_empty=True, extra="ignore"
+        env_file=os.path.normpath(os.path.join(app_root_dir, "app", ".env")),
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra="ignore"
     )
 
     PROJECT_NAME: str = Field(default="Project Name")
@@ -202,12 +205,13 @@ class _Settings(BaseSettings):
             )
             return self
         logger.warning(
-            "EMAIL_METHOD will is set to 'none'")
+            f"EMAIL_METHOD will is set to '{self.EMAIL_METHOD}' ('none').")
         self.EMAIL_METHOD = "none"  # pylint: disable=C0103
         return self
 
 
 settings = _Settings()
+
 
 logger.level(str(settings.LOG_LEVEL))
 

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
 from starlette.testclient import TestClient
 
-from app.core.utils import FeatureFlagMiddleware
+from app.core.middleware import FeatureFlagMiddleware
 from app.core.permissions import FEATURE_FLAGS, can_view_feature  # pylint: disable=W0611
 
 # pylint: disable=W0212

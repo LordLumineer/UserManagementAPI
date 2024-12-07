@@ -1,5 +1,6 @@
 {
     "files": [
+        ".coverage",
         ".gitignore",
         "alembic.ini",
         "comments.txt",
@@ -110,15 +111,17 @@
                 ]
             }
         },
-        "test": {
+        "tests": {
             "files": [
                 "conftest.py",
                 "feature_flags.json",
-                "requirements.txt"
+                "requirements.txt",
+                "test_main.py"
             ],
             "core": {
                 "files": [
                     "test_midleware.py",
+                    "test_security.py",
                     "test_utils.py"
                 ]
             }
@@ -134,7 +137,7 @@
         "files": {
             "files": {},
             "users": {
-                "3b63f37d-7364-44bb-967a-7f84ab240676": {}
+                "a8de3bc3-3c6f-4260-90ab-65211ed90562": {}
             }
         }
     }

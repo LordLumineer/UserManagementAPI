@@ -18,11 +18,8 @@ import uuid
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.routing import Route as StarletteAPIRoute
 from PIL import Image, ImageDraw, ImageFont
 import httpx
 from jinja2 import DebugUndefined, Template
@@ -224,7 +221,7 @@ def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 
 
-def render_html_template(html_content: str, context: dict = None) -> str:
+def render_html_template(html_content: str, context: dict = None, request: Request = None) -> str:
     """
     Renders an HTML template with the given content and context.
 
@@ -239,12 +236,12 @@ def render_html_template(html_content: str, context: dict = None) -> str:
         "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
         "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
         "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
-        "VALIDATE_TOKEN_ENDPOINT": "/auth/token/validate",
-        # FIXME:  f"{settings.BASE_URL}{settings.API_STR}/static/logo.png",
-        "LOGO_URL": "https://picsum.photos/600/300",
+        "LOGO_URL": f"{settings.BASE_URL}/logo.png",
         "BASE_URL": settings.BASE_URL,
         "API_STR": settings.API_STR,
     }
+    if request:
+        base_context["VALIDATE_TOKEN_URL"] = request.url_for("validate_token")
     base_context.update(context or {})
     return Template(
         html_content, undefined=DebugUndefined).render(base_context)
@@ -280,79 +277,6 @@ def remove_file(file_path: str):
 
 
 # ----- REQUEST ----- #
-
-class FeatureFlagMiddleware(BaseHTTPMiddleware):
-    """Middleware to enforce feature flags.
-
-    This middleware enforces feature flags on routes by checking if the feature
-    flag exists in the FEATURE_FLAGS dictionary. If the feature flag exists,
-    the middleware checks if the user can access the feature by calling the
-    can_view_feature function. If the user cannot access the feature, the
-    middleware returns a 403 Forbidden response.
-        # Check if a custom feature name is set by the decorator
-        feature_name = getattr(endpoint_function, "_feature_name", None)
-        if not feature_name:
-            feature_name = endpoint_function.__name__.upper()
-
-    The middleware also supports custom feature names by setting the
-    _feature_name attribute on the route's endpoint function.
-
-    Example:
-        from app.core.permissions import feature_flag
-
-        @feature_flag("my_feature")
-        def my_endpoint():
-            ...
-
-    :param request: The incoming request.
-    :param call_next: The next middleware or the endpoint to call.
-    :return: The response from the next middleware or the endpoint.
-    """
-    # pylint: disable=R0903
-
-    async def dispatch(self, request: Request, call_next):
-        """Middleware to enforce feature flags."""
-        routes = request.scope.get("app").routes
-        path = request.scope.get("path")
-        route = next(
-            (route for route in routes if route.path == path), None)
-        if not isinstance(route, StarletteAPIRoute):  # pragma: no cover
-            return await call_next(request)
-        endpoint_function = route.endpoint
-
-        # Check if a custom feature name is set by the decorator
-        feature_name = getattr(endpoint_function, "_feature_name", None)
-        if not feature_name:
-            feature_name = endpoint_function.__name__.upper()
-
-        # If the feature flag exists, enforce access rules
-        from app.core.permissions import FEATURE_FLAGS, can_view_feature  # pylint: disable=C0415
-        from app.db_objects.user import get_current_user  # pylint: disable=C0415
-
-        if feature_name in list(FEATURE_FLAGS.keys()):
-            user = None
-            token = request.headers.get("Authorization")
-            if token and token.startswith("Bearer "):
-                try:
-                    user = get_current_user(token)
-                except HTTPException as e:
-                    if e.detail != "Token expired":
-                        return JSONResponse(
-                            status_code=e.status_code,
-                            content=jsonable_encoder(e.detail)
-                        )
-            feature_enabled = can_view_feature(feature_name, user)
-            if not feature_enabled:
-                return JSONResponse(
-                    status_code=403,
-                    content=jsonable_encoder({
-                        "error": f"Access to feature '{route.endpoint.__name__}:{feature_name}' is denied.",
-                        "support": f"{settings.FRONTEND_URL}/support",
-                        "contact": settings.CONTACT_EMAIL
-                    })
-                )
-        return await call_next(request)
-
 
 def extract_info(user_agent: str):
     """

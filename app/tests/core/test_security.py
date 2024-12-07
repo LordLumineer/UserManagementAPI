@@ -286,6 +286,11 @@ async def test_authenticate_user(mock_db_session, mock_user, data, expected_resu
         mock_user.user_history = ["BANNED", "LOCKED"]
     mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user
 
+    mock_request = MagicMock()
+    mock_request.session = {}
+    mock_request.headers = {"Authorization": "Bearer test-token", "User-Agent": "test-agent"}
+    mock_request.url_for.return_value = "http://testserver/otp"
+
     if isinstance(expected_result, HTTPException):
         with pytest.raises(HTTPException):
             with (
@@ -300,7 +305,7 @@ async def test_authenticate_user(mock_db_session, mock_user, data, expected_resu
                         data["username"] == "none") else mock_user
                 )
             ):
-                await authenticate_user(mock_db_session, data["username"], data["password"])
+                await authenticate_user(mock_db_session, data["username"], data["password"], mock_request)
     else:
-        user = await authenticate_user(mock_db_session, data["username"], data["password"])
+        user = await authenticate_user(mock_db_session, data["username"], data["password"], mock_request)
         assert user == mock_user

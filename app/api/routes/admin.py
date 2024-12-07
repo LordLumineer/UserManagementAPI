@@ -55,7 +55,7 @@ async def ban_user(
 
     db_user = await update_user(db, db_user, UserUpdate(is_active=False, action=UserHistory(
         action="ban",
-        comment=reason,
+        description=reason,
         by=current_user.uuid
     )))
     logger.warning(
@@ -105,7 +105,7 @@ async def unban_user(
         is_active=True,
         action=UserHistory(
             action="Unbanned",
-            comment=reason,
+            description=reason,
             by=current_user.uuid
         )))
     logger.warning(

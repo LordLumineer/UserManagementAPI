@@ -96,10 +96,10 @@ ROLES: RolesWithPermissions = {
             "unban": True,
             "feature_flags": True
         },
-
-
-        "external_accounts": {"view": True, "create": True, "update": True, "delete": True},
-        "oauth_token": {"view": True, "create": True, "update": True, "delete": True},
+        "docs": {
+            "swagger": True,
+            "redoc": True
+        },
     },
     "moderator": {
         "user": {
@@ -148,9 +148,10 @@ ROLES: RolesWithPermissions = {
             "unban": False,
             "feature_flags": False
         },
-
-        "external_accounts": {"view": True, "create": True, "update": False, "delete": False},
-        "oauth_token": {"view": False, "create": False, "update": False, "delete": False},
+        "docs": {
+            "swagger": False,
+            "redoc": True
+        },
     },
     "user": {
         "user": {
@@ -197,20 +198,9 @@ ROLES: RolesWithPermissions = {
             "update": lambda user, file: user.uuid == file.created_by_uuid,
             "delete": lambda user, file: user.uuid == file.created_by_uuid
         },
-
-
-
-        "external_accounts": {
-            "view": lambda user, external_account: user.uuid == external_account.user_uuid,
-            "create": False,
-            "update": False,
-            "delete": lambda user, external_accounts: user.uuid == external_accounts.user_uuid,
-        },
-        "oauth_token": {
-            "view": False,
-            "create": False,
-            "update": False,
-            "delete": False,
+        "docs": {
+            "swagger": False,
+            "redoc": True
         },
     },
 }
