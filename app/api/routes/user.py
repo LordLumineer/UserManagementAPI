@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=UserRead)
-async def new_user(
+def new_user(
     user: UserCreate,
     db: Session = Depends(get_db),
     current_user: User_DB = Depends(get_current_user),
@@ -50,11 +50,11 @@ async def new_user(
         The newly created user object.
     """
     has_permission(current_user, "user", "create", user)
-    return await create_user(db, user)
+    return create_user(db, user)
 
 
 @router.put("/{uuid}/image", response_model=FileReadDB)
-async def new_user_image(
+def new_user_image(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
@@ -63,10 +63,10 @@ async def new_user_image(
 ):
     """
     Upload a new profile picture for the user with the given UUID.
-    - The file must be a valid image format (png, jpg, jpeg, gif, or bmp) 
+    - The file must be a valid image format (png, jpg, jpeg, gif, or bmp)
         and must be below 512x512 px.
     - Only Admins or the user itself can upload a profile picture.
-    - The file is saved with the name "pfp_{uuid}.{file_extension}" 
+    - The file is saved with the name "pfp_{uuid}.{file_extension}"
         and is linked to the user.
 
     Parameters
@@ -116,9 +116,9 @@ async def new_user_image(
         if db_file:
             delete_file(db, db_file)
 
-    file_db = await create_file(db, new_file, file)
+    file_db = create_file(db, new_file, file)
     link_file_user(db, db_user, file_db)
-    await update_user(db, db_user, UserUpdate(
+    update_user(db, db_user, UserUpdate(
         profile_picture_id=file_db.id,
         action=UserHistory(
             action="profile-picture-updated",
@@ -130,7 +130,7 @@ async def new_user_image(
 
 
 @router.put("/{uuid}/file", response_model=FileReadDB)
-async def new_user_file(
+def new_user_file(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
@@ -165,7 +165,7 @@ async def new_user_file(
         file_name=file.filename,
         created_by_uuid=current_user.uuid
     )
-    file_db = await create_file(db, new_file, file)
+    file_db = create_file(db, new_file, file)
     link_file_user(db, db_user, file_db)
     return file_db
 
@@ -328,7 +328,7 @@ def read_user(
 
 
 @router.get("/{uuid}/image", response_class=FileResponse)
-async def read_user_image(uuid: str, db: Session = Depends(get_db)):
+def read_user_image(uuid: str, db: Session = Depends(get_db)):
     """
     Get the profile picture of a user by its UUID.
 
@@ -352,7 +352,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
     db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
     if not db_file:
         letters = extract_initials_from_text(db_user.display_name)
-        return await generate_profile_picture(letters)
+        return generate_profile_picture(letters)
     return FileResponse(
         db_file.file_path,
         # filename=file.file_name,
@@ -364,7 +364,7 @@ async def read_user_image(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.patch("/{uuid}", response_model=UserRead)
-async def patch_user(
+def patch_user(
     uuid: str,
     user: UserUpdate,
     current_user: User_DB = Depends(get_current_user),
@@ -408,7 +408,7 @@ async def patch_user(
     db_user = get_user(db, uuid)
     has_permission(current_user, "user", "update", {
                    "db_user": db_user, "updates": user})
-    return await update_user(db, db_user, user)
+    return update_user(db, db_user, user)
 
 
 @router.patch("{uuid}/blocked_users", response_model=list[str])
@@ -462,7 +462,7 @@ def update_blocked_users(
 
 
 @router.delete("/{uuid}", response_class=Response)
-async def remove_user(
+def remove_user(
     uuid: str,
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -488,14 +488,14 @@ async def remove_user(
     db_user = get_user(db, uuid)
     has_permission(current_user, "user", "delete", db_user)
 
-    db_user = await update_user(db, db_user, UserUpdate(
+    db_user = update_user(db, db_user, UserUpdate(
         is_active=False,
         action=UserHistory(
             action="Deleted",
             description="The deletion of this user was requested.",
             by=current_user.uuid
         )))
-    if not await delete_user(db, db_user):
+    if not delete_user(db, db_user):
         raise HTTPException(status_code=400, detail="Failed to delete user")
     return Response(status_code=200)
 

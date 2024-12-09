@@ -130,7 +130,7 @@ class _Settings(BaseSettings):
         if not (self.POSTGRES_SERVER and self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_DB):
             return self.DATABASE_URI
         return URL.create(
-            "postgresql+pg8000",
+            "postgresql+psycopg",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
             host=self.POSTGRES_SERVER,

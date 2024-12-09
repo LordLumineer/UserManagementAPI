@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 @router.get("/export")
-async def db_export(
+def db_export(
     background_tasks: BackgroundTasks,
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -45,7 +45,7 @@ async def db_export(
         A response with a file attachment containing the database export.
     """
     has_permission(current_user, "db", "export")
-    file_path = await export_db(db)
+    file_path = export_db(db)
     background_tasks.add_task(remove_file, file_path)
     return FileResponse(
         path=file_path,
@@ -56,7 +56,7 @@ async def db_export(
 
 
 @router.post("/recover")
-async def db_recover(
+def db_recover(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user)
@@ -64,10 +64,10 @@ async def db_recover(
     """
     Recover the database from an uploaded SQLite file.
 
-    This function takes a SQLite file as input and recovers the database 
+    This function takes a SQLite file as input and recovers the database
     by replacing all existing data in the current database with the data from the uploaded database.
 
-    If a row does not exist in the current database, it will be added. 
+    If a row does not exist in the current database, it will be added.
     If a row exists, its data will be replaced with the data from the uploaded database if the data is different.
 
     The uploaded database file is removed after the recovery is complete.
@@ -90,10 +90,10 @@ async def db_recover(
     # Save the uploaded file temporarily
     uploaded_db_path = app_path(os.path.join("data", f"temp_{file.filename}"))
     with open(uploaded_db_path, "wb") as buffer:
-        buffer.write(await file.read())
+        buffer.write(file.file.read())
 
     # Call function to handle database import logic
-    success = await handle_database_import(uploaded_db_path, "recover")
+    success = handle_database_import(uploaded_db_path, "recover")
     if not success:
         raise HTTPException(
             status_code=500, detail="Failed to recover database")
@@ -106,7 +106,7 @@ async def db_recover(
 
 
 @router.post("/import")
-async def db_import(
+def db_import(
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -135,8 +135,8 @@ async def db_import(
 
     Notes
     -----
-    This function takes a SQLite file as input and imports the database 
-    by adding any new rows from the uploaded database to the current database 
+    This function takes a SQLite file as input and imports the database
+    by adding any new rows from the uploaded database to the current database
     and updating any existing rows with different data.
 
     The uploaded database file is removed after the import is complete.
@@ -146,10 +146,10 @@ async def db_import(
     # Save the uploaded file temporarily
     uploaded_db_path = app_path(f"temp_{file.filename}")
     with open(uploaded_db_path, "wb") as buffer:
-        buffer.write(await file.read())
+        buffer.write(file.file.read())
 
     # Call function to handle database import logic
-    await handle_database_import(uploaded_db_path, "import")
+    handle_database_import(uploaded_db_path, "import")
 
     return Response(
         status_code=200,

@@ -159,18 +159,17 @@ def test_extract_initials_from_text(text, expected):
     assert extract_initials_from_text(text) == expected
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("test_letters, ocr, length_error", [
     ("AB", True, False),
     ("AZERTYQWERTY"*100, False, True),
 ])
-async def test_generate_profile_picture(test_letters, ocr, length_error):
+def test_generate_profile_picture(test_letters, ocr, length_error):
     # Call the function
     if length_error:
         with pytest.raises(HTTPException):
-            await generate_profile_picture(letters=test_letters)
-        return "HTTPException raised as expected"
-    response = await generate_profile_picture(letters=test_letters)
+            generate_profile_picture(letters=test_letters)
+        return  # "HTTPException raised as expected"
+    response = generate_profile_picture(letters=test_letters)
 
     # Check content type
     assert response.media_type == "image/png", "Response media type should be 'image/png'"

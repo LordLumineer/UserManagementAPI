@@ -166,7 +166,7 @@ def extract_initials_from_text(text: str) -> str:
     return ''.join(result)
 
 
-async def generate_profile_picture(letters: str = 'OS') -> Response:
+def generate_profile_picture(letters: str = 'OS') -> Response:
     """
     Generates a PNG image of a given size with the provided letters centered horizontally and vertically.
 

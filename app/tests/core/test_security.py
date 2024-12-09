@@ -134,7 +134,6 @@ def test_decode_access_token_invalid_sub():
             decode_access_token("Wrong Sub", False)
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "existing_secret, expect_db_write, raises_error",
     [
@@ -148,7 +147,7 @@ def test_decode_access_token_invalid_sub():
         (None, True, True),
     ]
 )
-async def test_generate_otp_parametrized(mock_db_session, existing_secret, expect_db_write, raises_error):
+def test_generate_otp_parametrized(mock_db_session, existing_secret, expect_db_write, raises_error):
     """Test generate_otp function with different scenarios using parametrization."""
     user_uuid = "test-uuid"
     user_username = "testuser"
@@ -171,10 +170,10 @@ async def test_generate_otp_parametrized(mock_db_session, existing_secret, expec
 
         if raises_error:
             with pytest.raises(IntegrityError):
-                await generate_otp(mock_db_session, user_uuid, user_username, existing_secret)
+                generate_otp(mock_db_session, user_uuid, user_username, existing_secret)
             mock_db_session.rollback.assert_called_once()
         else:
-            uri, secret = await generate_otp(mock_db_session, user_uuid, user_username, existing_secret)
+            uri, secret = generate_otp(mock_db_session, user_uuid, user_username, existing_secret)
             assert uri == "otpauth://test-uri"
             assert secret == (
                 generated_secret if expect_db_write else existing_secret)
@@ -218,7 +217,6 @@ def test_validate_otp(otp_method, expected):
             assert result == expected
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("data, expected_result", [
     # admin@example.com / inactive
     ({
@@ -277,7 +275,7 @@ def test_validate_otp(otp_method, expected):
         "otp_method": "authenticator"
     }, HTTPException(status_code=401)),
 ])
-async def test_authenticate_user(mock_db_session, mock_user, data, expected_result):
+def test_authenticate_user(mock_db_session, mock_user, data, expected_result):
     """Test user authentication with valid and invalid credentials."""
     mock_user.is_active = data["active"]
     mock_user.otp_secret = data["otp_secret"]
@@ -305,7 +303,7 @@ async def test_authenticate_user(mock_db_session, mock_user, data, expected_resu
                         data["username"] == "none") else mock_user
                 )
             ):
-                await authenticate_user(mock_db_session, data["username"], data["password"], mock_request)
+                authenticate_user(mock_db_session, data["username"], data["password"], mock_request)
     else:
-        user = await authenticate_user(mock_db_session, data["username"], data["password"], mock_request)
+        user = authenticate_user(mock_db_session, data["username"], data["password"], mock_request)
         assert user == mock_user

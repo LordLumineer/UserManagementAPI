@@ -19,6 +19,7 @@
         "itsdangerous",
         "loguru",
         "mailjet",
+        "psycopg",
         "pyotp",
         "qrcode",
         "repr",

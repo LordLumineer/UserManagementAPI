@@ -19,7 +19,7 @@ FakeApp.add_middleware(FeatureFlagMiddleware)
 
 
 @FakeApp.get("/public-endpoint")
-async def _public_endpoint():
+def _public_endpoint():
     return {"message": "This is public"}
 
 

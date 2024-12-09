@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     os.makedirs(app_path(os.path.join("data", "users")), exist_ok=True)
     # os.makedirs(app_path(os.path.join("data", "files")), exist_ok=True)
     # Alembic
-    await run_migrations()
+    run_migrations()
     # Database
     logger.info("Creating or Loading the database tables...")
     Base.metadata.create_all(bind=database.engine)
@@ -256,13 +256,13 @@ def _version():
     response_class=FileResponse,
     include_in_schema=False
 )
-async def _favicon():
+def _favicon():
     if os.path.exists(app_path(os.path.join("assets", "favicon.ico"))):
         return FileResponse(app_path(os.path.join("assets", "favicon.ico")))
     if os.path.exists(app_path(os.path.join("assets", "logo.png"))):
         return FileResponse(app_path(os.path.join("assets", "logo.png")))
     letters = extract_initials_from_text(settings.PROJECT_NAME)
-    return await generate_profile_picture(letters)
+    return generate_profile_picture(letters)
 
 
 @app.get(
@@ -270,13 +270,13 @@ async def _favicon():
     response_class=FileResponse,
     include_in_schema=False
 )
-async def _logo():
+def _logo():
     if os.path.exists(app_path(os.path.join("assets", "logo.png"))):
         return FileResponse(app_path(os.path.join("assets", "logo.png")))
     if os.path.exists(app_path(os.path.join("assets", "favicon.ico"))):
         return FileResponse(app_path(os.path.join("assets", "favicon.ico")))
     letters = extract_initials_from_text(settings.PROJECT_NAME)
-    return await generate_profile_picture(letters)
+    return generate_profile_picture(letters)
 
 
 # ** ----- Frontend ----- ** #

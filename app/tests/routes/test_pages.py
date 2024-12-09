@@ -2,7 +2,6 @@ import pytest
 from fastapi import status
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("endpoint", [
     "/404",
     "/",
@@ -10,7 +9,7 @@ from fastapi import status
     "/privacy",
     "/support",
 ])
-async def test_placeholders_page(endpoint, client):
+def test_placeholders_page(endpoint, client):
     """Test the /<placeholders> endpoint rendering."""
     response = client.get(endpoint)
     # assert response.status_code == status.HTTP_404_NOT_FOUND

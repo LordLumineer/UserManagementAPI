@@ -40,7 +40,7 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-async def run_migrations() -> None:
+def run_migrations() -> None:
     """
     Run Alembic migrations to the latest version.
 
@@ -79,7 +79,7 @@ async def run_migrations() -> None:
     logger.info("Alembic migrations completed.")
 
 
-async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
+def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
     """
     Handles importing a database from an uploaded SQLite file.
 
@@ -99,22 +99,22 @@ async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
 
     After the import is complete, the uploaded database file is removed.
     """
-    upload_conn, upload_engine = await connect_to_uploaded_db(uploaded_db_path)
-    inspector, upload_inspector = await get_inspectors(upload_conn)
+    upload_conn, upload_engine = connect_to_uploaded_db(uploaded_db_path)
+    inspector, upload_inspector = get_inspectors(upload_conn)
 
     with Session(engine) as session:
         for table_name in inspector.get_table_names():
             if table_name not in upload_inspector.get_table_names():
                 # Skip tables not present in the uploaded database
                 continue
-            await process_table(session, table_name, upload_conn, inspector, mode)
+            process_table(session, table_name, upload_conn, inspector, mode)
 
     upload_conn.close()
     upload_engine.dispose()
     return True
 
 
-async def connect_to_uploaded_db(uploaded_db_path: str) -> tuple[Connection, Engine]:
+def connect_to_uploaded_db(uploaded_db_path: str) -> tuple[Connection, Engine]:
     """
     Connect to the uploaded SQLite database.
     """
@@ -123,7 +123,7 @@ async def connect_to_uploaded_db(uploaded_db_path: str) -> tuple[Connection, Eng
     return new_conn, new_engine
 
 
-async def get_inspectors(upload_conn: Connection) -> tuple[Inspector, Inspector]:
+def get_inspectors(upload_conn: Connection) -> tuple[Inspector, Inspector]:
     """
     Get the metadata and inspector of the running and uploaded databases.
     """
@@ -139,7 +139,7 @@ async def get_inspectors(upload_conn: Connection) -> tuple[Inspector, Inspector]
     return inspector, upload_inspector
 
 
-async def process_table(
+def process_table(
     session: Session,
     table_name: str,
     upload_conn: Connection,
@@ -209,7 +209,7 @@ async def process_table(
     session.commit()
 
 
-async def export_db(db: Session, path=None) -> str:
+def export_db(db: Session, path=None) -> str:
     """
     Export the current database to a file.
 

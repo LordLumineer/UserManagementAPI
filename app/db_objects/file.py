@@ -18,7 +18,7 @@ from app.templates.schemas.file import FileCreate, FileReadDB, FileUpdate
 # ------- Create ------- #
 
 
-async def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_DB:
+def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_DB:
     """
     Create a new file in the database and link it to a user.
 

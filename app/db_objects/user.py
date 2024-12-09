@@ -34,7 +34,7 @@ from app.templates.schemas.user import UserCreate, UserHistory, UserUpdate
 # ------- Create ------- #
 
 
-async def create_user(db: Session, user: UserCreate) -> User_DB:
+def create_user(db: Session, user: UserCreate) -> User_DB:
     """
     Create a new user.
 
@@ -59,7 +59,7 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
             existing_user = get_user_by_email(db, user.email)
             if existing_user.is_external_only:
-                db_user = await update_user(
+                db_user = update_user(
                     db,
                     existing_user,
                     UserUpdate(
@@ -87,7 +87,7 @@ async def create_user(db: Session, user: UserCreate) -> User_DB:
             uuid=db_user.uuid,
             email=db_user.email
         ))
-    await send_validation_email(db_user.email, email_token)
+    send_validation_email(db_user.email, email_token)
     return db_user
 
 
@@ -189,7 +189,7 @@ def get_user_by_email(db: Session, email: str, raise_error: bool = True) -> User
 # ------- Update ------- #
 
 
-async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
+def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
     """
     Update an existing user's information.
 
@@ -207,7 +207,7 @@ async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_D
     # Re-Generate the OTP for the default admin user
     # (triggered when the email is updated at first login)
     if db_user.email == "admin@example.com":
-        await generate_otp(
+        generate_otp(
             db,
             user_uuid=db_user.uuid,
             user_username=db_user.username,
@@ -245,14 +245,14 @@ async def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_D
                 uuid=db_user.uuid,
                 email=db_user.email
             ))
-        await send_validation_email(db_user.email, email_token)
+        send_validation_email(db_user.email, email_token)
     return db_user
 
 
 # ------- Delete ------- #
 
 
-async def delete_user(db: Session, db_user: User_DB) -> bool:
+def delete_user(db: Session, db_user: User_DB) -> bool:
     """
     Delete a user from the database.
 

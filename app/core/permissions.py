@@ -372,7 +372,7 @@ def feature_flag(feature_name: str):
     The decorator will set the `_feature_name` attribute of the decorated function to the given feature name.
     The decorated function will be replaced with a wrapper that checks if the user can view the feature.
     If the user is not logged in, the wrapper will return a 401 Unauthorized response.
-    If the user is logged in, but does not have access to the feature, the wrapper will 
+    If the user is logged in, but does not have access to the feature, the wrapper will
         return a 403 Forbidden response.
     If the user has access to the feature, the wrapper will call the original function.
     """

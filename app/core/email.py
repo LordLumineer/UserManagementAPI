@@ -21,7 +21,7 @@ from app.core.config import settings, logger
 from app.core.utils import app_path, get_info_from_request, render_html_template
 
 
-async def send_mj_email(recipients: list[str] | str, subject: str, html_content: str):
+def send_mj_email(recipients: list[str] | str, subject: str, html_content: str):
     """
     Send an email to a single recipient or a list of recipients using MailJet's API.
 
@@ -68,7 +68,7 @@ async def send_mj_email(recipients: list[str] | str, subject: str, html_content:
         status_code=500, detail=f"Failed to send email. {result.json()}")
 
 
-async def send_smtp_email(recipients: list[str] | str, subject: str, html_content: str):
+def send_smtp_email(recipients: list[str] | str, subject: str, html_content: str):
     """
     Send an email to a single recipient or a list of recipients using an SMTP server.
 
@@ -111,7 +111,7 @@ async def send_smtp_email(recipients: list[str] | str, subject: str, html_conten
             status_code=500, detail=f"Failed to send email. {e}") from e
 
 
-async def send_email(recipients: list[str], subject: str, html_content: str):
+def send_email(recipients: list[str], subject: str, html_content: str):
     """
     Send an email to a single recipient or a list of recipients.
 
@@ -126,10 +126,10 @@ async def send_email(recipients: list[str], subject: str, html_content: str):
     match settings.EMAIL_METHOD:
         case "smtp":
             logger.debug("Email sent via SMTP")
-            return await send_smtp_email(recipients, subject, html_content)
+            return send_smtp_email(recipients, subject, html_content)
         case "mj":
             logger.debug("Email sent via MailJet API")
-            return await send_mj_email(recipients, subject, html_content)
+            return send_mj_email(recipients, subject, html_content)
         case "none":
             logger.warning("Email Method is set to 'none', NO EMAIL SENT")
             return HTMLResponse(content="No Email Sent", status_code=200)
@@ -138,7 +138,7 @@ async def send_email(recipients: list[str], subject: str, html_content: str):
             raise HTTPException(status_code=500, detail="Invalid Email Method")
 
 
-async def send_test_email(recipient: str):
+def send_test_email(recipient: str):
     """
     Send a test email to a single recipient.
 
@@ -154,10 +154,10 @@ async def send_test_email(recipient: str):
     }
     html = render_html_template(html_content, context)
     logger.debug(f"Testing Email to {recipient}")
-    return await send_email(recipient, f"{settings.PROJECT_NAME} - Test Email", html)
+    return send_email(recipient, f"{settings.PROJECT_NAME} - Test Email", html)
 
 
-async def send_validation_email(recipient: str, token_str: str):
+def send_validation_email(recipient: str, token_str: str):
     """
     Send a validation email to a single recipient.
 
@@ -175,10 +175,10 @@ async def send_validation_email(recipient: str, token_str: str):
     }
     html = render_html_template(html_content, context)
     logger.debug(f"Sending Validation Email: {recipient}")
-    return await send_email(recipient, f"{settings.PROJECT_NAME} - Activate your account", html)
+    return send_email(recipient, f"{settings.PROJECT_NAME} - Activate your account", html)
 
 
-async def send_otp_email(recipient: str, otp_code: str, request: Request = None):
+def send_otp_email(recipient: str, otp_code: str, request: Request = None):
     """
     Send an email with a one-time password to a single recipient.
 
@@ -206,10 +206,10 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
     }
     html = render_html_template(html_content, context)
     logger.debug(f"Sending One-Time Password Email: {recipient}")
-    return await send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
+    return send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
 
-async def send_reset_password_email(
+def send_reset_password_email(
         recipient: str,
         token_str: str,
         endpoint: Literal["/reset-password", "/forgot-password/reset-form"],
@@ -236,4 +236,4 @@ async def send_reset_password_email(
     }
     html = render_html_template(html_content, context)
     logger.debug(f"Sending Reset Password Email: {recipient}")
-    return await send_email(recipient, f"{settings.PROJECT_NAME} - Reset your password", html)
+    return send_email(recipient, f"{settings.PROJECT_NAME} - Reset your password", html)

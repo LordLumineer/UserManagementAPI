@@ -209,7 +209,7 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
         ) from e
 
 
-async def generate_otp(
+def generate_otp(
     db: Session,
     user_uuid: str,
     user_username: str,
@@ -292,7 +292,7 @@ def validate_otp(user_username: str, user_otp_secret: str, otp: str, method: str
             )
 
 
-async def authenticate_user(db: Session, username: str, password: str, request: Request = None):
+def authenticate_user(db: Session, username: str, password: str, request: Request = None):
     """
     Authenticate a user using their username/email and password.
 
@@ -341,7 +341,8 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
 
         if not db_user.otp_secret:
             logger.debug(f"Generating OTP for user {db_user.username}")
-            otp_secret = (await generate_otp(db, user_uuid=db_user.uuid, user_username=db_user.username))[1]
+            otp_secret = (generate_otp(db, user_uuid=db_user.uuid,
+                          user_username=db_user.username))[1]
         else:
             otp_secret = db_user.otp_secret
         if db_user.otp_method == "email":
@@ -352,7 +353,7 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
                 issuer=settings.PROJECT_NAME,
                 digits=settings.OTP_LENGTH
             )
-            await send_otp_email(
+            send_otp_email(
                 recipient=db_user.email,
                 otp_code=totp.now(),
                 request=request
@@ -363,7 +364,8 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
                 purpose="OTP",
                 uuid=db_user.uuid
             ))
-        request.session.update({"otp_token": jsonable_encoder(otp_request_token)})
+        request.session.update(
+            {"otp_token": jsonable_encoder(otp_request_token)})
         raise HTTPException(
             status_code=401,
             detail=jsonable_encoder({"error": "OTP-REQUIRED"}),

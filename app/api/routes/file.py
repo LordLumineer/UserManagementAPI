@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=FileReadDB)
-async def new_file(
+def new_file(
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user),
@@ -49,7 +49,7 @@ async def new_file(
         The new file object.
     """
     has_permission(current_user, "file", "create")
-    return await create_file(
+    return create_file(
         db,
         FileCreate(
             description=description,
@@ -168,7 +168,7 @@ def read_file(
 
 
 @router.get("/{file_id}/file", response_class=FileResponse)
-async def read_file_file(
+def read_file_file(
     file_id: int,
     current_user: User_DB = Depends(get_current_user),
     db: Session = Depends(get_db)

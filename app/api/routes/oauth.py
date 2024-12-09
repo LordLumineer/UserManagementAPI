@@ -168,11 +168,11 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                         )
                     )
                     if not db_user.profile_picture_id and user_info["picture_url"]:
-                        await set_profile_picture(db, db_user, user_info["picture_url"], provider)
+                        set_profile_picture(db, db_user, user_info["picture_url"], provider)
                     break
             if not db_user:
                 # Create local user
-                db_user = await create_user_from_oauth(
+                db_user = create_user_from_oauth(
                     db,
                     provider,
                     new_user=User_DB(
@@ -184,7 +184,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     )
                 )
                 if user_info["picture_url"]:
-                    await set_profile_picture(db, db_user, user_info["picture_url"], provider)
+                    set_profile_picture(db, db_user, user_info["picture_url"], provider)
                 # Create External Account
                 create_external_account(
                     db,
@@ -320,7 +320,7 @@ async def oauth_revoke(
 
     # Delete User if External Only and no longer linked to any account
     if not current_user.external_accounts and current_user.is_external_only:
-        await delete_user(db, current_user)
+        delete_user(db, current_user)
 
     return Response(status_code=200)
 # ~~~~~ Utility Functions ~~~~~ #

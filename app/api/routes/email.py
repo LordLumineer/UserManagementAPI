@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 @router.post("/send-email")
-async def send_email_single(
+def send_email_single(
     confirm: bool = Query(default=False),
     subject: str = Query(),
     recipient: str = Query(),
@@ -57,11 +57,11 @@ async def send_email_single(
     has_permission(current_user, "email", "single")
     if not confirm:
         raise HTTPException(status_code=400, detail="You must confirm the email")
-    return await send_email([recipient], subject, content)
+    return send_email([recipient], subject, content)
 
 
 @router.post("/send-email-multiple")
-async def send_email_multiple(
+def send_email_multiple(
     confirm: bool = Query(default=False),
     subject: str = Query(),
     recipients: list[str] = Query(),
@@ -92,11 +92,11 @@ async def send_email_multiple(
     has_permission(current_user, "email", "multiple")
     if not confirm:
         raise HTTPException(status_code=400, detail="You must confirm the email")
-    return await send_email(recipients, subject, content)
+    return send_email(recipients, subject, content)
 
 
 @router.post("/send-email-all")
-async def send_email_all(
+def send_email_all(
     confirm: bool = Query(default=False),
     subject: str = Query(),
     content: str = Body(),
@@ -127,11 +127,11 @@ async def send_email_all(
         raise HTTPException(status_code=400, detail="You must confirm the email")
     users = get_users(db, skip=0, limit=get_nb_users(db))
     recipients = [user.email for user in users]
-    return await send_email(recipients, subject, content)
+    return send_email(recipients, subject, content)
 
 
 @router.post("/send-test-email")
-async def test_email(
+def test_email(
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -151,11 +151,11 @@ async def test_email(
         401 Unauthorized if the user is not authorized to send the email.
     """
     has_permission(current_user, "email", "test")
-    return await send_test_email(recipient)
+    return send_test_email(recipient)
 
 
 @router.post("/send-otp-email")
-async def otp_email(
+def otp_email(
     request: Request,
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
@@ -188,7 +188,7 @@ async def otp_email(
         issuer=settings.PROJECT_NAME,
         digits=settings.OTP_LENGTH
     )
-    return await send_otp_email(
+    return send_otp_email(
         recipient=recipient,
         otp_code=totp.now(),
         request=request
@@ -196,7 +196,7 @@ async def otp_email(
 
 
 @router.post("/send-reset-password-email")
-async def reset_password_email(
+def reset_password_email(
     request: Request,
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
@@ -244,11 +244,11 @@ async def reset_password_email(
             uuid=user.uuid,
             username=user.username
         ))
-    return await send_reset_password_email(recipient, token, endpoint, request)
+    return send_reset_password_email(recipient, token, endpoint, request)
 
 
 @router.post("/send-validation-email")
-async def validation_email(
+def validation_email(
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user),
@@ -281,4 +281,4 @@ async def validation_email(
             uuid=user.uuid,
             email=user.email
         ))
-    return await send_validation_email(recipient, token)
+    return send_validation_email(recipient, token)

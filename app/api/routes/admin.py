@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 @router.post("/ban/{user_id}", response_class=Response)
-async def ban_user(
+def ban_user(
     user_id: str,
     reason: str = Form(...),
     current_user: User_DB = Depends(get_current_user),
@@ -53,7 +53,7 @@ async def ban_user(
     db_user = get_user(db, user_id)
     has_permission(current_user, "admin", "ban", db_user)
 
-    db_user = await update_user(db, db_user, UserUpdate(is_active=False, action=UserHistory(
+    db_user = update_user(db, db_user, UserUpdate(is_active=False, action=UserHistory(
         action="ban",
         description=reason,
         by=current_user.uuid
@@ -74,7 +74,7 @@ async def ban_user(
 
 
 @router.post("/unban/{user_id}", response_class=Response)
-async def unban_user(
+def unban_user(
     user_id: str,
     reason: str = Form(...),
     current_user: User_DB = Depends(get_current_user),
@@ -101,7 +101,7 @@ async def unban_user(
     db_user = get_user(db, user_id)
     has_permission(current_user, "admin", "unban", db_user)
 
-    db_user = await update_user(db, db_user, UserUpdate(
+    db_user = update_user(db, db_user, UserUpdate(
         is_active=True,
         action=UserHistory(
             action="Unbanned",

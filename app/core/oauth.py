@@ -200,7 +200,7 @@ def get_external_account_info(provider: str, user_info: dict) -> dict:
     return data
 
 
-async def create_user_from_oauth(
+def create_user_from_oauth(
     db: Session,
     provider,
     new_user: User_DB
@@ -232,7 +232,7 @@ async def create_user_from_oauth(
             added_str = str(int(time.time()))
             new_user.username = new_user.username+added_str
             new_user.display_name = new_user.display_name+added_str
-            return await create_user_from_oauth(db, provider, new_user)
+            return create_user_from_oauth(db, provider, new_user)
         raise e
     # Send the email verification
     email_token = create_access_token(
@@ -242,11 +242,11 @@ async def create_user_from_oauth(
             email=new_user.email
         )
     )
-    await send_validation_email(new_user.email, email_token)
+    send_validation_email(new_user.email, email_token)
     return new_user
 
 
-async def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, provider: str):
+def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, provider: str):
     """
     Set the profile picture of the user from an OAuth provider.
 
@@ -262,7 +262,6 @@ async def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, p
     # pylint: disable=C0415
     from app.db_objects.user import update_user
     from app.templates.schemas.user import UserHistory, UserUpdate
-
 
     response = httpx.get(picture_url, timeout=5)
     file = UploadFile(
@@ -283,9 +282,9 @@ async def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, p
         created_by_uuid=db_user.uuid
     )
     # pylint: disable=R0801
-    file_db = await create_file(db, new_file, file)
+    file_db = create_file(db, new_file, file)
     link_file_user(db, db_user, file_db)
-    await update_user(db, db_user, UserUpdate(
+    update_user(db, db_user, UserUpdate(
         profile_picture_id=file_db.id,
         action=UserHistory(
             action="profile-picture-updated-from-oauth",
