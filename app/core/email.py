@@ -146,7 +146,7 @@ async def send_test_email(recipient: str):
     :return: an HTMLResponse with a success message if the email is sent successfully, 
         otherwise an HTTPException with a 500 status code is raised.
     """
-    with open(app_path(os.path.join("app", "templates", "html", "test_email.html")), "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html", "email_test.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/send-test-email/test/todo",
@@ -167,7 +167,7 @@ async def send_validation_email(recipient: str, token_str: str):
         otherwise an HTTPException with a 500 status code is raised.
     """
     with open(app_path(os.path.join("app", "templates",
-                                    "html", "validate_email.html")), "r", encoding="utf-8") as f:
+                                    "html", "email_validate.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "ENDPOINT": "/auth/email/verify",
@@ -191,7 +191,7 @@ async def send_otp_email(recipient: str, otp_code: str, request: Request = None)
         otherwise an HTTPException with a 500 status code is raised.
     """
     info = get_info_from_request(request)
-    with open(app_path(os.path.join("app", "templates", "html", "otp_email.html")), "r", encoding="utf-8") as f:
+    with open(app_path(os.path.join("app", "templates", "html", "email_otp.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     expiration_date = datetime.now(
         timezone.utc) + timedelta(seconds=settings.OTP_EMAIL_INTERVAL)
@@ -224,7 +224,7 @@ async def send_reset_password_email(
     """
     info = get_info_from_request(request)
     with open(app_path(os.path.join("app", "templates", "html",
-                                    "reset_password_email.html")), "r", encoding="utf-8") as f:
+                                    "email_reset_password.html")), "r", encoding="utf-8") as f:
         html_content = f.read()
     context = {
         "LOCATION": info["location"],

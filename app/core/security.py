@@ -30,9 +30,8 @@ ALGORITHM = settings.JWT_ALGORITHM
 SECRET_KEY = settings.JWT_SECRET_KEY
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXP
 
-
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.BASE_URL}{settings.API_STR}/auth/login",
+    tokenUrl=f"{settings.API_STR}/auth/login",
     auto_error=True
 )
 
@@ -364,15 +363,9 @@ async def authenticate_user(db: Session, username: str, password: str, request: 
                 purpose="OTP",
                 uuid=db_user.uuid
             ))
-        uri_list = request.session.get("redirect_uri") or []
-        uri_list.append(str(request.url_for("_otp")))
-        request.session.update({"redirect_uri": uri_list})
+        request.session.update({"otp_token": jsonable_encoder(otp_request_token)})
         raise HTTPException(
             status_code=401,
-            detail=jsonable_encoder({
-                "message": "Please enter OTP",
-                "method": db_user.otp_method,
-                "token": str(otp_request_token)
-            }),
+            detail=jsonable_encoder({"error": "OTP-REQUIRED"}),
         )
     raise error_msg

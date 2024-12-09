@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Log Out</title>
+  <title>One Time Password</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
     /* General Styles */
@@ -204,66 +204,39 @@
 <body>
   <div class="card">
     <form class="form" onsubmit="submitForm(event)">
-      <h1>Log Out</h1>
-      <button type="submit" class="submit-button">Logout</button>
+      <h1>One Time Password</h1>
+      <div class="input-box">
+        <div class="input-field">
+          <span class="material-icons">person</span>
+          <input type="text" id="otp" placeholder="{{ OTP_LENGTH }} digit code" required oninput="checkInput(event)" />
+        </div>
+        <div id="lengthError" class="validation-message">
+          * The OTP has to be {{ OTP_LENGTH }} digits.
+        </div>
+      </div>
+
+      <button type="submit" class="submit-button" disabled>Submit OTP</button>
     </form>
   </div>
 </body>
 
 <script>
   window.onload = function () {
-    // Create a URLSearchParams object to parse the query string
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectUri = urlParams.get('redirect_uri');
-    const resetToken = urlParams.get('token');
-
-    // Store the redirect_uri in sessionStorage
-    if (redirectUri) {
-      const storageRedirectUri = sessionStorage.getItem('redirect_uri');
-      if (storageRedirectUri) {
-        const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
-        parsedStorageRedirectUri.unshift(redirectUri);
-        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
-      } else {
-        sessionStorage.setItem('redirect_uri', JSON.stringify([redirectUri]));
-      }
-      urlParams.delete('redirect_uri');
-    }
-    // Store the reset_token in sessionStorage
-    if (resetToken) {
-      sessionStorage.setItem('reset_token', resetToken);
-      urlParams.delete('token');
-    }
-    if (redirectUri || resetToken) {
-      if (urlParams.toString()) {
-        window.location.href = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
-      } else {
-        window.location.href = window.location.origin + window.location.pathname;
-      }
-      return;
-    }
-
     checkIfAuthTokenExists();
+    document.getElementById("otp").value = ""
+    updateSubmitButton()
   };
 
-  function checkIfAuthTokenExists() {
-    const auth_token = localStorage.getItem("auth_token");
-    if (auth_token) {
-      fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
-        headers: {
-          Authorization: `${auth_token}`,
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            localStorage.removeItem("auth_token");
-          }
-          return;
-        })
-        .catch((error) => {
-          console.error(error);
-          localStorage.removeItem("auth_token");
-        });
+  function checkInput(event) {
+    if (isNaN(Number(event.key))) {
+      event.preventDefault();
+    }
+    const sanitizedValue = event.target.value.replace(/[^0-9]/g, '');
+    event.target.value = sanitizedValue.slice(0, "{{ OTP_LENGTH }}");
+    updateSubmitButton();
+    // If the input length is exactly 6, submit the form
+    if (event.target.value.length === 6) {
+      submitForm(event);
     }
   }
 
@@ -275,34 +248,23 @@
     submitButton.disabled = true;
     submitButton.innerHTML = 'Loading';
 
-    const auth_token = localStorage.getItem("auth_token");
-    if (!(auth_token)) {
-      submitButton.disabled = false;
-      submitButton.innerHTML = originalButtonText;
-      redirect_uri("{{ FRONTEND_URL }}/login");
-    }
+    const otp = document.getElementById("otp").value;
 
-
-    const apiUrl = '{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}';
-    fetch(apiUrl, {
+    fetch("{{ url_for('login_otp') }}?otp_code=" + `${otp}`, {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `${auth_token}`,
       },
     })
-      .then(response => {
+      .then(response => response.json().then(data => ({ response, data })))
+      .then(({ response, data }) => {
         submitButton.disabled = false;
         submitButton.textContent = originalButtonText;
         if (response.ok) {
-          localStorage.removeItem("auth_token");
-          redirect_uri("{{ FRONTEND_URL }}/login");
+          localStorage.setItem("auth_token", data["token_type"] + " " + data["access_token"]);
+          checkIfAuthTokenExists();
         } else {
-          return response.json().then(data => ({ response, data }))
-            .then(({ response, data }) => {
-              throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
-            })
+          throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
         }
       })
       .catch((error) => {
@@ -313,29 +275,38 @@
       });
   }
 
-  function redirect_uri(BASE_URL, new_redirect_uri) {
-    if (new_redirect_uri) {
-      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
-      else window.location.href = new_redirect_uri
-      return;
-    }
+  // Utility Functions
+  function updateSubmitButton() {
+    const otp = document.getElementById("otp").value;
+    const test_length = (otp.length === Number("{{ OTP_LENGTH }}"));
+    document.getElementById("lengthError").style.display = !(test_length) ? "block" : "none";
+    document.querySelector(".submit-button").disabled = !(test_length);
+  }
 
-    const storageRedirectUri = sessionStorage.getItem('redirect_uri');
-    if (storageRedirectUri) {
-      const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
-      new_redirect_uri = parsedStorageRedirectUri.shift();
-      if (!parsedStorageRedirectUri.length) {
-        sessionStorage.removeItem('redirect_uri');
-      } else {
-        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
-      }
-      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
-      else window.location.href = new_redirect_uri;
-      return;
+  function checkIfAuthTokenExists() {
+    const auth_token = localStorage.getItem("auth_token");
+    if (auth_token) {
+      fetch("{{ url_for('validate_token') }}", {
+        headers: {
+          Authorization: `${auth_token}`,
+        },
+      })
+        .then(response => {
+          if (response.ok) {
+            fetch("{{ url_for('redirect_uri') }}", {
+              headers: {
+                Authorization: auth_token,
+              },
+            })
+              .then(response => window.location.replace(response.url));
+          }
+          else localStorage.removeItem("auth_token");
+        })
+        .catch((error) => {
+          console.error(error);
+          localStorage.removeItem("auth_token");
+        });
     }
-    if (BASE_URL) window.location.href = BASE_URL;
-    else window.location.href = "{{ FRONTEND_URL }}";
-    return;
   }
 </script>
 

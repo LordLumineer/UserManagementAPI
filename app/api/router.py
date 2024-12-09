@@ -15,7 +15,7 @@ from app.api.routes import (
     file,
     user,
     admin,
-    provider_router
+    provider_router,
 )
 
 

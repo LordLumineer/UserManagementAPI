@@ -73,36 +73,3 @@ async def test_favicon_cases(mock_generate_pic, mock_exists,
         # For Case 3, check that generate_profile_picture was called and response matches the mock
         mock_generate_pic.assert_called_once()
         assert response == "mocked_profile_pic.png"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("endpoint", [
-    "/",
-    "/terms",
-    "/privacy",
-    "/support",
-])
-async def test_placeholders_page(endpoint, client):
-    """Test the /<placeholders> endpoint rendering."""
-    response = client.get(endpoint)
-    # assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert "404 - Page Not Found" in response.text
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("endpoint", [
-    "/login",
-    "/signin",
-    "/otp",
-    "/register",
-    "/signup",
-    "/logout",
-    "/reset-password",
-    "/forgot-password/request-form",
-    "/forgot-password/reset-form",
-])
-async def test_backups_page(endpoint, client):
-    """Test the /login endpoint rendering."""
-    response = client.get(endpoint)
-    assert response.status_code == status.HTTP_200_OK
-    assert "/auth/" in response.text

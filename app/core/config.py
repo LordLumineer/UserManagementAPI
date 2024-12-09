@@ -2,6 +2,7 @@
 import sys
 import os
 from typing import Literal, Self
+from fastapi.templating import Jinja2Templates
 from pydantic import Field, PostgresDsn, model_validator, computed_field
 # from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -61,7 +62,7 @@ class _Settings(BaseSettings):
     DATABASE_URI: str = f"sqlite:///{os.path.normpath(
         os.path.join(app_root_dir, "data", "Project.db"))}"
 
-    RATE_LIMITER_ENABLED: bool = Field(default=True)
+    RATE_LIMITER_ENABLED: bool = Field(default=False)
     RATE_LIMITER_MAX_REQUESTS: int = Field(default=5)
     RATE_LIMITER_WINDOW_SECONDS: int = Field(default=10)
     REDIS_URL: str | None = None
@@ -193,13 +194,15 @@ class _Settings(BaseSettings):
                 "MailJet Email Settings are set."
             )
             return self
-        logger.warning(
-            f"EMAIL_METHOD will is set to 'none'.")
+        logger.warning("EMAIL_METHOD will is set to 'none'.")
         self.EMAIL_METHOD = "none"  # pylint: disable=C0103
         return self
 
 
 settings = _Settings()
+
+templates = Jinja2Templates(directory=os.path.join(
+    app_root_dir, "app", "templates", "html"))
 
 
 def _fix_timezone(record):
@@ -237,7 +240,7 @@ if settings.LOG_FILE_LEVEL != "NONE":
         compression="zip",
         delay=True,
         enqueue=True,
-)
+    )
 
 
 # NOTE: Uncomment to use the app logger (loguru) for the FastAPI one (uvicorn)

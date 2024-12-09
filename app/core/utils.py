@@ -18,13 +18,12 @@ import uuid
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
-from fastapi.responses import HTMLResponse
 from fastapi.routing import APIRoute
 from PIL import Image, ImageDraw, ImageFont
 import httpx
 from jinja2 import DebugUndefined, Template
 
-from app.core.config import logger, settings
+from app.core.config import logger, settings, templates
 
 
 def validate_username(username: str) -> str:
@@ -221,7 +220,35 @@ def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
 
 
-def render_html_template(html_content: str, context: dict = None, request: Request = None) -> str:
+# Render HTML templates
+
+base_context = {
+    "PROJECT_NAME": settings.PROJECT_NAME,
+    "FRONTEND_URL": settings.FRONTEND_URL,
+    "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
+    "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
+    "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
+    "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
+    "LOGO_URL": f"{settings.BASE_URL}/logo.png",
+    "BASE_URL": settings.BASE_URL,
+    "API_STR": settings.API_STR,
+}
+
+
+def render_html_response(template_name: str, request: Request, context: dict = None) -> str:
+    """
+    Renders an HTML template with the given name and context.
+
+    :param str template_name: The name of the template to render.
+    :param Request request: The request object.
+    :param dict context: A dictionary of context variables to be used in rendering the template.
+    :return str: The rendered HTML as a string.
+    """
+    context = dict(base_context, **context or {})
+    return templates.TemplateResponse(request=request, name=template_name, context=context)
+
+
+def render_html_template(html_content: str, context: dict = None) -> str:
     """
     Renders an HTML template with the given content and context.
 
@@ -229,22 +256,8 @@ def render_html_template(html_content: str, context: dict = None, request: Reque
     :param dict context: A dictionary of context variables to be used in rendering the template.
     :return str: The rendered HTML as a string.
     """
-    base_context = {
-        "PROJECT_NAME": settings.PROJECT_NAME,
-        "FRONTEND_URL": settings.FRONTEND_URL,
-        "COPYRIGHT_YEAR": datetime.now(timezone.utc).year,
-        "PRIVACY_URL": f"{settings.FRONTEND_URL}/privacy",
-        "TERMS_URL": f"{settings.FRONTEND_URL}/terms",
-        "SUPPORT_EMAIL": settings.CONTACT_EMAIL,
-        "LOGO_URL": f"{settings.BASE_URL}/logo.png",
-        "BASE_URL": settings.BASE_URL,
-        "API_STR": settings.API_STR,
-    }
-    if request:
-        base_context["VALIDATE_TOKEN_URL"] = request.url_for("validate_token")
-    base_context.update(context or {})
-    return Template(
-        html_content, undefined=DebugUndefined).render(base_context)
+    context = dict(base_context, **context or {})
+    return Template(html_content, undefined=DebugUndefined).render(base_context)
 
 
 def app_path(path: str) -> str:
@@ -252,19 +265,6 @@ def app_path(path: str) -> str:
     return os.path.normpath(os.path.join(settings.APP_ROOT_DIR, path))
 
 # ----- UTILS ----- #
-
-
-def not_found_page() -> Response:
-    """
-    Returns an HTTP 404 response with the content of the 404.html template.
-
-    :return Response: The 404 response.
-    """
-    with open(app_path(os.path.join("app", "templates", "html", "404.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    html = render_html_template(html_content)
-    return HTMLResponse(content=html, status_code=404)
-
 
 def remove_file(file_path: str):
     """

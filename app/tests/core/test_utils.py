@@ -10,7 +10,6 @@ from warnings import warn
 # import httpx
 
 # from fastapi.routing import APIRoute
-from fastapi.responses import HTMLResponse
 from fastapi.exceptions import HTTPException
 import pytesseract
 import pytest
@@ -30,7 +29,6 @@ from app.core.utils import (
     generate_timestamp,
     extract_initials_from_text,
     render_html_template,
-    not_found_page,
     remove_file,
     extract_info,
     get_location_from_ip,
@@ -228,31 +226,6 @@ def test_render_html_template():
 def test_app_path(input_path, expected):
     with patch("app.core.config.settings.APP_ROOT_DIR", "/mock/app/root"):
         assert app_path(input_path) == os.path.normpath(expected)
-
-
-def test_not_found_page():
-    # Mock HTML content of the 404 template
-    mock_html_content = "<html><body><h1>404 - Not Found</h1></body></html>"
-    mock_rendered_html = "<html><body><h1>Page Not Found</h1></body></html>"
-
-    # Mock the open function and render_html_template
-    with patch("builtins.open", mock_open(read_data=mock_html_content)) as mock_file:
-        with patch("app.core.utils.render_html_template", return_value=mock_rendered_html) as mock_render:
-            response = not_found_page()
-
-            # Validate the response
-            assert isinstance(
-                response, HTMLResponse), "Response should be an HTMLResponse"
-            assert response.status_code == 404, "Response status code should be 404"
-            assert response.body.decode(
-                "utf-8") == mock_rendered_html, "Response content should match rendered HTML"
-
-            # Verify file read
-            mock_file.assert_called_once_with(
-                app_path(os.path.join("app", "templates", "html", "404.html")), "r", encoding="utf-8")
-
-            # Verify template rendering
-            mock_render.assert_called_once_with(mock_html_content)
 
 
 @pytest.mark.parametrize("exists", [

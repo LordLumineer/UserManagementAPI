@@ -139,8 +139,8 @@ async def register(
 
 @router.post("/OTP", response_model=Token)
 def login_otp(
+    request: Request,
     otp_code: str | int = Query(...),
-    authorization_header: str = Header(...),
     db: Session = Depends(get_db),
 ):
     """
@@ -165,7 +165,10 @@ def login_otp(
     HTTPException
         401 Unauthorized if the OTP code is invalid or OTP is not enabled.
     """
-    token_data = decode_access_token(authorization_header)
+    otp_token = request.session.get("otp_token")
+    if not otp_token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    token_data = decode_access_token(otp_token)
     if token_data.purpose != "OTP":
         raise HTTPException(status_code=401, detail="Unauthorized")
     db_user = get_user(db, token_data.uuid)
@@ -303,38 +306,6 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     return RedirectResponse(url=settings.FRONTEND_URL)
 
 
-@router.get("/password/reset", response_class=Response)
-async def request_password_reset(
-    request: Request,
-    current_user: User_DB = Depends(get_current_user)
-):
-    """
-    Request a password reset for the current user.
-
-    Parameters
-    ----------
-    current_user : User_DB
-        The current user.
-
-    Returns
-    -------
-    Response
-        A response with no content.
-
-    Raises
-    ------
-    HTTPException
-        401 Unauthorized if the user is not authorized to request a password reset.
-    """
-    token = create_access_token(
-        sub=TokenData(
-            purpose="reset-password",
-            uuid=current_user.uuid,
-            username=current_user.username
-        ))
-    return await send_reset_password_email(current_user.email, token, "/reset-password", request)
-
-
 @router.get("/forgot-password/request", response_class=Response)
 async def forgot_password_request(
     request: Request,
@@ -452,9 +423,39 @@ class _ResetPasswordForm(BaseModel):
     new_password: str
     confirm_password: str
 
+@router.get("/password/reset", response_class=Response)
+async def request_password_request(
+    request: Request,
+    current_user: User_DB = Depends(get_current_user)
+):
+    """
+    Request a password reset for the current user.
+
+    Parameters
+    ----------
+    current_user : User_DB
+        The current user.
+
+    Returns
+    -------
+    Response
+        A response with no content.
+
+    Raises
+    ------
+    HTTPException
+        401 Unauthorized if the user is not authorized to request a password reset.
+    """
+    token = create_access_token(
+        sub=TokenData(
+            purpose="reset-password",
+            uuid=current_user.uuid,
+            username=current_user.username
+        ))
+    return await send_reset_password_email(current_user.email, token, "/reset-password", request)
 
 @router.patch("/password/reset", response_class=Response)
-async def reset_password(
+async def reset_password_reset(
     reset_password_form: _ResetPasswordForm = Form(...),
     authorization_header: str = Header(...),
     current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)

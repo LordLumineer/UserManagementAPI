@@ -4,26 +4,30 @@ This module provides OAuth integration using Authlib with Starlette.
 It handles OAuth client setup and token management, including fetching and updating tokens.
 """
 
+from io import BytesIO
 import json
 import os
 import time
 from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.starlette_client import StarletteOAuth1App as OAuth1App
 from authlib.integrations.starlette_client import StarletteOAuth2App as OAuth2App
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
+import httpx
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings, logger
 from app.core.security import TokenData, create_access_token
 from app.core.utils import app_path
-from app.db_objects.db_models import User as User_DB
 from app.core.email import send_validation_email
+from app.db_objects.db_models import User as User_DB
+from app.db_objects.file import create_file, link_file_user
 from app.db_objects.oauth import (fetch_token, update_token)
 from app.providers.twitch import get_acc_info as get_twitch_info
 from app.providers.google import get_acc_info as get_google_info
 from app.providers.discord import get_acc_info as get_discord_info
 from app.providers.github import get_acc_info as get_github_info
+from app.templates.schemas.file import FileCreate
 
 
 oauth = OAuth(
@@ -240,3 +244,54 @@ async def create_user_from_oauth(
     )
     await send_validation_email(new_user.email, email_token)
     return new_user
+
+
+async def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, provider: str):
+    """
+    Set the profile picture of the user from an OAuth provider.
+
+    This function downloads the profile picture from the provider, creates a new file
+    in the database, links it to the user, and updates the user's profile picture.
+
+    :param Session db: The current database session.
+    :param User_DB db_user: The user object to update.
+    :param str picture_url: The URL of the profile picture.
+    :param str provider: The name of the OAuth provider.
+    :raises HTTPException: If the file could not be downloaded or created.
+    """
+    # pylint: disable=C0415
+    from app.db_objects.user import update_user
+    from app.templates.schemas.user import UserHistory, UserUpdate
+
+
+    response = httpx.get(picture_url, timeout=5)
+    file = UploadFile(
+        file=BytesIO(response.content),
+        filename=picture_url.split("/")[-1],
+    )
+    match provider:
+        case "google":
+            file.filename = f"pfp_{db_user.uuid}.png"
+        case _:
+            file.filename = f"pfp_{db_user.uuid}.{
+                file.filename.split('.')[-1].lower()}"
+    new_file = FileCreate(
+        description=f"Profile picture for {
+            db_user.username} from {provider}",
+        file_name=os.path.join(
+            "users", db_user.uuid, file.filename),
+        created_by_uuid=db_user.uuid
+    )
+    # pylint: disable=R0801
+    file_db = await create_file(db, new_file, file)
+    link_file_user(db, db_user, file_db)
+    await update_user(db, db_user, UserUpdate(
+        profile_picture_id=file_db.id,
+        action=UserHistory(
+            action="profile-picture-updated-from-oauth",
+            description=f"Profile picture for {
+                db_user.username} from {provider} updated",
+            by=db_user.uuid
+        )
+    ))
+    # pylint: enable=R0801

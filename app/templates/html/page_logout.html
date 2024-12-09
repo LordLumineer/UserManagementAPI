@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login</title>
+  <title>Log Out</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <style>
     /* General Styles */
@@ -204,49 +204,40 @@
 <body>
   <div class="card">
     <form class="form" onsubmit="submitForm(event)">
-      <h1>Login</h1>
-      <!-- USERNAME -->
-      <div class="input-box">
-        <div class="input-field">
-          <span class="material-icons">person</span>
-          <input type="text" id="username" placeholder="Username or Email" required oninput="updateSubmitButton()" />
-        </div>
-      </div>
-
-      <!-- PASSWORD -->
-      <div class="input-box">
-        <div class="input-field">
-          <span class="material-icons">lock</span>
-          <input type="password" id="password" placeholder="Password" required oninput="updateSubmitButton()" />
-          <span class="material-icons" id="password-btn"
-            onclick="togglePasswordVisibility('password','password-btn')">visibility_off</span>
-        </div>
-        <div style="text-align: right; font-size: smaller;">
-          <span>
-            <a class="move-button" style="background-color: transparent; font-weight: normal;"
-              href="{{ FORGOT_PASSWORD_ENDPOINT }}">Forgot Password?</a>
-          </span>
-        </div>
-      </div>
-
-      <!-- CAPTCHA - For REAL frontend -->
-
-      <button type="submit" class="submit-button" disabled>Login</button>
+      <h1>Log Out</h1>
+      <button type="submit" class="submit-button">Logout</button>
     </form>
-
-    <button class="move-button" onclick="toSignUp()">Don't have an account? Sign up</button>
   </div>
 </body>
 
 <script>
   window.onload = function () {
     checkIfAuthTokenExists();
-    //document.getElementById("username").value = ""
-    //document.getElementById("password").value = ""
-    updateSubmitButton();
   };
 
-  // CAPTCHA - For REAL frontend
+  function checkIfAuthTokenExists() {
+    const auth_token = localStorage.getItem("auth_token");
+    if (auth_token) {
+      fetch("{{ url_for('validate_token') }}", {
+        headers: {
+          Authorization: `${auth_token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            localStorage.removeItem("auth_token");
+            window.location.replace("{{ url_for('redirect_uri')}}");
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+          localStorage.removeItem("auth_token");
+        });
+    }
+    else {
+      window.location.replace("{{ url_for('redirect_uri') }}");
+    }
+  }
 
   function submitForm(event) {
     event.preventDefault();
@@ -256,35 +247,33 @@
     submitButton.disabled = true;
     submitButton.innerHTML = 'Loading';
 
-    // Check CAPTCHA - For the REAL frontend
+    const auth_token = localStorage.getItem("auth_token");
+    if (!(auth_token)) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = originalButtonText;
+      window.location.href = "{{ url_for('_login') }}";
+    }
 
-    const formData = new URLSearchParams();
-    formData.append("username", document.getElementById("username").value);
-    formData.append("password", document.getElementById("password").value);
-    formData.append("grant_type", "password");
 
-
-    // Send a POST request with query parameters in the URL (no body content)
-    fetch("{{ LOGIN_URL }}", {
+    fetch("{{ url_for('logout') }}", {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `${auth_token}`,
       },
-      body: formData,
     })
-      .then(response => response.json().then(data => ({ response, data })))
-      .then(({ response, data }) => {
+      .then(response => {
         submitButton.disabled = false;
         submitButton.textContent = originalButtonText;
         if (response.ok) {
-          localStorage.setItem("auth_token", `${data["token_type"]} ${data["access_token"]}`);
-          checkIfAuthTokenExists()
-        } else if (data["detail"].message === "Please enter OTP") {
-          sessionStorage.setItem("otp_token", data["detail"].token);
-          window.location.href = "/redirect_uri";
+          localStorage.removeItem("auth_token");
+          window.location.replace("{{ url_for('_login') }}");
         } else {
-          throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
+          return response.json().then(data => ({ response, data }))
+            .then(({ response, data }) => {
+              throw new Error("\n    Status: " + response.status + "\n    Error: " + response.statusText + "\n    Message: " + data["detail"]);
+            })
         }
       })
       .catch((error) => {
@@ -293,59 +282,6 @@
         console.error(error);
         alert("Login Failed: There was an issue with the login request.\n" + error);
       });
-  }
-
-
-  // Utility Functions
-  function updateSubmitButton() {
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-    document.querySelector(".submit-button").disabled = !(username && password);
-    const isValid =
-      document.getElementById("username").value &&
-      document.getElementById("password").value; // &&
-    //validateCaptcha();
-    document.querySelector('.submit-button').disabled = !isValid;
-  }
-
-  function togglePasswordVisibility(passwordId, iconId) {
-    const passwordField = document.getElementById(passwordId);
-    const icon = document.getElementById(iconId);
-    const isVisible = passwordField.type === 'password';
-    passwordField.type = isVisible ? 'text' : 'password';
-    icon.textContent = isVisible ? 'visibility' : 'visibility_off';
-  }
-
-  function checkIfAuthTokenExists() {
-    const auth_token = localStorage.getItem("auth_token");
-    if (auth_token) {
-      fetch("{{ VALIDATE_TOKEN_URL }}", {
-        headers: {
-          Authorization: auth_token,
-        },
-      })
-        .then(response => {
-          if (response.ok) {
-            fetch("/redirect_uri", {
-              headers: {
-                Authorization: auth_token,
-              },
-            })
-            .then(response => {
-              window.location.replace(response.url);
-            })
-          }
-          else localStorage.removeItem("auth_token");
-        })
-        .catch(error => {
-          console.error(error);
-          localStorage.removeItem("auth_token")
-        });
-    }
-  }
-
-  function toSignUp() {
-    window.location.href = "/signup";
   }
 </script>
 

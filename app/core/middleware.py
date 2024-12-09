@@ -149,6 +149,7 @@ class GlobalRateLimiterMiddleware(BaseHTTPMiddleware):
     window_seconds : int
         The window size in seconds.
     """
+    # pylint: disable=R0903
 
     def __init__(
         self,

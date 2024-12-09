@@ -2,14 +2,11 @@
 This module contains the API endpoints for OAuth.
 Logging, Signing up, and linking third-party accounts.
 """
-from io import BytesIO
-import os
 from authlib.integrations.starlette_client import OAuthError
-from fastapi import APIRouter, Response, UploadFile
+from fastapi import APIRouter, Response
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends
 from fastapi.responses import HTMLResponse
-import httpx
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
@@ -17,24 +14,19 @@ from starlette.requests import Request
 from app.core.db import get_db
 from app.core.oauth import (
     get_external_account_info, get_user_info, oauth, oauth_clients_names,
-    create_user_from_oauth
+    create_user_from_oauth, set_profile_picture
 )
 from app.core.security import TokenData, create_access_token
-from app.db_objects.file import create_file
 from app.db_objects.oauth import (
     create_oauth_token, delete_oauth_token, get_oauth_token, update_oauth_token
 )
 from app.db_objects.user import (
     delete_user, get_current_user, get_user, get_user_by_email,
-    update_user
 )
 from app.db_objects.external_account import delete_external_account, get_external_account, create_external_account
-from app.db_objects.file import link_file_user
-from app.templates.schemas.file import FileCreate
 from app.templates.schemas.oauth import OAuthTokenBase
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.external_account import ExternalAccountBase
-from app.templates.schemas.user import UserHistory, UserUpdate
 
 router = APIRouter()
 
@@ -175,6 +167,8 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                             picture_url=user_info["picture_url"]
                         )
                     )
+                    if not db_user.profile_picture_id and user_info["picture_url"]:
+                        await set_profile_picture(db, db_user, user_info["picture_url"], provider)
                     break
             if not db_user:
                 # Create local user
@@ -190,37 +184,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     )
                 )
                 if user_info["picture_url"]:
-                    response = httpx.get(user_info["picture_url"], timeout=5)
-                    file = UploadFile(
-                        file=BytesIO(response.content),
-                        filename=user_info["picture_url"].split("/")[-1],
-                    )
-                    match provider:
-                        case "google":
-                            file.filename = f"pfp_{db_user.uuid}.png"
-                        case _:
-                            file.filename = f"pfp_{db_user.uuid}.{
-                                file.filename.split('.')[-1].lower()}"
-                    new_file = FileCreate(
-                        description=f"Profile picture for {
-                            db_user.username} from {provider}",
-                        file_name=os.path.join(
-                            "users", db_user.uuid, file.filename),
-                        created_by_uuid=db_user.uuid
-                    )
-                    # pylint: disable=R0801
-                    file_db = await create_file(db, new_file, file)
-                    link_file_user(db, db_user, file_db)
-                    await update_user(db, db_user, UserUpdate(
-                        profile_picture_id=file_db.id,
-                        action=UserHistory(
-                            action="profile-picture-updated-from-oauth",
-                            description=f"Profile picture for {
-                                db_user.username} from {provider} updated",
-                            by=db_user.uuid
-                        )
-                    ))
-                    # pylint: enable=R0801
+                    await set_profile_picture(db, db_user, user_info["picture_url"], provider)
                 # Create External Account
                 create_external_account(
                     db,
@@ -269,13 +233,17 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
             uuid=db_user.uuid,
             roles=db_user.roles
         ))
+    redirect_uri = "/"
+    uri_list = request.session.get("redirect_uri")
+    if uri_list:
+        redirect_uri = uri_list.pop()
     return HTMLResponse(
         f"""
         <html>
             <body>
                 <script>
                     localStorage.setItem("auth_token", `{auth_token.token_type} {auth_token.access_token}`);
-                    window.location.href = "/";
+                    window.location.replace(`{redirect_uri}`);
                 </script>
                 <!-- DEBUG -->
                 <div>{user_info}</div>

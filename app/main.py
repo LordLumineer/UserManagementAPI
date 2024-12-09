@@ -13,7 +13,7 @@ import fastapi
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import (
@@ -21,12 +21,14 @@ from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html
 )
-from redis import Redis, ConnectionError
+from redis import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.exc import IntegrityError
 
 from app.api.router import api_router, tags_metadata
+from app.api.routes import pages
 from app.core import db as database
 from app.core.config import settings, logger
 from app.core.db import run_migrations
@@ -38,8 +40,6 @@ from app.core.utils import (
     custom_generate_unique_id,
     extract_initials_from_text,
     generate_profile_picture,
-    not_found_page,
-    render_html_template,
 )
 from app.db_objects._base import Base
 
@@ -74,14 +74,14 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
                 redis_client = Redis.from_url(redis_url, decode_responses=True)
                 redis_client.ping()
                 logger.info("Redis available.")
-            except ConnectionError:
+            except RedisConnectionError:
                 redis_client = None
                 logger.warning("Redis unavailable. Using in-memory TTL cache.")
             except ValueError as e:
                 redis_client = None
-                logger.warning(f"Redis unavailable. Using in-memory TTL cache. Error: {e}")
+                logger.warning(
+                    f"Redis unavailable. Using in-memory TTL cache. Error: {e}")
         app.state.redis_client = redis_client
-
     # Scheduler
     # scheduler = BackgroundScheduler()
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)
@@ -127,6 +127,8 @@ Read more in the [FastAPI docs for Metadata and Docs URLs](https://fastapi.tiang
 )
 
 app.include_router(api_router, prefix=settings.API_STR)
+app.include_router(pages.router, tags=["PAGES"])
+
 
 # NOTE: The order of the middlewares is important
 # It's in reverse order of execution (Session->CORS->RateLimiter->FeatureFlag->RedirectUri)
@@ -306,121 +308,8 @@ def redirect_uri(request: Request, uri: str | None = None):
         request.session.update({"redirect_uri": uri_list})
     uri = uri or request.url_for("_index")
     logger.debug(f"Redirecting to {uri}")
-    if authorization_token:
+    if authorization_token and (
+        str(uri).endswith("/interactive-docs")
+    ):
         return RedirectResponse(url=f"{uri}?token={authorization_token}")
     return RedirectResponse(url=uri)
-
-# ----- PLACEHOLDER ----- #
-
-
-@app.get("/", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _index():
-    return not_found_page()
-    # return RedirectResponse(url=settings.FRONTEND_URL)
-
-
-@app.get("/terms", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _terms():
-    return not_found_page()
-    # return RedirectResponse(url=f"{settings.FRONTEND_URL}/terms")
-
-
-@app.get("/privacy", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _privacy():
-    return not_found_page()
-    # return RedirectResponse(url=f"{settings.FRONTEND_URL}/privacy")
-
-
-@app.get("/support", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _support():
-    return not_found_page()
-    # return RedirectResponse(url=f"{settings.FRONTEND_URL}/support")
-
-
-# ----- BACK UPs ----- #
-
-@app.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-@app.get("/signin", tags=["PAGE"], include_in_schema=False, response_class=RedirectResponse)
-def _login(request: Request):
-    with open(app_path(os.path.join("app", "templates", "html", "login_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "LOGIN_URL": request.url_for("login"),
-        "FORGOT_PASSWORD_URL": request.url_for("_forgot_password_request"),
-    }
-    html = render_html_template(html_content, context, request)
-    return HTMLResponse(content=html)
-
-
-@app.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _otp():
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "otp_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "ENDPOINT": "/auth/OTP",
-        "OTP_LENGTH": settings.OTP_LENGTH,
-    }
-    html = render_html_template(html_content, context)
-    return HTMLResponse(content=html)
-
-
-@app.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-@app.get("/signup", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _signup():
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "signup_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "ENDPOINT": "/auth/register",
-    }
-    html = render_html_template(html_content, context)
-    return HTMLResponse(content=html)
-
-
-@app.get("/logout", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _logout():
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "logout_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "ENDPOINT": "/auth/logout",
-    }
-    html = render_html_template(html_content, context)
-    return HTMLResponse(content=html)
-
-
-@app.get("/reset-password", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _reset_password():
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "reset_password_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "ENDPOINT": "/auth/password/reset",
-    }
-    html = render_html_template(html_content, context)
-    return HTMLResponse(content=html)
-
-
-@app.get("/forgot-password/request-form", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _forgot_password_request():
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "forgot_password_form_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "ENDPOINT": "/auth/forgot-password/request",
-    }
-    html = render_html_template(html_content, context)
-    return HTMLResponse(content=html)
-
-
-@app.get("/forgot-password/reset-form", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _forgot_password_reset():
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "forgot_password_reset_page.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
-    context = {
-        "ENDPOINT": "/auth/forgot-password/reset",
-    }
-    html = render_html_template(html_content, context)
-    return HTMLResponse(content=html)

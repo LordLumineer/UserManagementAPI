@@ -1,5 +1,4 @@
 """This module contains the API endpoints related to the files (e.g. upload, download, delete, update)."""
-import os
 from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Query

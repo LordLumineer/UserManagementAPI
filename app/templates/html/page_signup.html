@@ -281,43 +281,12 @@
       <button type="submit" class="submit-button" disabled>Register</button>
     </form>
 
-    <button class="move-button" onclick="redirectLogIn()">Already have an account? Log In</button>
+    <button class="move-button" onclick="toSignIn()">Already have an account? Log In</button>
   </div>
 </body>
 
 <script>
   window.onload = function () {
-    // Create a URLSearchParams object to parse the query string
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectUri = urlParams.get('redirect_uri');
-    const resetToken = urlParams.get('token');
-
-    // Store the redirect_uri in sessionStorage
-    if (redirectUri) {
-      const storageRedirectUri = sessionStorage.getItem('redirect_uri');
-      if (storageRedirectUri) {
-        const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
-        parsedStorageRedirectUri.unshift(redirectUri);
-        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
-      } else {
-        sessionStorage.setItem('redirect_uri', JSON.stringify([redirectUri]));
-      }
-      urlParams.delete('redirect_uri');
-    }
-    // Store the reset_token in sessionStorage
-    if (resetToken) {
-      sessionStorage.setItem('reset_token', resetToken);
-      urlParams.delete('token');
-    }
-    if (redirectUri || resetToken) {
-      if (urlParams.toString()) {
-        window.location.href = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
-      } else {
-        window.location.href = window.location.origin + window.location.pathname;
-      }
-      return;
-    }
-
     checkIfAuthTokenExists();
     //document.getElementById("username").value = ""
     //document.getElementById("email").value = ""
@@ -405,14 +374,13 @@
 
     // Check CAPTCHA - For the REAL frontend
 
-    const apiUrl = '{{ BASE_URL }}{{ API_STR }}{{ ENDPOINT }}';
     const formData = new URLSearchParams();
     formData.append("username", document.getElementById("username").value);
     formData.append("email", document.getElementById("email").value);
     formData.append("password", document.getElementById("new_password").value);
     formData.append("confirm_password", document.getElementById("confirm_password").value);
 
-    fetch(apiUrl, {
+    fetch("{{ url_for('register') }}", {
       method: "POST",
       headers: {
         "Accept": "application/json",
@@ -445,7 +413,6 @@
     element.style.display = showError ? 'block' : 'none';
   }
 
-
   function updateSubmitButton() {
     const isValid =
       validateUsername() &&
@@ -467,13 +434,20 @@
   function checkIfAuthTokenExists() {
     const auth_token = localStorage.getItem("auth_token");
     if (auth_token) {
-      fetch("{{ BASE_URL }}{{ API_STR }}{{ VALIDATE_TOKEN_ENDPOINT }}", {
+      fetch("{{ url_for('validate_token') }}", {
         headers: {
           Authorization: auth_token,
         },
       })
         .then(response => {
-          if (response.ok) redirect_uri();
+          if (response.ok) {
+            fetch("{{ url_for('redirect_uri') }}", {
+              headers: {
+                Authorization: auth_token,
+              },
+            })
+              .then(response => window.location.replace(response.url));
+          }
           else localStorage.removeItem("auth_token");
         })
         .catch(error => {
@@ -483,32 +457,7 @@
     }
   }
 
-  function redirect_uri(BASE_URL, new_redirect_uri) {
-    if (new_redirect_uri) {
-      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
-      else window.location.href = new_redirect_uri
-      return;
-    }
-
-    const storageRedirectUri = sessionStorage.getItem('redirect_uri');
-    if (storageRedirectUri) {
-      const parsedStorageRedirectUri = JSON.parse(storageRedirectUri);
-      new_redirect_uri = parsedStorageRedirectUri.shift();
-      if (!parsedStorageRedirectUri.length) {
-        sessionStorage.removeItem('redirect_uri');
-      } else {
-        sessionStorage.setItem('redirect_uri', JSON.stringify(parsedStorageRedirectUri));
-      }
-      if (BASE_URL) window.location.href = `${BASE_URL}?redirect_uri=${new_redirect_uri}`;
-      else window.location.href = new_redirect_uri;
-      return;
-    }
-    if (BASE_URL) window.location.href = BASE_URL;
-    else window.location.href = "{{ FRONTEND_URL }}";
-    return;
-  }
-
-  function redirectLogIn() {
+  function toSignIn() {
     redirect_uri("{{ FRONTEND_URL }}/login");
   }
 </script>
