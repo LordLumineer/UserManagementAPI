@@ -241,7 +241,7 @@ async def create_user_from_oauth(
             email=new_user.email
         )
     )
-    send_validation_email(new_user.email, email_token)
+    await send_validation_email(new_user.email, email_token)
     return new_user
 
 

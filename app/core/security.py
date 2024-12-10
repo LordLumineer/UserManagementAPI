@@ -19,7 +19,6 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ValidationError, model_validator
 import pyotp
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings, logger
@@ -349,7 +348,7 @@ async def authenticate_user(db: AsyncSession, username: str, password: str, requ
                 issuer=settings.PROJECT_NAME,
                 digits=settings.OTP_LENGTH
             )
-            send_otp_email(
+            await send_otp_email(
                 recipient=db_user.email,
                 otp_code=totp.now(),
                 request=request

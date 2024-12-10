@@ -87,7 +87,12 @@ async def oauth_link(provider: str, request: Request, current_user: User_DB = De
 
 
 @router.get("/{provider}/callback", include_in_schema=False)
-async def oauth_callback(provider: str, request: Request, db: AsyncSession = Depends(get_async_db), is_link: bool = False):
+async def oauth_callback(
+    provider: str,
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+    is_link: bool = False
+):
     """
     Handle OAuth callback from a provider.
 

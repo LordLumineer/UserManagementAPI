@@ -147,7 +147,7 @@ def test_decode_access_token_invalid_sub():
         (None, True, True),
     ]
 )
-def test_generate_otp_parametrized(mock_db_session, existing_secret, expect_db_write, raises_error):
+def test_generate_otp(mock_db_session, existing_secret, expect_db_write, raises_error):
     """Test generate_otp function with different scenarios using parametrization."""
     user_uuid = "test-uuid"
     user_username = "testuser"
@@ -159,11 +159,11 @@ def test_generate_otp_parametrized(mock_db_session, existing_secret, expect_db_w
 
     # Handle DB query/mock based on error scenario
     if raises_error:
-        mock_db_session.query.return_value.filter.return_value.first.side_effect = IntegrityError(
+        mock_db_session.execute.return_value.filter.return_value.first.side_effect = IntegrityError(
             statement="Error", params="Error", orig="Error"
         )
     else:
-        mock_db_session.query.return_value.filter.return_value.first.return_value = mock_user_instance
+        mock_db_session.execute.return_value.filter.return_value.first.return_value = mock_user_instance
 
     with (patch('app.core.security.generate_random_letters', return_value=generated_secret),
             patch('pyotp.TOTP.provisioning_uri', return_value="otpauth://test-uri")):

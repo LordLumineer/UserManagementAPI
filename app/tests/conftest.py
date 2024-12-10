@@ -50,7 +50,7 @@ def mock_logger():
 @pytest.fixture
 def mock_db_session():
     """Mock the SQLAlchemy database session."""
-    session = MagicMock(spec=Session)
+    session = MagicMock(spec=AsyncSession)
     return session
 
 

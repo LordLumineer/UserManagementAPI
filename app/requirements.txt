@@ -19,3 +19,5 @@ redis==5.2.1
 # SQLAlchemy==2.0.36 # included in alembic
 sqlalchemy[asyncio]==2.0.36
 aiosqlite==0.20.0
+aiofiles==24.1.0
+asyncio==3.4.3

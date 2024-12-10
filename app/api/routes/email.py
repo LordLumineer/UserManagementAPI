@@ -131,7 +131,7 @@ async def send_email_all(
 
 
 @router.post("/send-test-email")
-def test_email(
+async def test_email(
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -151,11 +151,11 @@ def test_email(
         401 Unauthorized if the user is not authorized to send the email.
     """
     has_permission(current_user, "email", "test")
-    return send_test_email(recipient)
+    return await send_test_email(recipient)
 
 
 @router.post("/send-otp-email")
-def otp_email(
+async def otp_email(
     request: Request,
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
@@ -188,7 +188,7 @@ def otp_email(
         issuer=settings.PROJECT_NAME,
         digits=settings.OTP_LENGTH
     )
-    return send_otp_email(
+    return await send_otp_email(
         recipient=recipient,
         otp_code=totp.now(),
         request=request
@@ -244,7 +244,7 @@ async def reset_password_email(
             uuid=user.uuid,
             username=user.username
         ))
-    return send_reset_password_email(recipient, token, endpoint, request)
+    return await send_reset_password_email(recipient, token, endpoint, request)
 
 
 @router.post("/send-validation-email")
@@ -281,4 +281,4 @@ async def validation_email(
             uuid=user.uuid,
             email=user.email
         ))
-    return send_validation_email(recipient, token)
+    return await send_validation_email(recipient, token)

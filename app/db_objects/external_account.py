@@ -1,8 +1,6 @@
 """This module contains functions for CRUD operations on external accounts."""
-import re
 from fastapi.exceptions import HTTPException
 from sqlalchemy import select, text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_objects.db_models import ExternalAccount as ExternalAccount_DB

@@ -402,15 +402,15 @@ def test_get_info_from_request(client_host, mock_location, expected_result):
         (False, FileNotFoundError, False)
     ]
 )
-def test_detect_docker(exists_return_value, open_side_effect, expected_result):
+async def test_detect_docker(exists_return_value, open_side_effect, expected_result):
     with patch("os.path.exists", return_value=exists_return_value):
         if open_side_effect == FileNotFoundError:
             with patch("builtins.open", side_effect=open_side_effect):
-                result = detect_docker()
+                result = await detect_docker()
                 assert result == expected_result
         else:
             with patch("builtins.open", mock_open(read_data=open_side_effect)):
-                result = detect_docker()
+                result = await detect_docker()
                 assert result == expected_result
 
 
@@ -561,7 +561,7 @@ FakeDataInput = namedtuple(
         )
     ]
 )
-def test_get_machine_info(fake_data_input, expected_machine_info):
+async def test_get_machine_info(fake_data_input, expected_machine_info):
     # Mocking the platform and os methods
     with patch("platform.platform", return_value=fake_data_input.platform_name), \
             patch("platform.system", return_value=fake_data_input.system), \
@@ -580,29 +580,29 @@ def test_get_machine_info(fake_data_input, expected_machine_info):
                 with patch("platform.win32_ver", return_value=fake_data_input.details["win32_ver"]), \
                         patch("platform.win32_is_iot", return_value=fake_data_input.details["win32_is_iot"]), \
                         patch("platform.win32_edition", return_value=fake_data_input.details["win32_edition"]):
-                    result = get_machine_info()
+                    result = await get_machine_info()
                     assert result == expected_machine_info
             case "Linux":
                 with patch(
                     "platform.freedesktop_os_release",
                     return_value=fake_data_input.details["freedesktop_os_release"]
                 ):
-                    result = get_machine_info()
+                    result = await get_machine_info()
                     assert result == expected_machine_info
             case "Darwin":
                 with patch("platform.mac_ver", return_value=fake_data_input.details["mac_ver"]):
-                    result = get_machine_info()
+                    result = await get_machine_info()
                     assert result == expected_machine_info
             case "iOS":
                 with patch("platform.ios_ver", return_value=fake_data_input.details["ios_ver"]):
-                    result = get_machine_info()
+                    result = await get_machine_info()
                     assert result == expected_machine_info
             case "Android":
                 with patch("platform.android_ver", return_value=fake_data_input.details["android_ver"]):
-                    result = get_machine_info()
+                    result = await get_machine_info()
                     assert result == expected_machine_info
             case _:
-                result = get_machine_info()
+                result = await get_machine_info()
                 assert result == expected_machine_info
 
 

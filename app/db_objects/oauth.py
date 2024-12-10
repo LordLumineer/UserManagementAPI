@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import logger
-from app.core.db import sessionmanager, get_async_db
+from app.core.db import sessionmanager
 from app.db_objects.db_models import OAuthToken as OAuthToken_DB
 from app.templates.schemas.oauth import OAuthTokenBase
 
@@ -38,7 +38,12 @@ async def create_oauth_token(db: AsyncSession, token: OAuthTokenBase) -> OAuthTo
 # ------- Read ------- #
 
 
-async def get_oauth_token(db: AsyncSession, provider: str, user_uuid: str, raise_error: bool = True) -> OAuthToken_DB:
+async def get_oauth_token(
+    db: AsyncSession,
+    provider: str,
+    user_uuid: str,
+    raise_error: bool = True
+) -> OAuthToken_DB:
     """
     Get an OAuth token by provider name for a user.
 

@@ -14,7 +14,6 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestFormStrict
 from pydantic import BaseModel
 import qrcode
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -352,7 +351,7 @@ async def forgot_password_request(
             uuid=db_user.uuid,
             username=db_user.username
         ))
-    return send_reset_password_email(db_user.email, token, "/forgot-password/reset-form", request)
+    return await send_reset_password_email(db_user.email, token, "/forgot-password/reset-form", request)
 
 
 @router.get("/forgot-password/reset", response_class=Response)
@@ -422,7 +421,7 @@ class _ResetPasswordForm(BaseModel):
 
 
 @router.get("/password/reset", response_class=Response)
-def request_password_request(
+async def request_password_request(
     request: Request,
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -450,7 +449,7 @@ def request_password_request(
             uuid=current_user.uuid,
             username=current_user.username
         ))
-    return send_reset_password_email(current_user.email, token, "/reset-password", request)
+    return await send_reset_password_email(current_user.email, token, "/reset-password", request)
 
 
 @router.patch("/password/reset", response_class=Response)

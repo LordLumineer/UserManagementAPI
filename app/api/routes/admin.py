@@ -124,7 +124,7 @@ async def unban_user(
 
 
 @router.patch("/feature_flags", response_model=dict)
-def update_feature_flags(
+async def update_feature_flags(
     remove: FeatureFlags | None = Form(default=None),
     add: FeatureFlags | None = Form(default=None),
     current_user: User_DB = Depends(get_current_user),
@@ -163,5 +163,5 @@ def update_feature_flags(
     for feature_name, feature_rule in add.items():
         FEATURE_FLAGS[feature_name] = jsonable_encoder(feature_rule)
     if add or remove:
-        save_feature_flags()
+        await save_feature_flags()
     return FEATURE_FLAGS

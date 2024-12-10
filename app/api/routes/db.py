@@ -5,6 +5,7 @@ This module contains the API endpoints related to the database (e.g. export, imp
 """
 from datetime import datetime, timezone
 import os
+import aiofiles
 from fastapi import APIRouter, BackgroundTasks, Response, UploadFile, Depends, File
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
@@ -44,7 +45,7 @@ async def db_export(
     FileResponse
         A response with a file attachment containing the database export.
     """
-    has_permission(current_user, "db", "export")
+    has_permission(current_user, "database", "export")
     file_path = await export_db(db)
     background_tasks.add_task(remove_file, file_path)
     return FileResponse(
@@ -86,14 +87,14 @@ async def db_recover(
     Response
         A response with a status code of 200 and a message indicating that the database recovery was successful.
     """
-    has_permission(current_user, "db", "recover")
+    has_permission(current_user, "database", "recover")
     # Save the uploaded file temporarily
     uploaded_db_path = app_path(os.path.join("data", f"temp_{file.filename}"))
-    with open(uploaded_db_path, "wb") as buffer:
-        buffer.write(file.file.read())
+    async with aiofiles.open(uploaded_db_path, "wb") as buffer:
+        await buffer.write(await file.read())
 
     # Call function to handle database import logic
-    success = await handle_database_import(uploaded_db_path, "recover")
+    success = handle_database_import(uploaded_db_path, "recover")
     if not success:
         raise HTTPException(
             status_code=500, detail="Failed to recover database")
@@ -107,6 +108,7 @@ async def db_recover(
 
 @router.post("/import")
 async def db_import(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -141,15 +143,19 @@ async def db_import(
 
     The uploaded database file is removed after the import is complete.
     """
-    has_permission(current_user, "db", "import")
+    has_permission(current_user, "database", "import")
 
     # Save the uploaded file temporarily
     uploaded_db_path = app_path(f"temp_{file.filename}")
-    with open(uploaded_db_path, "wb") as buffer:
-        buffer.write(file.file.read())
+    async with aiofiles.open(uploaded_db_path, "wb") as buffer:
+        await buffer.write(await file.read())
 
     # Call function to handle database import logic
-    await handle_database_import(uploaded_db_path, "import")
+    success = handle_database_import(uploaded_db_path, "import")
+    if not success:
+        raise HTTPException(
+            status_code=500, detail="Failed to recover database")
+    background_tasks.add_task(remove_file, uploaded_db_path)
 
     return Response(
         status_code=200,

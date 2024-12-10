@@ -8,11 +8,13 @@ import logging
 import os
 import shutil
 from typing import AsyncIterator, Any
+import aiofiles
 from fastapi import HTTPException
 from sqlalchemy import (
     Connection, Engine, Inspector, MetaData, Table,
     create_engine, inspect, select, text, update
 )
+from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncSession,
@@ -30,65 +32,85 @@ from app.core.utils import app_path
 from app.db_objects._base import Base
 
 
-# sync_engine = create_engine(
-#     url=settings.SQLALCHEMY_DATABASE_URI.replace(
-#         "+psycopg2", "").replace("+aiosqlite", "")
-# )
-# SyncSessionLocal = sessionmaker(
-#     autocommit=False, autoflush=False, bind=sync_engine)
-
-
-# def get_sync_db():
-#     db = SyncSessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
-
-
-# engine = create_async_engine(
-#     url=settings.SQLALCHEMY_DATABASE_URI
-# )
-
-
-# AsyncSessionLocal = async_sessionmaker(
-#     bind=engine, expire_on_commit=False
-# )
-
 class DatabaseSessionManager:
-    def __init__(self, host: str, engine_kwargs: dict[str, Any] = {}):
-        self._engine = create_async_engine(host, **engine_kwargs)
+    """This class manages the database connections and sessions."""
+
+    def __init__(self, host: str, engine_kwargs: dict[str, Any] = None):
+        """
+        Create a new instance of the DatabaseSessionManager.
+
+        :param host: The URL of the database to connect to.
+        :param engine_kwargs: Optional keyword arguments to pass to the
+            `create_async_engine` function.
+        """
+        if engine_kwargs is None:
+            engine_kwargs = {}
+        self.engine = create_async_engine(host, **engine_kwargs)
+        self.sync_engine = create_engine(host.replace("+aiosqlite", ""))
         self._sessionmaker = async_sessionmaker(
             autocommit=False,
-            bind=self._engine
+            bind=self.engine
         )
 
     async def init(self):
-        async with self._engine.begin() as conn:
+        """
+        Initialize the database by creating all tables.
+
+        This function is idempotent. If the tables already exist, it will not
+        raise an error.
+        """
+        async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
     async def close(self):
-        if self._engine is None:
+        """
+        Close the database connection and free up all resources.
+
+        This function should be called when the application is shutting down.
+        After calling this function, the `DatabaseSessionManager` is no longer
+        usable.
+
+        :raises HTTPException: If the database is not initialized.
+        """
+        if self.engine is None:
             logger.error("DatabaseSessionManager is not initialized")
             raise HTTPException(
                 status_code=500,
                 detail="DatabaseSessionManager is not initialized"
             )
-        await self._engine.dispose()
+        await self.engine.dispose()
 
-        self._engine = None
+        self.engine = None
         self._sessionmaker = None
 
     @contextlib.asynccontextmanager
     async def connect(self) -> AsyncIterator[AsyncConnection]:
-        if self._engine is None:
+        """
+        Establish an asynchronous connection to the database.
+
+        This async context manager provides an asynchronous connection to the database.
+        It ensures that a connection is established before entering the context and
+        properly closed after exiting. If the `DatabaseSessionManager` is not initialized,
+        an HTTPException is raised.
+
+        Yields
+        ------
+        AsyncConnection
+            The asynchronous connection object to perform database operations.
+
+        Raises
+        ------
+        HTTPException
+            If the `DatabaseSessionManager` is not initialized.
+        """
+        if self.engine is None:
             logger.error("DatabaseSessionManager is not initialized")
             raise HTTPException(
                 status_code=500,
                 detail="DatabaseSessionManager is not initialized"
             )
 
-        async with self._engine.begin() as connection:
+        async with self.engine.begin() as connection:
             try:
                 yield connection
             except Exception:
@@ -97,6 +119,24 @@ class DatabaseSessionManager:
 
     @contextlib.asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:
+        """
+        Establish an asynchronous session to the database.
+
+        This async context manager provides an asynchronous session to the database.
+        It ensures that a session is established before entering the context and
+        properly closed after exiting. If the `DatabaseSessionManager` is not initialized,
+        an HTTPException is raised.
+
+        Yields
+        ------
+        AsyncSession
+            The asynchronous session object to perform database operations.
+
+        Raises
+        ------
+        HTTPException
+            If the `DatabaseSessionManager` is not initialized.
+        """
         if self._sessionmaker is None:
             logger.error("DatabaseSessionManager is not initialized")
             raise HTTPException(
@@ -119,13 +159,21 @@ sessionmanager = DatabaseSessionManager(
 
 
 async def get_async_db():
+    """
+    Get an asynchronous database session.
+
+    This async generator provides an asynchronous session to the database.
+    It ensures that a session is established before entering the context and
+    properly closed after exiting. The session is usable within the context
+    manager.
+
+    Yields
+    ------
+    AsyncSession
+        The asynchronous session object to perform database operations.
+    """
     async with sessionmanager.session() as session:
         yield session
-
-
-# async def get_async_db():
-#     async with AsyncSessionLocal() as session:
-#         yield session
 
 
 async def run_migrations() -> None:
@@ -139,7 +187,6 @@ async def run_migrations() -> None:
 
     The function blocks until the migrations are complete.
     """
-    # alembic_cfg = Config("alembic.ini")
     alembic_cfg = Config(
         app_path(os.path.join("app", "alembic.ini")),
         ini_section="alembic-run",
@@ -147,10 +194,9 @@ async def run_migrations() -> None:
             "script_location": app_path(os.path.join("app", "alembic")),
         }
     )
-    # alembic_cfg.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
     logger.info("Running Alembic migrations...")
 
-    def run_upgrade(connection, cfg):
+    def _run_upgrade(connection, cfg):
         cfg.attributes["connection"] = connection
         script = ScriptDirectory.from_config(alembic_cfg)
         head = str(script.get_current_head())
@@ -161,7 +207,7 @@ async def run_migrations() -> None:
         else:
             logger.info("Database already up-to-date.")
     async with sessionmanager.connect() as conn:
-        await conn.run_sync(run_upgrade, alembic_cfg)
+        await conn.run_sync(_run_upgrade, alembic_cfg)
 
     # Reactivate FastAPI LOGGER (Uvicorn)
     for _logger in logging.root.manager.loggerDict.values():  # pylint: disable=E1101
@@ -172,7 +218,7 @@ async def run_migrations() -> None:
     logger.success("Alembic migrations completed.")
 
 
-async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
+def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
     """
     Handles importing a database from an uploaded SQLite file.
 
@@ -195,12 +241,12 @@ async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
     upload_conn, upload_engine = connect_to_uploaded_db(uploaded_db_path)
     inspector, upload_inspector = get_inspectors(upload_conn)
 
-    async with sessionmanager.session() as session:
+    with Session(sessionmanager.sync_engine) as session:
         for table_name in inspector.get_table_names():
             if table_name not in upload_inspector.get_table_names():
                 # Skip tables not present in the uploaded database
                 continue
-            await process_table(session, table_name, upload_conn, inspector, mode)
+            process_table(session, table_name, upload_conn, inspector, mode)
 
     upload_conn.close()
     upload_engine.dispose()
@@ -221,19 +267,19 @@ def get_inspectors(upload_conn: Connection) -> tuple[Inspector, Inspector]:
     Get the metadata and inspector of the running and uploaded databases.
     """
     meta = MetaData()
-    meta.reflect(bind=engine)
+    meta.reflect(bind=sessionmanager.sync_engine)
 
     upload_meta = MetaData()
     upload_meta.reflect(bind=upload_conn)
 
-    inspector = inspect(engine)
+    inspector = inspect(sessionmanager.sync_engine)
     upload_inspector = inspect(upload_conn)
 
     return inspector, upload_inspector
 
 
-async def process_table(
-    session: AsyncSession,
+def process_table(
+    session: Session,
     table_name: str,
     upload_conn: Connection,
     inspector: Inspector,
@@ -253,9 +299,9 @@ async def process_table(
         table_name).get('constrained_columns')
 
     rows_existing = {tuple(row[key] for key in primary_keys):
-                     row for row in await session.execute(
+                     row for row in session.execute(
                          select(Table(table_name, MetaData(),
-                                autoload_with=engine))
+                                autoload_with=sessionmanager.sync_engine))
     ).mappings()}
     rows_uploaded = {tuple(row[key] for key in primary_keys):
                      row for row in upload_conn.execute(
@@ -268,8 +314,8 @@ async def process_table(
             # Row does not exist in the existing DB, add it
             new_row = {
                 key["name"]: row_uploaded[key["name"]] for key in list(inspector.get_columns(table_name))}
-            await session.execute(
-                Table(table_name, MetaData(), autoload_with=engine).insert().values(new_row))
+            session.execute(
+                Table(table_name, MetaData(), autoload_with=sessionmanager.sync_engine).insert().values(new_row))
         else:
             # Row exists, check data differences
             row_existing = rows_existing[pk]
@@ -282,24 +328,24 @@ async def process_table(
                         # In 'recover', replace data if different
                         # Insert missing rows
                         table = Table(table_name, MetaData(),
-                                      autoload_with=engine)
+                                      autoload_with=sessionmanager.sync_engine)
                         stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
                             {col["name"]: row_uploaded[col["name"]]}
                         )
-                        await session.execute(stmt)
+                        session.execute(stmt)
                     elif mode == "import" and (
                         row_existing[col["name"]
                                      ] is None and row_uploaded[col["name"]] is not None
                     ):
                         # In 'import', do not replace existing data
                         table = Table(table_name, MetaData(),
-                                      autoload_with=engine)
+                                      autoload_with=sessionmanager.sync_engine)
                         stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
                             {col["name"]: row_uploaded[col["name"]]}
                         )
-                        await session.execute(stmt)
+                        session.execute(stmt)
     # Commit changes
-    await session.commit()
+    session.commit()
 
 
 async def export_db(db: AsyncSession, path=None) -> str:
@@ -316,9 +362,9 @@ async def export_db(db: AsyncSession, path=None) -> str:
         HTTPException: If the database file is not found.
     """
     export_path = path or app_path("output.db")
-    if "sqlite" in str(engine.url):
+    if "sqlite" in str(sessionmanager.engine.url):
         # If it's SQLite, serve the actual database file
-        engine_db_path = engine.url.database
+        engine_db_path = sessionmanager.engine.url.database
         if os.path.exists(engine_db_path):
             shutil.copyfile(engine_db_path, export_path)
         else:
@@ -327,12 +373,13 @@ async def export_db(db: AsyncSession, path=None) -> str:
     else:
         # For non-SQLite databases, dump the SQL statements
         metadata = MetaData()
-        metadata.reflect(bind=engine)  # Reflect the database schema
-        with open(export_path, "w", encoding="utf-8") as file:
+        # Reflect the database schema
+        metadata.reflect(bind=sessionmanager.sync_engine)
+        async with aiofiles.open(export_path, "w", encoding="utf-8") as file:
             # Write schema first
             for table in reversed(metadata.sorted_tables):
-                file.write(str(table))
-                file.write("\n\n")
+                await file.write(str(table))
+                await file.write("\n\n")
 
             # Write data
             for table in metadata.sorted_tables:
@@ -344,5 +391,5 @@ async def export_db(db: AsyncSession, path=None) -> str:
                         values = ", ".join([f"'{str(val)}'" for val in row])
                         insert_stmt = f"INSERT INTO {
                             table.name} ({columns}) VALUES ({values});\n"
-                        file.write(insert_stmt)
+                        await file.write(insert_stmt)
     return export_path

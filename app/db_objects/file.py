@@ -1,9 +1,9 @@
 """This module contains functions for CRUD operations on files."""
 import os
+import aiofiles
 from fastapi import UploadFile
 from fastapi.exceptions import HTTPException
 from sqlalchemy import delete, insert, select, text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.utils import remove_file
@@ -28,8 +28,8 @@ async def create_file(db: AsyncSession, new_file: FileCreate, file: UploadFile) 
     :return File_DB: The database representation of the newly created file.
     :raises HTTPException: If there is an integrity error during the database operation.
     """
-    with open(new_file.file_path, "wb") as f:
-        f.write(file.file.read())
+    async with aiofiles.open(new_file.file_path, "wb") as f:
+        f.write(await file.read())
     db_file = File_DB(**new_file.model_dump())
     db_file.file_name = os.path.basename(new_file.file_name)
     db.add(db_file)

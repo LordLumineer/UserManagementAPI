@@ -12,6 +12,7 @@ import smtplib
 import ssl
 from email.mime.text import MIMEText
 from typing import Literal
+import aiofiles
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse
@@ -138,16 +139,19 @@ def send_email(recipients: list[str], subject: str, html_content: str):
             raise HTTPException(status_code=500, detail="Invalid Email Method")
 
 
-def send_test_email(recipient: str):
+async def send_test_email(recipient: str):
     """
     Send a test email to a single recipient.
 
     :param str recipient: the recipient of the email.
-    :return: an HTMLResponse with a success message if the email is sent successfully, 
+    :return: an HTMLResponse with a success message if the email is sent successfully,
         otherwise an HTTPException with a 500 status code is raised.
     """
-    with open(app_path(os.path.join("app", "templates", "html", "email_test.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
+    async with aiofiles.open(
+        app_path(os.path.join("app", "templates", "html", "email_test.html")),
+        "r", encoding="utf-8"
+    ) as f:
+        html_content = await f.read()
     context = {
         "ENDPOINT": "/send-test-email/test/todo",
         "PARAMS": "?test=123456789&token=123456789"
@@ -157,18 +161,22 @@ def send_test_email(recipient: str):
     return send_email(recipient, f"{settings.PROJECT_NAME} - Test Email", html)
 
 
-def send_validation_email(recipient: str, token_str: str):
+async def send_validation_email(recipient: str, token_str: str):
     """
     Send a validation email to a single recipient.
 
     :param str recipient: the recipient of the email.
     :param str token_str: the token to be used for verification.
-    :return: an HTMLResponse with a success message if the email is sent successfully, 
+    :return: an HTMLResponse with a success message if the email is sent successfully,
         otherwise an HTTPException with a 500 status code is raised.
     """
-    with open(app_path(os.path.join("app", "templates",
-                                    "html", "email_validate.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
+    async with aiofiles.open(
+        app_path(os.path.join("app", "templates",
+                 "html", "email_validate.html")),
+        "r", encoding="utf-8"
+    ) as f:
+        html_content = await f.read()
+
     context = {
         "ENDPOINT": "/auth/email/verify",
         "PARAMS": f"?token={token_str}"
@@ -178,7 +186,7 @@ def send_validation_email(recipient: str, token_str: str):
     return send_email(recipient, f"{settings.PROJECT_NAME} - Activate your account", html)
 
 
-def send_otp_email(recipient: str, otp_code: str, request: Request = None):
+async def send_otp_email(recipient: str, otp_code: str, request: Request = None):
     """
     Send an email with a one-time password to a single recipient.
 
@@ -191,8 +199,11 @@ def send_otp_email(recipient: str, otp_code: str, request: Request = None):
         otherwise an HTTPException with a 500 status code is raised.
     """
     info = get_info_from_request(request)
-    with open(app_path(os.path.join("app", "templates", "html", "email_otp.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
+    async with aiofiles.open(
+        app_path(os.path.join("app", "templates", "html", "email_otp.html")),
+        "r", encoding="utf-8"
+    ) as f:
+        html_content = await f.read()
     expiration_date = datetime.now(
         timezone.utc) + timedelta(seconds=settings.OTP_EMAIL_INTERVAL)
     context = {
@@ -209,7 +220,7 @@ def send_otp_email(recipient: str, otp_code: str, request: Request = None):
     return send_email(recipient, f"{settings.PROJECT_NAME} - Login Token", html)
 
 
-def send_reset_password_email(
+async def send_reset_password_email(
         recipient: str,
         token_str: str,
         endpoint: Literal["/reset-password", "/forgot-password/reset-form"],
@@ -223,9 +234,12 @@ def send_reset_password_email(
         otherwise an HTTPException with a 500 status code is raised.
     """
     info = get_info_from_request(request)
-    with open(app_path(os.path.join("app", "templates", "html",
-                                    "email_reset_password.html")), "r", encoding="utf-8") as f:
-        html_content = f.read()
+    async with aiofiles.open(
+        app_path(os.path.join("app", "templates",
+                 "html", "email_reset_password.html")),
+        "r", encoding="utf-8"
+    ) as f:
+        html_content = await f.read()
     context = {
         "LOCATION": info["location"],
         "DEVICE": info["device"],

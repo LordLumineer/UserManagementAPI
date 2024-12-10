@@ -87,7 +87,7 @@ async def create_user(db: AsyncSession, user: UserCreate) -> User_DB:
             uuid=db_user.uuid,
             email=db_user.email
         ))
-    send_validation_email(db_user.email, email_token)
+    await send_validation_email(db_user.email, email_token)
     return db_user
 
 
@@ -258,7 +258,7 @@ async def update_user(db: AsyncSession, db_user: User_DB, user: UserUpdate) -> U
                 uuid=db_user.uuid,
                 email=db_user.email
             ))
-        send_validation_email(db_user.email, email_token)
+        await send_validation_email(db_user.email, email_token)
     return db_user
 
 
