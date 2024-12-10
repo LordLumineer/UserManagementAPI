@@ -233,13 +233,9 @@ async def change_otp_method(
             method=method
         ):
             raise HTTPException(status_code=401, detail="Invalid OTP code")
-    try:
-        db.add(current_user)
-        await db.commit()
-        await db.refresh(current_user)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
     return current_user
 
 

@@ -9,16 +9,15 @@ import os
 import time
 from fastapi import Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import logger
-from app.core.db import get_async_db
+from app.core.db import sessionmanager
 from app.core.email import send_validation_email
 from app.core.utils import app_path
-from app.db_objects.file import delete_file, get_file, get_file_users
 from app.core.security import (
     TokenData, create_access_token, decode_access_token,
     generate_otp, hash_password, oauth2_scheme
@@ -26,6 +25,7 @@ from app.core.security import (
 from app.db_objects.db_models import User as User_DB
 from app.db_objects.db_models import File as File_DB
 from app.db_objects.db_models import users_files_links
+from app.db_objects.file import delete_file, get_file, get_file_users
 from app.templates.schemas.user import UserCreate, UserHistory, UserUpdate
 
 
@@ -55,7 +55,6 @@ async def create_user(db: AsyncSession, user: UserCreate) -> User_DB:
         os.makedirs(app_path(os.path.join(
             "data", "users", db_user.uuid)), exist_ok=True)
     except IntegrityError as e:
-        await db.rollback()
         # Link New Local User and External User
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
             existing_user = await get_user_by_email(db, user.email)
@@ -106,32 +105,11 @@ async def get_user(db: AsyncSession, uuid: str, raise_error: bool = True) -> Use
     :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
     result = await db.execute(select(User_DB).filter(User_DB.uuid == uuid).options(
-        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by),
+        joinedload(User_DB.external_accounts),
+        joinedload(User_DB.files)
     ))
-    db_user = result.scalar()
-    if not db_user and raise_error:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
-
-from sqlalchemy.orm import Session
-def get_sync_user(db: Session, uuid: str, raise_error: bool = True) -> User_DB:
-    """
-    Retrieve a user by their UUID.
-
-    :param Session db: The current database session.
-    :param str uuid: The UUID of the user to retrieve.
-    :param bool raise_error: Whether to raise an HTTPException if the user is not found (default is True).
-    :return User_DB: The user model object if found, else None if raise_error is False.
-    :raises HTTPException: If the user is not found and `raise_error` is `True`.
-    """
-    db_user = (
-        db.query(User_DB)
-        .options(
-            joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
-        )
-        .filter(User_DB.uuid == uuid)
-        .first()
-    )
+    db_user = result.unique().scalar()
     if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
@@ -148,10 +126,12 @@ async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[U
     """
     result = await db.execute(
         select(User_DB).offset(skip).limit(limit).options(
-        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+            joinedload(User_DB.profile_picture).joinedload(File_DB.created_by),
+            joinedload(User_DB.external_accounts),
+            joinedload(User_DB.files)
+        )
     )
-    )
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 async def get_nb_users(db: AsyncSession) -> int:
@@ -162,7 +142,7 @@ async def get_nb_users(db: AsyncSession) -> int:
     :return int: The number of users.
     """
     result = await db.execute(text(f"SELECT COUNT(*) FROM {User_DB.__tablename__}"))
-    return int(result.scalar())
+    return int(result.unique().scalar())
 
 
 async def get_users_list(db: AsyncSession, id_list: list[str]) -> list[User_DB]:
@@ -173,10 +153,15 @@ async def get_users_list(db: AsyncSession, id_list: list[str]) -> list[User_DB]:
     :param list[str] id_list: The UUIDs of the users to get.
     :return list[User_DB]: A list of user objects.
     """
-    result = await db.execute(select(User_DB).where(User_DB.uuid.in_(id_list)).options(
-        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
-    ))
-    return result.scalars().all()
+    result = await db.execute(
+        select(User_DB)
+        .where(User_DB.uuid.in_(id_list))
+        .options(
+            joinedload(User_DB.profile_picture).joinedload(File_DB.created_by),
+            joinedload(User_DB.external_accounts),
+            joinedload(User_DB.files)
+        ))
+    return result.unique().scalars().all()
 
 
 # ** Specific User (Username, Email) ** #
@@ -194,8 +179,8 @@ async def get_user_by_username(db: AsyncSession, username: str, raise_error: boo
     """
     result = await db.execute(select(User_DB).filter(
         User_DB.username == username
-        ))
-    db_user = result.scalar()
+    ))
+    db_user = result.unique().scalar()
     if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
@@ -212,7 +197,7 @@ async def get_user_by_email(db: AsyncSession, email: str, raise_error: bool = Tr
     :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
     result = await db.execute(select(User_DB).filter(User_DB.email == email))
-    db_user = result.scalar()
+    db_user = result.unique().scalar()
     if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
@@ -262,13 +247,9 @@ async def update_user(db: AsyncSession, db_user: User_DB, user: UserUpdate) -> U
     # setattr(db_user, "updated_at", int(time.time()))
     db_user.updated_at = int(time.time())
     db_user.user_history.append(jsonable_encoder(user.action))
-    try:
-        db.add(db_user)
-        await db.commit()
-        await db.refresh(db_user)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     # Send email verification if the email has changed
     if email_to_verify:
         email_token = create_access_token(
@@ -330,14 +311,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User_DB:
     token_data = decode_access_token(token, strict=False)
     if token_data.purpose != "login":
         raise HTTPException(status_code=401, detail="Unauthorized")
-
-    db = await get_async_db().__anext__()
-    try:
+    async with sessionmanager.session() as db:
         user = await get_user(db, token_data.uuid)
         if user.roles != token_data.roles:
             raise HTTPException(status_code=401, detail="Unauthorized")
-    finally:
-        await db.close()
     return user
 
 
@@ -361,34 +338,31 @@ async def init_default_user() -> None:
 
     :raises HTTPException: If there is an IntegrityError while creating the default user.
     """
-    db = await get_async_db().__anext__()
     try:
-        if len(await get_users(db)) == 0:
-            # otp_secret = generate_random_letters(32)
-            default_user = User_DB(
-                username="admin",
-                display_name="Admin",
-                email="admin@example.com",
-                hashed_password=hash_password("changeme"),
-                roles=["admin", "moderator", "user"],
-                email_verified=True,
-                otp_secret="changeme",
-            )
-            db.add(default_user)
-            await db.commit()
-            await db.refresh(default_user)
-            os.makedirs(app_path(os.path.join(
-                "data", "users", default_user.uuid)), exist_ok=True)
-            logger.success(
-                "\nDefault user created:\n\n"
-                f"    Username: {default_user.username}\n"
-                f"    Email: {default_user.email}\n"
-                "    Password: changeme\n"
-                f"    Roles: {default_user.roles}\n\n"
-                "Please change the default password and email after first login.\n",
-            )
+        async with sessionmanager.session() as db:
+            if len(await get_users(db)) == 0:
+                # otp_secret = generate_random_letters(32)
+                default_user = User_DB(
+                    username="admin",
+                    display_name="Admin",
+                    email="admin@example.com",
+                    hashed_password=hash_password("changeme"),
+                    roles=["admin", "moderator", "user"],
+                    email_verified=True,
+                    otp_secret="changeme",
+                )
+                db.add(default_user)
+                await db.commit()
+                await db.refresh(default_user)
+                os.makedirs(app_path(os.path.join(
+                    "data", "users", default_user.uuid)), exist_ok=True)
+                logger.success(
+                    "\nDefault user created:\n\n"
+                    f"    Username: {default_user.username}\n"
+                    f"    Email: {default_user.email}\n"
+                    "    Password: changeme\n"
+                    f"    Roles: {default_user.roles}\n\n"
+                    "Please change the default password and email after first login.\n",
+                )
     except IntegrityError as e:
-        await db.rollback()
         logger.error(f"Failed to create default user: {e.orig}")
-    finally:
-        await db.close()

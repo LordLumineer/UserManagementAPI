@@ -3,18 +3,23 @@ This module contains functions to interact with the database, including
 connection management, session creation, and database management using
 Alembic migrations.
 """
+import contextlib
 import logging
 import os
 import shutil
-from typing import AsyncGenerator
+from typing import AsyncIterator, Any
 from fastapi import HTTPException
 from sqlalchemy import (
     Connection, Engine, Inspector, MetaData, Table,
     create_engine, inspect, select, text, update
 )
+from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine
+)
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -25,40 +30,102 @@ from app.core.utils import app_path
 from app.db_objects._base import Base
 
 
-sync_engine = create_engine(
-    url=settings.SQLALCHEMY_DATABASE_URI.replace(
-        "+psycopg2", "").replace("+aiosqlite", "")
-)
-SyncSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=sync_engine)
+# sync_engine = create_engine(
+#     url=settings.SQLALCHEMY_DATABASE_URI.replace(
+#         "+psycopg2", "").replace("+aiosqlite", "")
+# )
+# SyncSessionLocal = sessionmaker(
+#     autocommit=False, autoflush=False, bind=sync_engine)
 
 
-def get_sync_db():
-    db = SyncSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_sync_db():
+#     db = SyncSessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 
-engine = create_async_engine(
-    url=settings.SQLALCHEMY_DATABASE_URI
-)
+# engine = create_async_engine(
+#     url=settings.SQLALCHEMY_DATABASE_URI
+# )
 
 
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine, expire_on_commit=False
-)
+# AsyncSessionLocal = async_sessionmaker(
+#     bind=engine, expire_on_commit=False
+# )
+
+class DatabaseSessionManager:
+    def __init__(self, host: str, engine_kwargs: dict[str, Any] = {}):
+        self._engine = create_async_engine(host, **engine_kwargs)
+        self._sessionmaker = async_sessionmaker(
+            autocommit=False,
+            bind=self._engine
+        )
+
+    async def init(self):
+        async with self._engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+    async def close(self):
+        if self._engine is None:
+            logger.error("DatabaseSessionManager is not initialized")
+            raise HTTPException(
+                status_code=500,
+                detail="DatabaseSessionManager is not initialized"
+            )
+        await self._engine.dispose()
+
+        self._engine = None
+        self._sessionmaker = None
+
+    @contextlib.asynccontextmanager
+    async def connect(self) -> AsyncIterator[AsyncConnection]:
+        if self._engine is None:
+            logger.error("DatabaseSessionManager is not initialized")
+            raise HTTPException(
+                status_code=500,
+                detail="DatabaseSessionManager is not initialized"
+            )
+
+        async with self._engine.begin() as connection:
+            try:
+                yield connection
+            except Exception:
+                await connection.rollback()
+                raise
+
+    @contextlib.asynccontextmanager
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        if self._sessionmaker is None:
+            logger.error("DatabaseSessionManager is not initialized")
+            raise HTTPException(
+                status_code=500,
+                detail="DatabaseSessionManager is not initialized"
+            )
+
+        session = self._sessionmaker()
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+sessionmanager = DatabaseSessionManager(
+    settings.SQLALCHEMY_DATABASE_URI, {"echo": False})
 
 
 async def get_async_db():
-    async with AsyncSessionLocal() as session:
+    async with sessionmanager.session() as session:
         yield session
 
 
-async def initialize_database():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+# async def get_async_db():
+#     async with AsyncSessionLocal() as session:
+#         yield session
 
 
 async def run_migrations() -> None:
@@ -85,20 +152,16 @@ async def run_migrations() -> None:
 
     def run_upgrade(connection, cfg):
         cfg.attributes["connection"] = connection
-        command.upgrade(cfg, "head")
-    async with engine.begin() as conn:
+        script = ScriptDirectory.from_config(alembic_cfg)
+        head = str(script.get_current_head())
+        context = MigrationContext.configure(connection)
+        current = context.get_current_revision()
+        if head != current:
+            command.upgrade(cfg, "head")
+        else:
+            logger.info("Database already up-to-date.")
+    async with sessionmanager.connect() as conn:
         await conn.run_sync(run_upgrade, alembic_cfg)
-    # script = ScriptDirectory.from_config(alembic_cfg)
-    # head = str(script.get_current_head())
-
-    # with sync_engine.connect() as conn:
-    #     context = MigrationContext.configure(conn)
-    #     current = context.get_current_revision()
-    # print(head != current)
-    # if head != current:
-    #     command.upgrade(alembic_cfg, "head")
-    # else:
-    #     logger.info("Database already up-to-date.")
 
     # Reactivate FastAPI LOGGER (Uvicorn)
     for _logger in logging.root.manager.loggerDict.values():  # pylint: disable=E1101
@@ -106,7 +169,7 @@ async def run_migrations() -> None:
             if "uvicorn" in _logger.name:
                 _logger.disabled = False
 
-    logger.info("Alembic migrations completed.")
+    logger.success("Alembic migrations completed.")
 
 
 async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
@@ -132,7 +195,7 @@ async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
     upload_conn, upload_engine = connect_to_uploaded_db(uploaded_db_path)
     inspector, upload_inspector = get_inspectors(upload_conn)
 
-    async with AsyncSession(engine) as session:
+    async with sessionmanager.session() as session:
         for table_name in inspector.get_table_names():
             if table_name not in upload_inspector.get_table_names():
                 # Skip tables not present in the uploaded database

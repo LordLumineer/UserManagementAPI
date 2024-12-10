@@ -28,15 +28,11 @@ async def create_external_account(db: AsyncSession, external_account: ExternalAc
     :return ExternalAccount_DB: The created external account model object.
     :raises HTTPException: If a database integrity error occurs.
     """
-    try:
-        db_external_account = ExternalAccount_DB(
-            **external_account.model_dump())
-        db.add(db_external_account)
-        await db.commit()
-        await db.refresh(db_external_account)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db_external_account = ExternalAccount_DB(
+        **external_account.model_dump())
+    db.add(db_external_account)
+    await db.commit()
+    await db.refresh(db_external_account)
     return db_external_account
 
 
@@ -64,7 +60,7 @@ async def get_external_account(
     result = await db.execute(select(ExternalAccount_DB).filter(
         ExternalAccount_DB.external_account_id == external_account_id,
         ExternalAccount_DB.provider == provider))
-    db_external_account = result.scalar()
+    db_external_account = result.unique().scalar()
     if not db_external_account and raise_error:
         raise HTTPException(
             status_code=404, detail="External account not found")
@@ -83,7 +79,7 @@ async def get_external_accounts(db: AsyncSession, skip: int = 0, limit: int = 10
     :return list[ExternalAccount_DB]: A list of external account model objects.
     """
     result = await db.execute(select(ExternalAccount_DB).offset(skip).limit(limit))
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 async def get_nb_external_accounts(db: AsyncSession) -> int:
@@ -96,7 +92,7 @@ async def get_nb_external_accounts(db: AsyncSession) -> int:
     :return int: The number of external accounts.
     """
     result = await db.execute(text(f"SELECT COUNT(*) FROM {ExternalAccount_DB.__tablename__}"))
-    return int(result.scalar())
+    return int(result.unique().scalar())
 
 
 async def get_external_accounts_list(db: AsyncSession,
@@ -112,7 +108,7 @@ async def get_external_accounts_list(db: AsyncSession,
     """
     result = await db.execute(select(ExternalAccount_DB).where(
         ExternalAccount_DB.external_account_id.in_(external_account_id_list)))
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 # ------- Update ------- #
@@ -143,13 +139,9 @@ async def update_external_account(
         exclude_unset=True, exclude_none=True)
     for field, value in external_account_data.items():
         setattr(db_external_account, field, value)
-    try:
-        db.add(db_external_account)
-        await db.commit()
-        await db.refresh(db_external_account)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db.add(db_external_account)
+    await db.commit()
+    await db.refresh(db_external_account)
     return db_external_account
 
 

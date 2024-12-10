@@ -9,14 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_async_db
 from app.db_objects.file import create_file, delete_file, get_file, link_file_user
 from app.db_objects.user import (
-    create_user, get_user, update_user, delete_user,
+    create_user, get_nb_users, get_user, update_user, delete_user,
     get_users, get_users_list, get_current_user,
 )
 from app.core.permissions import has_permission
 from app.core.utils import extract_initials_from_text, generate_profile_picture
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.file import FileCreate, FileReadDB
-from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate, UserHistory
+from app.templates.schemas.user import UserCreate, UserRead, UserUpdate, UserHistory
 
 router = APIRouter()
 
@@ -210,7 +210,7 @@ async def block_users(
 # ------- Read ------- #
 
 
-@router.get("/", response_model=list[UserReadDB])
+@router.get("/", response_model=list[UserRead])
 async def read_users(
     skip: int = Query(default=0), limit: int = Query(default=100),
     current_user: User_DB = Depends(get_current_user),
@@ -232,7 +232,7 @@ async def read_users(
 
     Returns
     -------
-    list[UserReadDB]
+    list[UserRead]
         A list of user objects.
     """
     has_permission(current_user, "user", "read")
@@ -259,15 +259,37 @@ async def read_users_list(
 
     Returns
     -------
-    list[UserReadDB]
+    list[UserRead]
         A list of user objects
     """
     has_permission(current_user, "user", "read")
-    return await get_users_list(db, users_ids)
+    users = await get_users_list(db, users_ids)
+    return users
+
+@router.get("/count", response_model=int)
+async def read_users_number(
+    current_user: User_DB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get the number of users.
+
+    Parameters
+    ----------
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    int
+        The number of user.
+    """
+    has_permission(current_user, "user", "read")
+    return await get_nb_users(db)
 
 
 @router.get("/me", response_model=UserRead)
-def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
+def read_users_me(current_user: User_DB = Depends(get_current_user)):
     """
     Get the current user.
 

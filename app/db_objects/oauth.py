@@ -1,13 +1,10 @@
 """This module contains functions for CRUD operations on OAuth tokens from external services."""
-import re
-from unittest import result
 from fastapi.exceptions import HTTPException
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import logger
-from app.core.db import get_async_db
+from app.core.db import sessionmanager, get_async_db
 from app.db_objects.db_models import OAuthToken as OAuthToken_DB
 from app.templates.schemas.oauth import OAuthTokenBase
 
@@ -31,14 +28,10 @@ async def create_oauth_token(db: AsyncSession, token: OAuthTokenBase) -> OAuthTo
     :return OAuthToken_DB: The created OAuth token model object.
     :raises HTTPException: If a database integrity error occurs.
     """
-    try:
-        db_token = OAuthToken_DB(**token.model_dump())
-        db.add(db_token)
-        await db.commit()
-        await db.refresh(db_token)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db_token = OAuthToken_DB(**token.model_dump())
+    db.add(db_token)
+    await db.commit()
+    await db.refresh(db_token)
     return db_token
 
 
@@ -59,8 +52,8 @@ async def get_oauth_token(db: AsyncSession, provider: str, user_uuid: str, raise
     result = await db.execute(select(OAuthToken_DB).filter(
         OAuthToken_DB.provider == provider,
         OAuthToken_DB.user_uuid == user_uuid
-        ))
-    db_token = result.scalars().first()
+    ))
+    db_token = result.unique().scalars().first()
     if not db_token and raise_error:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
@@ -86,13 +79,9 @@ async def update_oauth_token(db: AsyncSession, db_token: OAuthToken_DB, token: O
     token_data = token.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in token_data.items():
         setattr(db_token, field, value)
-    try:
-        db.add(db_token)
-        await db.commit()
-        await db.refresh(db_token)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db.add(db_token)
+    await db.commit()
+    await db.refresh(db_token)
     return db_token
 
 
@@ -130,8 +119,7 @@ async def fetch_token(provider, request) -> dict:
     :param request: The request object
     :return: The OAuth token as a dictionary
     """
-    db = await get_async_db().__anext__()
-    try:
+    async with sessionmanager.session() as db:
         user_uuid = request.session.get("user_uuid")
         if not user_uuid:
             return None
@@ -139,12 +127,10 @@ async def fetch_token(provider, request) -> dict:
             OAuthToken_DB.provider == provider,
             OAuthToken_DB.user_uuid == user_uuid
         ))
-        item = result.scalar()
+        item = result.unique().scalar()
         if not item:
             return None
         token = OAuthTokenBase(**item)
-    finally:
-        await db.close()
     return token.to_token()
 
 
@@ -162,33 +148,26 @@ async def update_token(provider, token, refresh_token=None, access_token=None):
     :return: None
     """
     logger.debug(f"Updating token: {provider}")
-    db = await get_async_db().__anext__()
-    try:
+    async with sessionmanager.session() as db:
         if refresh_token:
             result = await db.execute(select(OAuthToken_DB).filter(
                 OAuthToken_DB.provider == provider,
                 OAuthToken_DB.refresh_token == refresh_token
             ))
-            item = result.scalar()
+            item = result.unique().scalar()
         elif access_token:
             result = await db.execute(select(OAuthToken_DB).filter(
                 OAuthToken_DB.provider == provider,
                 OAuthToken_DB.access_token == access_token
             ))
-            item = result.scalar()
+            item = result.unique().scalar()
         else:
             return
 
         # update old token
-        try:
-            item.access_token = token['access_token']
-            item.refresh_token = token.get('refresh_token')
-            item.expires_at = token['expires_at']
-            db.add(item)
-            await db.commit()
-            await db.refresh(item)
-        except IntegrityError as e:
-            await db.rollback()
-            raise e
-    finally:
-        await db.close()
+        item.access_token = token['access_token']
+        item.refresh_token = token.get('refresh_token')
+        item.expires_at = token['expires_at']
+        db.add(item)
+        await db.commit()
+        await db.refresh(item)

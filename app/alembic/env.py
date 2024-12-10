@@ -68,7 +68,11 @@ def run_migrations_offline() -> None:
 def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
-        target_metadata=target_metadata
+        target_metadata=target_metadata,
+        # transaction_per_migration=True,
+        # connect_args={
+        #   "options": "-c lock_timeout=4000 -c statement_timeout=5000"
+        # }
     )
 
     with context.begin_transaction():
@@ -82,7 +86,7 @@ async def run_async_migrations() -> None:
     """
 
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        dict({"sqlalchemy.url": settings.SQLALCHEMY_DATABASE_URI}, **config.get_section(config.config_ini_section, {})),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

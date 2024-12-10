@@ -230,18 +230,14 @@ async def generate_otp(
         from app.db_objects.db_models import User as User_DB  # pylint: disable=import-outside-toplevel
         user_otp_secret = generate_random_letters(
             length=32, seed=user_uuid)
-        try:
-            result = await db.execute(select(User_DB).filter(
-                User_DB.uuid == user_uuid
-                ))
-            user_db = result.scalars().first()
-            user_db.otp_secret = user_otp_secret
-            db.add(user_db)
-            await db.commit()
-            await db.refresh(user_db)
-        except IntegrityError as e:
-            await db.rollback()
-            raise e
+        result = await db.execute(select(User_DB).filter(
+            User_DB.uuid == user_uuid
+            ))
+        user_db = result.unique().scalars().first()
+        user_db.otp_secret = user_otp_secret
+        db.add(user_db)
+        await db.commit()
+        await db.refresh(user_db)
     totp = pyotp.TOTP(
         s=user_otp_secret,
         name=user_username,
@@ -302,7 +298,7 @@ async def authenticate_user(db: AsyncSession, username: str, password: str, requ
     :param Request request: The Request object, defaults to None.
     :raises HTTPException: 401 Unauthorized if the user is not found or the password is incorrect.
     :raises HTTPException: 400 Bad Request if the user is inactive.
-    :return UserReadDB: The user object if the user is found and the password is correct.
+    :return User: The user object if the user is found and the password is correct.
     """
     from app.db_objects.user import get_user_by_email, get_user_by_username  # pylint: disable=import-outside-toplevel
 

@@ -22,6 +22,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 from typing import Callable, Literal, Union
 
 from fastapi import HTTPException
@@ -74,7 +75,7 @@ ROLES: RolesWithPermissions = {
         },
         "file": {
             "create": True,
-            "view": True,
+            "read": True,
             "update": True,
             "delete": True
         },
@@ -132,7 +133,7 @@ ROLES: RolesWithPermissions = {
         },
         "file": {
             "create": True,
-            "view": True,
+            "read": True,
             "update": True,
             "delete": False
         },
@@ -191,7 +192,7 @@ ROLES: RolesWithPermissions = {
         },
         "file": {
             "create": True,
-            "view": lambda user, file: (
+            "read": lambda user, file: (
                 user.uuid not in file.created_by.blocked_uuids and
                 file.created_by.uuid not in user.blocked_uuids
             ),

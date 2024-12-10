@@ -32,21 +32,17 @@ async def create_file(db: AsyncSession, new_file: FileCreate, file: UploadFile) 
         f.write(file.file.read())
     db_file = File_DB(**new_file.model_dump())
     db_file.file_name = os.path.basename(new_file.file_name)
-    try:
-        db.add(db_file)
-        await db.commit()
-        await db.refresh(db_file)
-        # Link User to File
-        await db.execute(
-            insert(users_files_links).values(
-                user_uuid=db_file.created_by_uuid,
-                file_id=db_file.id
-            )
+    db.add(db_file)
+    await db.commit()
+    await db.refresh(db_file)
+    # Link User to File
+    await db.execute(
+        insert(users_files_links).values(
+            user_uuid=db_file.created_by_uuid,
+            file_id=db_file.id
         )
-        await db.commit()
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    )
+    await db.commit()
     return db_file
 
 
@@ -64,7 +60,7 @@ async def get_file(db: AsyncSession, file_id: int, raise_error: bool = True) -> 
     :raises HTTPException: If the file is not found and `raise_error` is `True`.
     """
     result = await db.execute(select(File_DB).filter(File_DB.id == file_id))
-    db_file = result.scalar()
+    db_file = result.unique().scalar()
     if not db_file and raise_error:
         raise HTTPException(status_code=404, detail="File not found")
     return db_file
@@ -82,7 +78,7 @@ async def get_files(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[F
     result = await db.execute(
         select(File_DB).offset(skip).limit(limit)
     )
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 async def get_nb_files(db: AsyncSession) -> int:
@@ -93,7 +89,7 @@ async def get_nb_files(db: AsyncSession) -> int:
     :return int: The number of files.
     """
     result = await db.execute(text(f"SELECT COUNT(*) FROM {File_DB.__tablename__}"))
-    return int(result.scalar())
+    return int(result.unique().scalar())
 
 
 async def get_files_list(db: AsyncSession, external_account_id_list: list[int]) -> list[File_DB]:
@@ -107,7 +103,7 @@ async def get_files_list(db: AsyncSession, external_account_id_list: list[int]) 
     :return list[File_DB]: A list of file model objects.
     """
     result = await db.execute(select(File_DB).where(File_DB.id.in_(external_account_id_list)))
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 # ------- Update ------- #
@@ -128,13 +124,9 @@ async def update_file(db: AsyncSession, db_file: File_DB, new_file: FileUpdate) 
     file_data = new_file.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in file_data.items():
         setattr(db_file, field, value)
-    try:
-        db.add(db_file)
-        await db.commit()
-        await db.refresh(db_file)
-    except IntegrityError as e:
-        await db.rollback()
-        raise e
+    db.add(db_file)
+    await db.commit()
+    await db.refresh(db_file)
     return db_file
 
 
@@ -158,7 +150,7 @@ async def delete_file(db: AsyncSession, file: File_DB) -> bool:
             users_files_links.c.file_id == file.id
         )
     )
-    files = result.scalars().all()
+    files = result.unique().scalars().all()
     if files:
         await db.execute(
             delete(users_files_links).where(
@@ -195,7 +187,7 @@ async def get_file_users(db: AsyncSession, file: File_DB) -> list[User_DB]:
     result = await db.execute(select(users_files_links.c.user_uuid).where(
         users_files_links.c.file_id == file.id))
     result = await db.execute(select(User_DB).where(User_DB.uuid.in_([row[0] for row in result])))
-    return result.scalars().all()
+    return result.unique().scalars().all()
 
 
 async def link_file_user(db: AsyncSession, db_user: User_DB, db_file: File_DB) -> File_DB:

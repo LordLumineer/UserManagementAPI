@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     # Database
     logger.info("Creating or Loading the database tables...")
     # Base.metadata.create_all(bind=database.engine)
-    await database.initialize_database()
+    await database.sessionmanager.init()
     # Feature Flags
     logger.info("Loading feature flags...")
     app_endpoint_functions_name = []
@@ -89,13 +89,17 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     # scheduler.start()
     # Init Default User Database
     await init_default_user()
-    logger.info("Initialization completed.")
+    logger.success("Initialization completed.")
     yield  # This is when the application code will run
-    # scheduler.shutdown()
-    # if sessionmanager._engine is not None:
-    #     # Close the DB connection
-    #     await sessionmanager.close()
     logger.info("Shutting down...")
+    # DATABASE
+    if database.sessionmanager._engine is not None:  # pylint: disable=W0212
+        # Close the DB connection
+        await database.sessionmanager.close()
+    logger.info("Shutting down...")
+    # SCHEDULER
+    # scheduler.shutdown()
+    logger.info("Shutdown completed.")
 
 
 app = FastAPI(
@@ -198,10 +202,10 @@ def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no co
 @app.get("/interactive-docs", tags=["DOCS"], include_in_schema=False)
 async def _custom_swagger_ui_html(request: Request, token: str | None = None):
     return get_swagger_ui_html(
-            openapi_url=app.openapi_url,
-            title=app.title + " - Interactive UI",
-            swagger_favicon_url=request.url_for("_favicon")
-        )
+        openapi_url=app.openapi_url,
+        title=app.title + " - Interactive UI",
+        swagger_favicon_url=request.url_for("_favicon")
+    )
     # if not token:
     #     uri_list = request.session.get("redirect_uri") or []
     #     uri_list.append(str(request.url_for("_custom_swagger_ui_html")))
