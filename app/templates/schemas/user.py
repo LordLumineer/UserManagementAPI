@@ -8,7 +8,8 @@ from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
 
 from app.core.config import settings
-from app.core.db import get_db
+from app.core.db import get_async_db, get_sync_db
+from app.db_objects.db_models import User as User_DB
 from app.core.permissions import UserRole
 from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
 from app.core.security import hash_password
@@ -110,25 +111,73 @@ class UserRead(UserReadDB):
         """The URL of the user's profile picture."""
         return f"{settings.BASE_URL}{settings.API_STR}/user/{self.uuid}/image"
 
-    @computed_field
-    def external_accounts(self) -> list[ExternalAccountBase]:
-        """A list of third-party accounts associated with the user."""
-        from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
-        db = next(get_db())
-        try:
-            return get_user(db, self.uuid, raise_error=False).external_accounts
-        finally:
-            db.close()
+    # @computed_field
+    # def external_accounts(self) -> list[ExternalAccountBase]:
+    #     """A list of third-party accounts associated with the user."""
+    #     from app.db_objects.user import get_sync_user   # pylint: disable=import-outside-toplevel
+    #     db = next(get_sync_db())
+    #     try:
+    #         return get_sync_user(db, self.uuid, raise_error=False).external_accounts
+    #     finally:
+    #         db.close()
 
-    @computed_field
-    def files(self) -> list[FileReadDB]:
-        """A list of files associated with the user."""
-        from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
-        db = next(get_db())
-        try:
-            return get_user(db, self.uuid, raise_error=False).files
-        finally:
-            db.close()
+    # @computed_field
+    # def files(self) -> list[FileReadDB]:
+    #     """A list of files associated with the user."""
+    #     from app.db_objects.user import get_sync_user   # pylint: disable=import-outside-toplevel
+    #     db = next(get_sync_db())
+    #     try:
+    #         return get_sync_user(db, self.uuid, raise_error=False).files
+    #     finally:
+    #         db.close()
+
+    # @computed_field
+    # def external_accounts(self) -> list[ExternalAccountBase]:
+    #     """A list of third-party accounts associated with the user."""
+    #     from sqlalchemy.orm import joinedload
+    #     from app.db_objects.db_models import File as File_DB
+    #     db = next(get_sync_db())
+    #     try:
+    #         db_user = db.query(User_DB).filter(User_DB.uuid == self.uuid).options(
+    #             joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+    #         ).first()
+    #         return db_user.external_accounts
+    #     finally:
+    #         db.close()
+
+    # @computed_field
+    # async def external_accounts(self) -> list[ExternalAccountBase]:
+    #     """A list of third-party accounts associated with the user."""
+    #     from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
+    #     db = await get_async_db().__anext__()
+    #     try:
+    #         return await get_user(db, self.uuid, raise_error=False).external_accounts
+    #     finally:
+    #         await db.close()
+
+    # @computed_field
+    # def files(self) -> list[FileReadDB]:
+    #     """A list of files associated with the user."""
+    #     from sqlalchemy.orm import joinedload
+    #     from app.db_objects.db_models import File as File_DB
+    #     db = next(get_sync_db())
+    #     try:
+    #         db_user = db.query(User_DB).filter(User_DB.uuid == self.uuid).options(
+    #             joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+    #         ).first()
+    #         return db_user.files
+    #     finally:
+    #         db.close()
+
+    # @computed_field
+    # async def files(self) -> list[FileReadDB]:
+    #     """A list of files associated with the user."""
+    #     from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
+    #     db = await get_async_db().__anext__()
+    #     try:
+    #         return await get_user(db, self.uuid, raise_error=False).files
+    #     finally:
+    #         await db.close()
 
 
 class UserCreate(UserBase):

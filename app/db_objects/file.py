@@ -2,9 +2,9 @@
 import os
 from fastapi import UploadFile
 from fastapi.exceptions import HTTPException
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert, select, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.utils import remove_file
 from app.db_objects.db_models import File as File_DB
@@ -18,7 +18,7 @@ from app.templates.schemas.file import FileCreate, FileReadDB, FileUpdate
 # ------- Create ------- #
 
 
-def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_DB:
+async def create_file(db: AsyncSession, new_file: FileCreate, file: UploadFile) -> File_DB:
     """
     Create a new file in the database and link it to a user.
 
@@ -34,18 +34,18 @@ def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_DB:
     db_file.file_name = os.path.basename(new_file.file_name)
     try:
         db.add(db_file)
-        db.commit()
-        db.refresh(db_file)
+        await db.commit()
+        await db.refresh(db_file)
         # Link User to File
-        db.execute(
+        await db.execute(
             insert(users_files_links).values(
                 user_uuid=db_file.created_by_uuid,
                 file_id=db_file.id
             )
         )
-        db.commit()
+        await db.commit()
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         raise e
     return db_file
 
@@ -53,7 +53,7 @@ def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_DB:
 # ------- Read ------- #
 
 
-def get_file(db: Session, file_id: int, raise_error: bool = True) -> File_DB:
+async def get_file(db: AsyncSession, file_id: int, raise_error: bool = True) -> File_DB:
     """
     Get a file by its ID.
 
@@ -63,13 +63,14 @@ def get_file(db: Session, file_id: int, raise_error: bool = True) -> File_DB:
     :return File_DB: The file object.
     :raises HTTPException: If the file is not found and `raise_error` is `True`.
     """
-    db_file = db.query(File_DB).filter(File_DB.id == file_id).first()
+    result = await db.execute(select(File_DB).filter(File_DB.id == file_id))
+    db_file = result.scalar()
     if not db_file and raise_error:
         raise HTTPException(status_code=404, detail="File not found")
     return db_file
 
 
-def get_files(db: Session, skip: int = 0, limit: int = 100) -> list[FileReadDB]:
+async def get_files(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[FileReadDB]:
     """
     Get a list of files with pagination.
 
@@ -78,20 +79,24 @@ def get_files(db: Session, skip: int = 0, limit: int = 100) -> list[FileReadDB]:
     :param int limit: The maximum number of items to return (default is 100).
     :return list[FileReadDB]: A list of file objects.
     """
-    return db.query(File_DB).offset(skip).limit(limit).all()
+    result = await db.execute(
+        select(File_DB).offset(skip).limit(limit)
+    )
+    return result.scalars().all()
 
 
-def get_nb_files(db: Session) -> int:
+async def get_nb_files(db: AsyncSession) -> int:
     """
     Get the number of files.
 
     :param Session db: The database session.
     :return int: The number of files.
     """
-    return db.query(File_DB).count()
+    result = await db.execute(text(f"SELECT COUNT(*) FROM {File_DB.__tablename__}"))
+    return int(result.scalar())
 
 
-def get_files_list(db: Session, external_account_id_list: list[int]) -> list[File_DB]:
+async def get_files_list(db: AsyncSession, external_account_id_list: list[int]) -> list[File_DB]:
     """
     Get a list of files from their IDs.
 
@@ -101,13 +106,14 @@ def get_files_list(db: Session, external_account_id_list: list[int]) -> list[Fil
     :param list[int] external_account_id_list: The IDs of the files to get.
     :return list[File_DB]: A list of file model objects.
     """
-    return db.query(File_DB).filter(File_DB.id.in_(external_account_id_list)).all()
+    result = await db.execute(select(File_DB).where(File_DB.id.in_(external_account_id_list)))
+    return result.scalars().all()
 
 
 # ------- Update ------- #
 
 
-def update_file(db: Session, db_file: File_DB, new_file: FileUpdate) -> File_DB:
+async def update_file(db: AsyncSession, db_file: File_DB, new_file: FileUpdate) -> File_DB:
     """
     Update a file in the database.
 
@@ -124,10 +130,10 @@ def update_file(db: Session, db_file: File_DB, new_file: FileUpdate) -> File_DB:
         setattr(db_file, field, value)
     try:
         db.add(db_file)
-        db.commit()
-        db.refresh(db_file)
+        await db.commit()
+        await db.refresh(db_file)
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         raise e
     return db_file
 
@@ -135,7 +141,7 @@ def update_file(db: Session, db_file: File_DB, new_file: FileUpdate) -> File_DB:
 # ------- Delete ------- #
 
 
-def delete_file(db: Session, file: File_DB) -> bool:
+async def delete_file(db: AsyncSession, file: File_DB) -> bool:
     # delete from links
     """
     Delete a file from the database and from disk.
@@ -147,21 +153,27 @@ def delete_file(db: Session, file: File_DB) -> bool:
     :param File_DB file: The file object to delete.
     :return bool: True if the operation was successful.
     """
-
-    db.execute(
-        delete(users_files_links).where(
+    result = await db.execute(
+        select(users_files_links.c.user_uuid).where(
             users_files_links.c.file_id == file.id
         )
     )
+    files = result.scalars().all()
+    if files:
+        await db.execute(
+            delete(users_files_links).where(
+                users_files_links.c.file_id == file.id
+            )
+        )
     # ... other links related to the file
-    db.delete(file)
+    await db.delete(file)
 
     # delete file from disk
     try:
         remove_file(file.file_path)
-        db.commit()
+        await db.commit()
     except OSError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete file. {e.strerror}"
@@ -172,7 +184,7 @@ def delete_file(db: Session, file: File_DB) -> bool:
 # ----- Helper functions ----- #
 
 
-def get_file_users(db: Session, file: File_DB) -> list[User_DB]:
+async def get_file_users(db: AsyncSession, file: File_DB) -> list[User_DB]:
     """
     Get a list of users who are related to a file.
 
@@ -180,12 +192,13 @@ def get_file_users(db: Session, file: File_DB) -> list[User_DB]:
     :param File_DB file: The file object.
     :return list[User_DB]: A list of user objects.
     """
-    result = db.execute(select(users_files_links.c.user_uuid).where(
+    result = await db.execute(select(users_files_links.c.user_uuid).where(
         users_files_links.c.file_id == file.id))
-    return db.query(User_DB).filter(User_DB.uuid.in_([row[0] for row in result])).all()
+    result = await db.execute(select(User_DB).where(User_DB.uuid.in_([row[0] for row in result])))
+    return result.scalars().all()
 
 
-def link_file_user(db: Session, db_user: User_DB, db_file: File_DB) -> File_DB:
+async def link_file_user(db: AsyncSession, db_user: User_DB, db_file: File_DB) -> File_DB:
     """
     Link a file to a user.
 
@@ -197,9 +210,9 @@ def link_file_user(db: Session, db_user: User_DB, db_file: File_DB) -> File_DB:
     :param File_DB db_file: The file object.
     :return File_DB: The updated file object.
     """
-    db.execute(
+    await db.execute(
         insert(users_files_links).values(
             user_uuid=db_user.uuid, file_id=db_file.id)
     )
-    db.commit()
+    await db.commit()
     return db_file

@@ -18,8 +18,9 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ValidationError, model_validator
 import pyotp
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings, logger
 from app.core.email import send_otp_email
@@ -209,8 +210,8 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
         ) from e
 
 
-def generate_otp(
-    db: Session,
+async def generate_otp(
+    db: AsyncSession,
     user_uuid: str,
     user_username: str,
     user_otp_secret: str | None = None
@@ -230,17 +231,16 @@ def generate_otp(
         user_otp_secret = generate_random_letters(
             length=32, seed=user_uuid)
         try:
-            user_db = (
-                db.query(User_DB)
-                .filter(User_DB.uuid == user_uuid)
-                .first()
-            )
+            result = await db.execute(select(User_DB).filter(
+                User_DB.uuid == user_uuid
+                ))
+            user_db = result.scalars().first()
             user_db.otp_secret = user_otp_secret
             db.add(user_db)
-            db.commit()
-            db.refresh(user_db)
+            await db.commit()
+            await db.refresh(user_db)
         except IntegrityError as e:
-            db.rollback()
+            await db.rollback()
             raise e
     totp = pyotp.TOTP(
         s=user_otp_secret,
@@ -292,7 +292,7 @@ def validate_otp(user_username: str, user_otp_secret: str, otp: str, method: str
             )
 
 
-def authenticate_user(db: Session, username: str, password: str, request: Request = None):
+async def authenticate_user(db: AsyncSession, username: str, password: str, request: Request = None):
     """
     Authenticate a user using their username/email and password.
 
@@ -317,9 +317,9 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
     if username == "admin@example.com":
         username = "admin"
     email = validate_email(username, raise_error=False)
-    db_user = get_user_by_email(db=db, email=email, raise_error=False)
+    db_user = await get_user_by_email(db=db, email=email, raise_error=False)
     if not db_user:
-        db_user = get_user_by_username(
+        db_user = await get_user_by_username(
             db=db, username=username, raise_error=False)
     if not db_user:
         raise error_msg
@@ -341,7 +341,7 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
 
         if not db_user.otp_secret:
             logger.debug(f"Generating OTP for user {db_user.username}")
-            otp_secret = (generate_otp(db, user_uuid=db_user.uuid,
+            otp_secret = (await generate_otp(db, user_uuid=db_user.uuid,
                           user_username=db_user.username))[1]
         else:
             otp_secret = db_user.otp_secret

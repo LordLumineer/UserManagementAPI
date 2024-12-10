@@ -17,6 +17,7 @@
         "APIKEY",
         "cachetools",
         "itsdangerous",
+        "joinedload",
         "loguru",
         "mailjet",
         "psycopg",

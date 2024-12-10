@@ -7,11 +7,11 @@ from fastapi import APIRouter, Response
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.core.oauth import (
     get_external_account_info, get_user_info, oauth, oauth_clients_names,
     create_user_from_oauth, set_profile_picture
@@ -87,7 +87,7 @@ async def oauth_link(provider: str, request: Request, current_user: User_DB = De
 
 
 @router.get("/{provider}/callback", include_in_schema=False)
-async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db), is_link: bool = False):
+async def oauth_callback(provider: str, request: Request, db: AsyncSession = Depends(get_async_db), is_link: bool = False):
     """
     Handle OAuth callback from a provider.
 
@@ -123,15 +123,15 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
 
     # Link External Account to Logged In User
     if is_link:
-        if get_external_account(db, provider, user_info["id"]):
+        if await get_external_account(db, provider, user_info["id"]):
             raise HTTPException(
                 status_code=409,
                 detail=f"This {
                     provider} account is already linked to another user"
             )
-        db_user = get_user(db, request.session.get("user_uuid"))
+        db_user = await get_user(db, request.session.get("user_uuid"))
         # Create Third Party Account
-        create_external_account(
+        await create_external_account(
             db,
             external_account=ExternalAccountBase(
                 external_account_id=user_info["id"],
@@ -146,16 +146,16 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
 
     # Connect / Sign Up from External Account
     else:
-        external_account = get_external_account(
+        external_account = await get_external_account(
             db, provider, user_info["id"], raise_error=False)
         if external_account:
-            db_user = get_user(db, external_account.user_uuid)
+            db_user = await get_user(db, external_account.user_uuid)
         else:
             for email in user_info["emails"]:
-                db_user = get_user_by_email(db, email, raise_error=False)
+                db_user = await get_user_by_email(db, email, raise_error=False)
                 if db_user:
                     # Create Third Party Account
-                    create_external_account(
+                    await create_external_account(
                         db,
                         external_account=ExternalAccountBase(
                             external_account_id=user_info["id"],
@@ -168,11 +168,11 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                         )
                     )
                     if not db_user.profile_picture_id and user_info["picture_url"]:
-                        set_profile_picture(db, db_user, user_info["picture_url"], provider)
+                        await set_profile_picture(db, db_user, user_info["picture_url"], provider)
                     break
             if not db_user:
                 # Create local user
-                db_user = create_user_from_oauth(
+                db_user = await create_user_from_oauth(
                     db,
                     provider,
                     new_user=User_DB(
@@ -184,9 +184,9 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                     )
                 )
                 if user_info["picture_url"]:
-                    set_profile_picture(db, db_user, user_info["picture_url"], provider)
+                    await set_profile_picture(db, db_user, user_info["picture_url"], provider)
                 # Create External Account
-                create_external_account(
+                await create_external_account(
                     db,
                     external_account=ExternalAccountBase(
                         external_account_id=user_info["id"],
@@ -221,11 +221,11 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
             expires_at=token["expires_at"],
             user_uuid=db_user.uuid
         )
-    db_token = get_oauth_token(db, provider, db_user.uuid, raise_error=False)
+    db_token = await get_oauth_token(db, provider, db_user.uuid, raise_error=False)
     if db_token:
-        update_oauth_token(db, db_token, oauth_token)
+        await update_oauth_token(db, db_token, oauth_token)
     else:
-        create_oauth_token(db, oauth_token)
+        await create_oauth_token(db, oauth_token)
 
     auth_token = create_access_token(
         sub=TokenData(
@@ -259,7 +259,7 @@ async def oauth_revoke(
     provider: str,
     request: Request,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Revoke the OAuth token for the given provider and delete the associated
@@ -304,7 +304,7 @@ async def oauth_revoke(
     resp.raise_for_status()
 
     # Delete OAuth Token
-    delete_oauth_token(db, get_oauth_token(db, provider, current_user.uuid))
+    await delete_oauth_token(db, await get_oauth_token(db, provider, current_user.uuid))
 
     # Delete External Account
     external_account = next(
@@ -315,12 +315,12 @@ async def oauth_revoke(
             detail=f"You don't have any {
                 provider} account linked to your account."
         )
-    delete_external_account(db, get_external_account(
+    await delete_external_account(db, await get_external_account(
         db, provider, external_account.external_account_id))
 
     # Delete User if External Only and no longer linked to any account
     if not current_user.external_accounts and current_user.is_external_only:
-        delete_user(db, current_user)
+        await delete_user(db, current_user)
 
     return Response(status_code=200)
 # ~~~~~ Utility Functions ~~~~~ #

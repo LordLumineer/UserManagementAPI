@@ -14,7 +14,7 @@ from authlib.integrations.starlette_client import StarletteOAuth2App as OAuth2Ap
 from fastapi import HTTPException, UploadFile
 import httpx
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings, logger
 from app.core.security import TokenData, create_access_token
@@ -200,8 +200,8 @@ def get_external_account_info(provider: str, user_info: dict) -> dict:
     return data
 
 
-def create_user_from_oauth(
-    db: Session,
+async def create_user_from_oauth(
+    db: AsyncSession,
     provider,
     new_user: User_DB
 ):
@@ -221,18 +221,18 @@ def create_user_from_oauth(
     # Create user
     try:
         db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
+        await db.commit()
+        await db.refresh(new_user)
         os.makedirs(app_path(os.path.join(
             "data", "users", new_user.uuid)), exist_ok=True)
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         # Check if the username is already taken, if so add numbers to the username and try again
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.username'):
             added_str = str(int(time.time()))
             new_user.username = new_user.username+added_str
             new_user.display_name = new_user.display_name+added_str
-            return create_user_from_oauth(db, provider, new_user)
+            return await create_user_from_oauth(db, provider, new_user)
         raise e
     # Send the email verification
     email_token = create_access_token(
@@ -246,7 +246,7 @@ def create_user_from_oauth(
     return new_user
 
 
-def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, provider: str):
+async def set_profile_picture(db: AsyncSession, db_user: User_DB, picture_url: str, provider: str):
     """
     Set the profile picture of the user from an OAuth provider.
 
@@ -277,14 +277,13 @@ def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, provide
     new_file = FileCreate(
         description=f"Profile picture for {
             db_user.username} from {provider}",
-        file_name=os.path.join(
-            "users", db_user.uuid, file.filename),
+        file_name=file.filename,
         created_by_uuid=db_user.uuid
     )
     # pylint: disable=R0801
-    file_db = create_file(db, new_file, file)
-    link_file_user(db, db_user, file_db)
-    update_user(db, db_user, UserUpdate(
+    file_db = await create_file(db, new_file, file)
+    await link_file_user(db, db_user, file_db)
+    await update_user(db, db_user, UserUpdate(
         profile_picture_id=file_db.id,
         action=UserHistory(
             action="profile-picture-updated-from-oauth",

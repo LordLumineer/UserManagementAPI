@@ -9,12 +9,13 @@ import os
 import time
 from fastapi import Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import delete, func, select, text
+from sqlalchemy.orm import joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import logger
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.core.email import send_validation_email
 from app.core.utils import app_path
 from app.db_objects.file import delete_file, get_file, get_file_users
@@ -34,7 +35,7 @@ from app.templates.schemas.user import UserCreate, UserHistory, UserUpdate
 # ------- Create ------- #
 
 
-def create_user(db: Session, user: UserCreate) -> User_DB:
+async def create_user(db: AsyncSession, user: UserCreate) -> User_DB:
     """
     Create a new user.
 
@@ -49,17 +50,17 @@ def create_user(db: Session, user: UserCreate) -> User_DB:
     try:
         db_user = User_DB(**user.model_dump())
         db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        await db.commit()
+        await db.refresh(db_user)
         os.makedirs(app_path(os.path.join(
             "data", "users", db_user.uuid)), exist_ok=True)
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         # Link New Local User and External User
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
-            existing_user = get_user_by_email(db, user.email)
+            existing_user = await get_user_by_email(db, user.email)
             if existing_user.is_external_only:
-                db_user = update_user(
+                db_user = await update_user(
                     db,
                     existing_user,
                     UserUpdate(
@@ -78,7 +79,7 @@ def create_user(db: Session, user: UserCreate) -> User_DB:
                 raise e
         if not (str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email')):
             raise e
-        existing_user = get_user_by_email(db, user.email)
+        existing_user = await get_user_by_email(db, user.email)
         if not existing_user.is_external_only:
             raise e
     email_token = create_access_token(
@@ -94,7 +95,26 @@ def create_user(db: Session, user: UserCreate) -> User_DB:
 # ------- Read ------- #
 
 
-def get_user(db: Session, uuid: str, raise_error: bool = True) -> User_DB:
+async def get_user(db: AsyncSession, uuid: str, raise_error: bool = True) -> User_DB:
+    """
+    Retrieve a user by their UUID.
+
+    :param Session db: The current database session.
+    :param str uuid: The UUID of the user to retrieve.
+    :param bool raise_error: Whether to raise an HTTPException if the user is not found (default is True).
+    :return User_DB: The user model object if found, else None if raise_error is False.
+    :raises HTTPException: If the user is not found and `raise_error` is `True`.
+    """
+    result = await db.execute(select(User_DB).filter(User_DB.uuid == uuid).options(
+        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+    ))
+    db_user = result.scalar()
+    if not db_user and raise_error:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
+
+from sqlalchemy.orm import Session
+def get_sync_user(db: Session, uuid: str, raise_error: bool = True) -> User_DB:
     """
     Retrieve a user by their UUID.
 
@@ -117,7 +137,7 @@ def get_user(db: Session, uuid: str, raise_error: bool = True) -> User_DB:
     return db_user
 
 
-def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[User_DB]:
+async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[User_DB]:
     """
     Get a list of users with pagination.
 
@@ -126,20 +146,26 @@ def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[User_DB]:
     :param int limit: The maximum number of items to return (default is 100).
     :return list[User_DB]: A list of user objects.
     """
-    return db.query(User_DB).offset(skip).limit(limit).all()
+    result = await db.execute(
+        select(User_DB).offset(skip).limit(limit).options(
+        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+    )
+    )
+    return result.scalars().all()
 
 
-def get_nb_users(db: Session) -> int:
+async def get_nb_users(db: AsyncSession) -> int:
     """
     Get the number of users.
 
     :param Session db: The current database session.
     :return int: The number of users.
     """
-    return db.query(User_DB).count()
+    result = await db.execute(text(f"SELECT COUNT(*) FROM {User_DB.__tablename__}"))
+    return int(result.scalar())
 
 
-def get_users_list(db: Session, id_list: list[str]) -> list[User_DB]:
+async def get_users_list(db: AsyncSession, id_list: list[str]) -> list[User_DB]:
     """
     Get a list of users based on their UUIDs.
 
@@ -147,13 +173,16 @@ def get_users_list(db: Session, id_list: list[str]) -> list[User_DB]:
     :param list[str] id_list: The UUIDs of the users to get.
     :return list[User_DB]: A list of user objects.
     """
-    return db.query(User_DB).filter(User_DB.uuid.in_(id_list)).all()
+    result = await db.execute(select(User_DB).where(User_DB.uuid.in_(id_list)).options(
+        joinedload(User_DB.profile_picture).joinedload(File_DB.created_by)
+    ))
+    return result.scalars().all()
 
 
 # ** Specific User (Username, Email) ** #
 
 
-def get_user_by_username(db: Session, username: str, raise_error: bool = True) -> User_DB:
+async def get_user_by_username(db: AsyncSession, username: str, raise_error: bool = True) -> User_DB:
     """
     Retrieve a user by their username.
 
@@ -163,14 +192,16 @@ def get_user_by_username(db: Session, username: str, raise_error: bool = True) -
     :return User_DB: The user model object if found, else None if raise_error is False.
     :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
-    db_user = db.query(User_DB).filter(
-        User_DB.username == username).first()
+    result = await db.execute(select(User_DB).filter(
+        User_DB.username == username
+        ))
+    db_user = result.scalar()
     if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
 
-def get_user_by_email(db: Session, email: str, raise_error: bool = True) -> User_DB:
+async def get_user_by_email(db: AsyncSession, email: str, raise_error: bool = True) -> User_DB:
     """
     Retrieve a user by their email.
 
@@ -180,7 +211,8 @@ def get_user_by_email(db: Session, email: str, raise_error: bool = True) -> User
     :return User_DB: The user model object if found, else None if raise_error is False.
     :raises HTTPException: If the user is not found and `raise_error` is `True`.
     """
-    db_user = db.query(User_DB).filter(User_DB.email == email).first()
+    result = await db.execute(select(User_DB).filter(User_DB.email == email))
+    db_user = result.scalar()
     if not db_user and raise_error:
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
@@ -189,7 +221,7 @@ def get_user_by_email(db: Session, email: str, raise_error: bool = True) -> User
 # ------- Update ------- #
 
 
-def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
+async def update_user(db: AsyncSession, db_user: User_DB, user: UserUpdate) -> User_DB:
     """
     Update an existing user's information.
 
@@ -207,7 +239,7 @@ def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
     # Re-Generate the OTP for the default admin user
     # (triggered when the email is updated at first login)
     if db_user.email == "admin@example.com":
-        generate_otp(
+        await generate_otp(
             db,
             user_uuid=db_user.uuid,
             user_username=db_user.username,
@@ -232,10 +264,10 @@ def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
     db_user.user_history.append(jsonable_encoder(user.action))
     try:
         db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
+        await db.commit()
+        await db.refresh(db_user)
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         raise e
     # Send email verification if the email has changed
     if email_to_verify:
@@ -252,7 +284,7 @@ def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
 # ------- Delete ------- #
 
 
-def delete_user(db: Session, db_user: User_DB) -> bool:
+async def delete_user(db: AsyncSession, db_user: User_DB) -> bool:
     """
     Delete a user from the database.
 
@@ -264,31 +296,31 @@ def delete_user(db: Session, db_user: User_DB) -> bool:
     :param User_DB user: The user model object to delete.
     :return bool: True if the operation is successful.
     """
-    # Dlete User's Profile Picture
+    # Delete User's Profile Picture
     if db_user.profile_picture_id:
-        delete_file(db, get_file(db, db_user.profile_picture_id))
+        await delete_file(db, await get_file(db, db_user.profile_picture_id))
     # Delete the user's files
     for file in db_user.files:
-        db.execute(
+        await db.execute(
             delete(users_files_links).where(
                 users_files_links.c.user_uuid == db_user.uuid,
                 users_files_links.c.file_id == file.id
             )
         )
         # NOTE: Add to the if condition for other tables to check
-        if get_file_users(db, file):
+        if await get_file_users(db, file):
             continue
-        delete_file(db, file)
+        await delete_file(db, file)
     # Delete the user
-    db.delete(db_user)
-    db.commit()
+    await db.delete(db_user)
+    await db.commit()
     os.rmdir(app_path(os.path.join("data", "users", db_user.uuid)))
     return True
 
 
 # ----- Helper Functions ----- #
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User_DB:
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User_DB:
     """
     Get the current user from the token.
 
@@ -299,17 +331,17 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User_DB:
     if token_data.purpose != "login":
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    db = next(get_db())
+    db = await get_async_db().__anext__()
     try:
-        user = get_user(db, token_data.uuid)
+        user = await get_user(db, token_data.uuid)
         if user.roles != token_data.roles:
             raise HTTPException(status_code=401, detail="Unauthorized")
     finally:
-        db.close()
+        await db.close()
     return user
 
 
-def init_default_user() -> None:
+async def init_default_user() -> None:
     """
     Initialize the default user.
 
@@ -329,9 +361,9 @@ def init_default_user() -> None:
 
     :raises HTTPException: If there is an IntegrityError while creating the default user.
     """
-    db = next(get_db())
+    db = await get_async_db().__anext__()
     try:
-        if len(get_users(db)) == 0:
+        if len(await get_users(db)) == 0:
             # otp_secret = generate_random_letters(32)
             default_user = User_DB(
                 username="admin",
@@ -343,8 +375,8 @@ def init_default_user() -> None:
                 otp_secret="changeme",
             )
             db.add(default_user)
-            db.commit()
-            db.refresh(default_user)
+            await db.commit()
+            await db.refresh(default_user)
             os.makedirs(app_path(os.path.join(
                 "data", "users", default_user.uuid)), exist_ok=True)
             logger.success(
@@ -356,7 +388,7 @@ def init_default_user() -> None:
                 "Please change the default password and email after first login.\n",
             )
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Failed to create default user: {e.orig}")
     finally:
-        db.close()
+        await db.close()

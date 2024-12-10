@@ -59,7 +59,7 @@ class _Settings(BaseSettings):
         )),
     )
 
-    DATABASE_URI: str = f"sqlite:///{os.path.normpath(
+    DATABASE_URI: str = f"sqlite+aiosqlite:///{os.path.normpath(
         os.path.join(app_root_dir, "data", "Project.db"))}"
 
     RATE_LIMITER_ENABLED: bool = Field(default=False)

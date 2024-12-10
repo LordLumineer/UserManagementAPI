@@ -54,10 +54,11 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     os.makedirs(app_path(os.path.join("data", "users")), exist_ok=True)
     # os.makedirs(app_path(os.path.join("data", "files")), exist_ok=True)
     # Alembic
-    run_migrations()
+    await run_migrations()
     # Database
     logger.info("Creating or Loading the database tables...")
-    Base.metadata.create_all(bind=database.engine)
+    # Base.metadata.create_all(bind=database.engine)
+    await database.initialize_database()
     # Feature Flags
     logger.info("Loading feature flags...")
     app_endpoint_functions_name = []
@@ -87,10 +88,13 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)
     # scheduler.start()
     # Init Default User Database
-    init_default_user()
+    await init_default_user()
     logger.info("Initialization completed.")
     yield  # This is when the application code will run
     # scheduler.shutdown()
+    # if sessionmanager._engine is not None:
+    #     # Close the DB connection
+    #     await sessionmanager.close()
     logger.info("Shutting down...")
 
 
@@ -192,20 +196,25 @@ def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no co
 # ----- DOCS ----- #
 
 @app.get("/interactive-docs", tags=["DOCS"], include_in_schema=False)
-def _custom_swagger_ui_html(request: Request, token: str | None = None):
-    if not token:
-        uri_list = request.session.get("redirect_uri") or []
-        uri_list.append(str(request.url_for("_custom_swagger_ui_html")))
-        request.session.update({"redirect_uri": uri_list})
-        return RedirectResponse(url=request.url_for("_login"))
-    current_user = get_current_user(token)
-    if has_permission(current_user, "docs", "swagger", raise_error=False):
-        return get_swagger_ui_html(
+async def _custom_swagger_ui_html(request: Request, token: str | None = None):
+    return get_swagger_ui_html(
             openapi_url=app.openapi_url,
             title=app.title + " - Interactive UI",
             swagger_favicon_url=request.url_for("_favicon")
         )
-    return RedirectResponse(url=request.url_for("_redoc_html"))
+    # if not token:
+    #     uri_list = request.session.get("redirect_uri") or []
+    #     uri_list.append(str(request.url_for("_custom_swagger_ui_html")))
+    #     request.session.update({"redirect_uri": uri_list})
+    #     return RedirectResponse(url=request.url_for("_login"))
+    # current_user = await get_current_user(token)
+    # if has_permission(current_user, "docs", "swagger", raise_error=False):
+    #     return get_swagger_ui_html(
+    #         openapi_url=app.openapi_url,
+    #         title=app.title + " - Interactive UI",
+    #         swagger_favicon_url=request.url_for("_favicon")
+    #     )
+    # return RedirectResponse(url=request.url_for("_redoc_html"))
 
 
 @app.get(app.swagger_ui_oauth2_redirect_url, tags=["DOCS"], include_in_schema=False)

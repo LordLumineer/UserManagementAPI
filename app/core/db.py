@@ -6,13 +6,15 @@ Alembic migrations.
 import logging
 import os
 import shutil
-from typing import Generator
+from typing import AsyncGenerator
 from fastapi import HTTPException
 from sqlalchemy import (
     Connection, Engine, Inspector, MetaData, Table,
     create_engine, inspect, select, text, update
 )
-from sqlalchemy.orm import Session, sessionmaker
+
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -20,27 +22,46 @@ from alembic.runtime.migration import MigrationContext
 
 from app.core.config import settings, logger
 from app.core.utils import app_path
-
-engine = create_engine(url=settings.SQLALCHEMY_DATABASE_URI)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from app.db_objects._base import Base
 
 
-def get_db() -> Generator[Session, None, None]:
-    """
-    Generator to provide a database session to FastAPI requests.
+sync_engine = create_engine(
+    url=settings.SQLALCHEMY_DATABASE_URI.replace(
+        "+psycopg2", "").replace("+aiosqlite", "")
+)
+SyncSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=sync_engine)
 
-    This is a dependency that can be injected into FastAPI endpoints. It
-    provides a database session that is properly closed at the end of the
-    request.
-    """
-    db = SessionLocal()
+
+def get_sync_db():
+    db = SyncSessionLocal()
     try:
         yield db
     finally:
         db.close()
 
 
-def run_migrations() -> None:
+engine = create_async_engine(
+    url=settings.SQLALCHEMY_DATABASE_URI
+)
+
+
+AsyncSessionLocal = async_sessionmaker(
+    bind=engine, expire_on_commit=False
+)
+
+
+async def get_async_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+async def initialize_database():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def run_migrations() -> None:
     """
     Run Alembic migrations to the latest version.
 
@@ -59,16 +80,25 @@ def run_migrations() -> None:
             "script_location": app_path(os.path.join("app", "alembic")),
         }
     )
+    # alembic_cfg.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
     logger.info("Running Alembic migrations...")
-    script = ScriptDirectory.from_config(alembic_cfg)
-    head = str(script.get_current_head())
-    with engine.connect() as conn:
-        context = MigrationContext.configure(conn)
-        current = context.get_current_revision()
-    if head != current:
-        command.upgrade(alembic_cfg, "head")
-    else:
-        logger.info("Database already up-to-date.")
+
+    def run_upgrade(connection, cfg):
+        cfg.attributes["connection"] = connection
+        command.upgrade(cfg, "head")
+    async with engine.begin() as conn:
+        await conn.run_sync(run_upgrade, alembic_cfg)
+    # script = ScriptDirectory.from_config(alembic_cfg)
+    # head = str(script.get_current_head())
+
+    # with sync_engine.connect() as conn:
+    #     context = MigrationContext.configure(conn)
+    #     current = context.get_current_revision()
+    # print(head != current)
+    # if head != current:
+    #     command.upgrade(alembic_cfg, "head")
+    # else:
+    #     logger.info("Database already up-to-date.")
 
     # Reactivate FastAPI LOGGER (Uvicorn)
     for _logger in logging.root.manager.loggerDict.values():  # pylint: disable=E1101
@@ -79,7 +109,7 @@ def run_migrations() -> None:
     logger.info("Alembic migrations completed.")
 
 
-def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
+async def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
     """
     Handles importing a database from an uploaded SQLite file.
 
@@ -102,12 +132,12 @@ def handle_database_import(uploaded_db_path: str, mode: str) -> bool:
     upload_conn, upload_engine = connect_to_uploaded_db(uploaded_db_path)
     inspector, upload_inspector = get_inspectors(upload_conn)
 
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         for table_name in inspector.get_table_names():
             if table_name not in upload_inspector.get_table_names():
                 # Skip tables not present in the uploaded database
                 continue
-            process_table(session, table_name, upload_conn, inspector, mode)
+            await process_table(session, table_name, upload_conn, inspector, mode)
 
     upload_conn.close()
     upload_engine.dispose()
@@ -139,8 +169,8 @@ def get_inspectors(upload_conn: Connection) -> tuple[Inspector, Inspector]:
     return inspector, upload_inspector
 
 
-def process_table(
-    session: Session,
+async def process_table(
+    session: AsyncSession,
     table_name: str,
     upload_conn: Connection,
     inspector: Inspector,
@@ -160,7 +190,7 @@ def process_table(
         table_name).get('constrained_columns')
 
     rows_existing = {tuple(row[key] for key in primary_keys):
-                     row for row in session.execute(
+                     row for row in await session.execute(
                          select(Table(table_name, MetaData(),
                                 autoload_with=engine))
     ).mappings()}
@@ -175,7 +205,7 @@ def process_table(
             # Row does not exist in the existing DB, add it
             new_row = {
                 key["name"]: row_uploaded[key["name"]] for key in list(inspector.get_columns(table_name))}
-            session.execute(
+            await session.execute(
                 Table(table_name, MetaData(), autoload_with=engine).insert().values(new_row))
         else:
             # Row exists, check data differences
@@ -193,7 +223,7 @@ def process_table(
                         stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
                             {col["name"]: row_uploaded[col["name"]]}
                         )
-                        session.execute(stmt)
+                        await session.execute(stmt)
                     elif mode == "import" and (
                         row_existing[col["name"]
                                      ] is None and row_uploaded[col["name"]] is not None
@@ -204,12 +234,12 @@ def process_table(
                         stmt = update(table).where(table.c[primary_keys[0]] == pk[0]).values(
                             {col["name"]: row_uploaded[col["name"]]}
                         )
-                        session.execute(stmt)
+                        await session.execute(stmt)
     # Commit changes
-    session.commit()
+    await session.commit()
 
 
-def export_db(db: Session, path=None) -> str:
+async def export_db(db: AsyncSession, path=None) -> str:
     """
     Export the current database to a file.
 
@@ -243,7 +273,7 @@ def export_db(db: Session, path=None) -> str:
 
             # Write data
             for table in metadata.sorted_tables:
-                result = db.execute(text(f"SELECT * FROM {table.name}"))
+                result = await db.execute(text(f"SELECT * FROM {table.name}"))
                 rows = result.fetchall()
                 if rows:
                     columns = ", ".join(list(result.keys()))
