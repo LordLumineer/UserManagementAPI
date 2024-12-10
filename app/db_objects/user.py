@@ -54,7 +54,6 @@ def create_user(db: Session, user: UserCreate) -> User_DB:
         os.makedirs(app_path(os.path.join(
             "data", "users", db_user.uuid)), exist_ok=True)
     except IntegrityError as e:
-        db.rollback()
         # Link New Local User and External User
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.email'):
             existing_user = get_user_by_email(db, user.email)
@@ -230,13 +229,9 @@ def update_user(db: Session, db_user: User_DB, user: UserUpdate) -> User_DB:
     # setattr(db_user, "updated_at", int(time.time()))
     db_user.updated_at = int(time.time())
     db_user.user_history.append(jsonable_encoder(user.action))
-    try:
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
     # Send email verification if the email has changed
     if email_to_verify:
         email_token = create_access_token(
@@ -322,7 +317,7 @@ def init_default_user() -> None:
     - Email verified: True
     - OTP secret: changeme
 
-    A warning is logged with the details of the default user, 
+    A warning is logged with the details of the default user,
     asking the user to change the default password and email after first login.
 
     If there are users in the database, do nothing.
@@ -356,7 +351,6 @@ def init_default_user() -> None:
                 "Please change the default password and email after first login.\n",
             )
     except IntegrityError as e:
-        db.rollback()
         logger.error(f"Failed to create default user: {e.orig}")
     finally:
         db.close()

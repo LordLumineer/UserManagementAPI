@@ -226,7 +226,6 @@ def create_user_from_oauth(
         os.makedirs(app_path(os.path.join(
             "data", "users", new_user.uuid)), exist_ok=True)
     except IntegrityError as e:
-        db.rollback()
         # Check if the username is already taken, if so add numbers to the username and try again
         if str(e.orig).startswith('UNIQUE') and str(e.orig).endswith('users.username'):
             added_str = str(int(time.time()))

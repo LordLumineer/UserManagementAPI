@@ -26,15 +26,11 @@ def create_external_account(db: Session, external_account: ExternalAccountBase) 
     :return ExternalAccount_DB: The created external account model object.
     :raises HTTPException: If a database integrity error occurs.
     """
-    try:
-        db_external_account = ExternalAccount_DB(
-            **external_account.model_dump())
-        db.add(db_external_account)
-        db.commit()
-        db.refresh(db_external_account)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    db_external_account = ExternalAccount_DB(
+        **external_account.model_dump())
+    db.add(db_external_account)
+    db.commit()
+    db.refresh(db_external_account)
     return db_external_account
 
 
@@ -138,13 +134,9 @@ def update_external_account(
         exclude_unset=True, exclude_none=True)
     for field, value in external_account_data.items():
         setattr(db_external_account, field, value)
-    try:
-        db.add(db_external_account)
-        db.commit()
-        db.refresh(db_external_account)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    db.add(db_external_account)
+    db.commit()
+    db.refresh(db_external_account)
     return db_external_account
 
 

@@ -229,19 +229,15 @@ def generate_otp(
         from app.db_objects.db_models import User as User_DB  # pylint: disable=import-outside-toplevel
         user_otp_secret = generate_random_letters(
             length=32, seed=user_uuid)
-        try:
-            user_db = (
-                db.query(User_DB)
-                .filter(User_DB.uuid == user_uuid)
-                .first()
-            )
-            user_db.otp_secret = user_otp_secret
-            db.add(user_db)
-            db.commit()
-            db.refresh(user_db)
-        except IntegrityError as e:
-            db.rollback()
-            raise e
+        user_db = (
+            db.query(User_DB)
+            .filter(User_DB.uuid == user_uuid)
+            .first()
+        )
+        user_db.otp_secret = user_otp_secret
+        db.add(user_db)
+        db.commit()
+        db.refresh(user_db)
     totp = pyotp.TOTP(
         s=user_otp_secret,
         name=user_username,

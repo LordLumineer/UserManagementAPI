@@ -28,14 +28,10 @@ def create_oauth_token(db: Session, token: OAuthTokenBase) -> OAuthToken_DB:
     :return OAuthToken_DB: The created OAuth token model object.
     :raises HTTPException: If a database integrity error occurs.
     """
-    try:
-        db_token = OAuthToken_DB(**token.model_dump())
-        db.add(db_token)
-        db.commit()
-        db.refresh(db_token)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    db_token = OAuthToken_DB(**token.model_dump())
+    db.add(db_token)
+    db.commit()
+    db.refresh(db_token)
     return db_token
 
 
@@ -82,13 +78,9 @@ def update_oauth_token(db: Session, db_token: OAuthToken_DB, token: OAuthTokenBa
     token_data = token.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in token_data.items():
         setattr(db_token, field, value)
-    try:
-        db.add(db_token)
-        db.commit()
-        db.refresh(db_token)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    db.add(db_token)
+    db.commit()
+    db.refresh(db_token)
     return db_token
 
 
@@ -170,15 +162,14 @@ def update_token(provider, token, refresh_token=None, access_token=None):
             return
 
         # update old token
-        try:
-            item.access_token = token['access_token']
-            item.refresh_token = token.get('refresh_token')
-            item.expires_at = token['expires_at']
-            db.add(item)
-            db.commit()
-            db.refresh(item)
-        except IntegrityError as e:
-            db.rollback()
-            raise e
+        item.access_token = token['access_token']
+        item.refresh_token = token.get('refresh_token')
+        item.expires_at = token['expires_at']
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+    except IntegrityError as e:
+        db.rollback()
+        raise e
     finally:
         db.close()

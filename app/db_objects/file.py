@@ -32,21 +32,17 @@ def create_file(db: Session, new_file: FileCreate, file: UploadFile) -> File_DB:
         f.write(file.file.read())
     db_file = File_DB(**new_file.model_dump())
     db_file.file_name = os.path.basename(new_file.file_name)
-    try:
-        db.add(db_file)
-        db.commit()
-        db.refresh(db_file)
-        # Link User to File
-        db.execute(
-            insert(users_files_links).values(
-                user_uuid=db_file.created_by_uuid,
-                file_id=db_file.id
-            )
+    db.add(db_file)
+    db.commit()
+    db.refresh(db_file)
+    # Link User to File
+    db.execute(
+        insert(users_files_links).values(
+            user_uuid=db_file.created_by_uuid,
+            file_id=db_file.id
         )
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    )
+    db.commit()
     return db_file
 
 
@@ -122,13 +118,9 @@ def update_file(db: Session, db_file: File_DB, new_file: FileUpdate) -> File_DB:
     file_data = new_file.model_dump(exclude_unset=True, exclude_none=True)
     for field, value in file_data.items():
         setattr(db_file, field, value)
-    try:
-        db.add(db_file)
-        db.commit()
-        db.refresh(db_file)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
+    db.add(db_file)
+    db.commit()
+    db.refresh(db_file)
     return db_file
 
 
