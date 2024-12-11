@@ -17,7 +17,7 @@ export const options = {
 };
 
 export default function () {
-  const res = http.get('http://localhost/api/user/eef968e2-7989-4000-af26-2e874cae8e1c/image');
+  const res = http.get('http://localhost/api/user/408ec49a-aae4-4e5d-9479-688b3a10a0fd/image');
   // Validate response status
   check(res, { 'status was 200': (r) => r.status == 200 });
   sleep(1);

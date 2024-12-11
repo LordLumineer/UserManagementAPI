@@ -262,7 +262,8 @@ async def set_profile_picture(db: AsyncSession, db_user: User_DB, picture_url: s
     from app.db_objects.user import update_user
     from app.templates.schemas.user import UserHistory, UserUpdate
 
-    response = httpx.get(picture_url, timeout=5)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(picture_url, timeout=5)
     file = UploadFile(
         file=BytesIO(response.content),
         filename=picture_url.split("/")[-1],

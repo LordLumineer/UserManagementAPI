@@ -48,6 +48,7 @@ class DatabaseSessionManager:
         self.engine = create_async_engine(host, **engine_kwargs)
         self.sync_engine = create_engine(host.replace("+aiosqlite", ""))
         self._sessionmaker = async_sessionmaker(
+            expire_on_commit=False,
             autocommit=False,
             bind=self.engine
         )

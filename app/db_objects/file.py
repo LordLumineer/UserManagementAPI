@@ -29,7 +29,7 @@ async def create_file(db: AsyncSession, new_file: FileCreate, file: UploadFile) 
     :raises HTTPException: If there is an integrity error during the database operation.
     """
     async with aiofiles.open(new_file.file_path, "wb") as f:
-        f.write(await file.read())
+        await f.write(await file.read())
     db_file = File_DB(**new_file.model_dump())
     db_file.file_name = os.path.basename(new_file.file_name)
     db.add(db_file)
