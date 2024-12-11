@@ -276,8 +276,7 @@ def set_profile_picture(db: Session, db_user: User_DB, picture_url: str, provide
     new_file = FileCreate(
         description=f"Profile picture for {
             db_user.username} from {provider}",
-        file_name=os.path.join(
-            "users", db_user.uuid, file.filename),
+        file_name=file.filename,
         created_by_uuid=db_user.uuid
     )
     # pylint: disable=R0801
