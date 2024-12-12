@@ -65,7 +65,7 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
         if not raise_error:
             logger.debug(f"Invalid email format: {email} | {e}")
             return False
-        if settings.ENVIRONMENT == "local":
+        if settings.ENVIRONMENT != "production":
             logger.warning(f"Invalid email format: {email} | {e}")
             return email
         raise HTTPException(

@@ -12,7 +12,6 @@ from typing import Literal, Self
 from authlib.jose import jwt
 from authlib.jose.errors import DecodeError
 import bcrypt
-from email_validator import EmailNotValidError, validate_email as email_validation
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
@@ -312,10 +311,11 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
     #     raise error_msg
     if username == "admin@example.com":
         username = "admin"
-    try:
-        email = email_validation(username, check_deliverability=False)
-    except EmailNotValidError:
-        email = None
+    email = validate_email(
+        username,
+        check_deliverability=settings.EMAIL_METHOD != "none",
+        raise_error=False
+    )
     db_user = get_user_by_email(db=db, email=email, raise_error=False)
     if not db_user:
         db_user = get_user_by_username(
