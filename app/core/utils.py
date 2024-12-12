@@ -64,10 +64,10 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
             email, check_deliverability=check_deliverability and settings.EMAIL_METHOD != "none")
     except EmailNotValidError as e:
         if not raise_error:
-            logger.debug(f"Invalid email format: {email}")
+            logger.debug(f"Invalid email format: {email} | {e}")
             return False
-        if settings.ENVIRONMENT == "local":
-            logger.warning(f"Invalid email format: {email}")
+        if settings.ENVIRONMENT != "production":
+            logger.warning(f"Invalid email format: {email} | {e}")
             return email
         raise HTTPException(
             status_code=400, detail="Email is not valid. " + str(e)) from e

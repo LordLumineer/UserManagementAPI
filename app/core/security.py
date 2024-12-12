@@ -311,7 +311,11 @@ async def authenticate_user(db: AsyncSession, username: str, password: str, requ
     #     raise error_msg
     if username == "admin@example.com":
         username = "admin"
-    email = validate_email(username, raise_error=False)
+    email = validate_email(
+        username,
+        check_deliverability=settings.EMAIL_METHOD != "none",
+        raise_error=False
+        )
     db_user = await get_user_by_email(db=db, email=email, raise_error=False)
     if not db_user:
         db_user = await get_user_by_username(
