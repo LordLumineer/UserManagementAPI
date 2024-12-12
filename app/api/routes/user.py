@@ -114,8 +114,11 @@ async def new_user_image(
     if db_user.profile_picture_id:
         db_file = await get_file(db, db_user.profile_picture_id, raise_error=False)
         if db_file:
-            await delete_file(db, db_file)
-
+            raise HTTPException(
+                status_code=400,
+                detail="A profile picture already exists for this user. Please delete it before uploading a new one."
+            )
+            # await delete_file(db, db_file)
     file_db = await create_file(db, new_file, file)
     await link_file_user(db, db_user, file_db)
     await update_user(db, db_user, UserUpdate(

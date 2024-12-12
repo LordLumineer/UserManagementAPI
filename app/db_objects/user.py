@@ -6,6 +6,7 @@ get the users associated with a file and to get the files associated with a user
 """
 
 import os
+from re import M
 import time
 from fastapi import Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -246,7 +247,8 @@ async def update_user(db: AsyncSession, db_user: User_DB, user: UserUpdate) -> U
         setattr(db_user, key, value)
     # setattr(db_user, "updated_at", int(time.time()))
     db_user.updated_at = int(time.time())
-    db_user.user_history.append(jsonable_encoder(user.action))
+    if user.action:
+        db_user.user_history.append(jsonable_encoder(user.action))
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)

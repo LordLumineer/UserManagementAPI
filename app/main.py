@@ -169,7 +169,7 @@ app.mount(f"{settings.API_STR}/static",
 
 
 @app.exception_handler(IntegrityError)
-def _catch_integrity_error(request: Request, exc: IntegrityError):   # pragma: no cover   # pylint: disable=unused-argument
+async def _catch_integrity_error(request: Request, exc: IntegrityError):   # pragma: no cover   # pylint: disable=unused-argument
     # NOTE: Handle IntegrityError and pretty-up the error message
     exc = str(exc.orig)
     if exc.startswith("UNIQUE"):
@@ -182,7 +182,7 @@ def _catch_integrity_error(request: Request, exc: IntegrityError):   # pragma: n
 
 
 @app.exception_handler(Exception)
-def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no cover   # pylint: disable=unused-argument
+async def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no cover   # pylint: disable=unused-argument
     logger.critical(exc)
     if isinstance(exc, HTTPException):
         if exc.status_code != 500:
