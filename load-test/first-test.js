@@ -1,5 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import exec from 'k6/execution';
 
 const binFile = open('./img.png', 'b');
 
@@ -12,23 +13,22 @@ export const options = {
   //   },
   // Ramp the number of virtual users up and down
   stages: [
-    { duration: '10s', target: 1 },
+    { duration: '1m', target: 1 },
     // { duration: '1m30s', target: 10 },
-    // { duration: '20s', target: 0 },
+    // { duration: '30s', target: 0 },
   ],
 };
 
 export default function () {
-  // check if the user already exists
   const get_auth_exists = http.post('http://localhost/api/auth/login', {
-    username: 'test_user',
+    username: `test_user_${exec.vu.idInTest}`,
     password: 'qwertyQWERTY1234!@#$',
     grant_type: 'password'
   })
   if (get_auth_exists.status != 200) {
     const user = http.post('http://localhost/api/auth/register', {
-      username: 'test_user',
-      email: 'user@example.com',
+      username: `test_user_${exec.vu.idInTest}`,
+      email: `test_user_${exec.vu.idInTest}@example.com`,
       password: 'qwertyQWERTY1234!@#$',
       confirm_password: 'qwertyQWERTY1234!@#$',
     }, {
@@ -43,7 +43,7 @@ export default function () {
     })
   }
   const get_auth = http.post('http://localhost/api/auth/login', {
-    username: 'test_user',
+    username: `test_user_${exec.vu.idInTest}`,
     password: 'qwertyQWERTY1234!@#$',
     grant_type: 'password'
   }).json()
