@@ -12,13 +12,13 @@ from typing import Literal, Self
 from authlib.jose import jwt
 from authlib.jose.errors import DecodeError
 import bcrypt
+from email_validator import EmailNotValidError, validate_email as email_validation
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ValidationError, model_validator
 import pyotp
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings, logger
@@ -312,7 +312,10 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
     #     raise error_msg
     if username == "admin@example.com":
         username = "admin"
-    email = validate_email(username, raise_error=False)
+    try:
+        email = email_validation(username, check_deliverability=False)
+    except EmailNotValidError:
+        email = None
     db_user = get_user_by_email(db=db, email=email, raise_error=False)
     if not db_user:
         db_user = get_user_by_username(
