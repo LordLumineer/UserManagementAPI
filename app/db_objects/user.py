@@ -5,9 +5,7 @@ It provides functions to create, read, update and delete users, as well as funct
 get the users associated with a file and to get the files associated with a user.
 """
 
-import json
 import os
-from re import M
 import time
 from fastapi import Depends, HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -284,13 +282,7 @@ async def delete_user(db: AsyncSession, db_user: User_DB) -> bool:
     if db_user.profile_picture_id:
         await delete_file(db, await get_file(db, db_user.profile_picture_id))
     # Delete the user's files
-    result = await db.execute(
-        select(users_files_links)
-        .where(
-            users_files_links.c.user_uuid == db_user.uuid
-        )
-    )
-    for file in result.unique().scalars().all():
+    for file in await db_user.awaitable_attrs.files:
         await db.execute(
             delete(users_files_links).where(
                 users_files_links.c.user_uuid == db_user.uuid,

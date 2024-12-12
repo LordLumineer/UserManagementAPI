@@ -173,12 +173,15 @@ async def _catch_integrity_error(request: Request, exc: IntegrityError):   # pra
     # NOTE: Handle IntegrityError and pretty-up the error message
     exc = str(exc.orig)
     if exc.startswith("UNIQUE"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"This {
+        return JSONResponse(
+            status_code=500,
+            content=f"This {
                 exc.split(' ')[-1]} already exists.",  # pylint: disable=C0207
         )
-    raise HTTPException(status_code=400, detail=exc)
+    return JSONResponse(
+        status_code=400,
+        content=exc
+    )
 
 
 @app.exception_handler(Exception)
@@ -186,10 +189,13 @@ async def _debug_exception_handler(request: Request, exc: Exception):  # pragma:
     logger.critical(exc)
     if isinstance(exc, HTTPException):
         if exc.status_code != 500:
-            raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    raise HTTPException(
+            return JSONResponse(
+                status_code=exc.status_code,
+                content=jsonable_encoder(exc.detail),
+            )
+    return JSONResponse(
         status_code=500,
-        detail=jsonable_encoder({
+        content=jsonable_encoder({
             "error": str(exc),
             "support": f"{settings.FRONTEND_URL}/support",
             "contact": settings.CONTACT_EMAIL
@@ -242,7 +248,7 @@ def _redoc_html(request: Request):
 @app.get("/ping", tags=["DEBUG"])
 # @feature_flag("_PING")
 def _ping():
-    logger.info("Pong!")
+    logger.debug("Pong!")
     return "pong"
 
 
