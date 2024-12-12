@@ -61,7 +61,7 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
         if email == "admin@example.com":
             return email
         email_info = email_validation(
-            email, check_deliverability=check_deliverability)
+            email, check_deliverability=check_deliverability and settings.EMAIL_METHOD != "none")
     except EmailNotValidError as e:
         if not raise_error:
             logger.debug(f"Invalid email format: {email}")
