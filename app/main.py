@@ -41,7 +41,6 @@ from app.core.utils import (
     extract_initials_from_text,
     generate_profile_picture,
 )
-from app.db_objects._base import Base
 
 
 @asynccontextmanager
@@ -50,21 +49,23 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     logger.info("Starting up...")
     # Create folders
     logger.info("Creating folders...")
-    os.makedirs(app_path(os.path.join("data", "logs")), exist_ok=True)
     os.makedirs(app_path(os.path.join("data", "users")), exist_ok=True)
     # os.makedirs(app_path(os.path.join("data", "files")), exist_ok=True)
+    if settings.LOG_FILE_ENABLED:
+        os.makedirs(app_path(os.path.join("data", "logs")), exist_ok=True)
     # Alembic
-    run_migrations()
+    await run_migrations()
     # Database
     logger.info("Creating or Loading the database tables...")
-    Base.metadata.create_all(bind=database.engine)
+    # Base.metadata.create_all(bind=database.engine)
+    await database.sessionmanager.init()
     # Feature Flags
     logger.info("Loading feature flags...")
     app_endpoint_functions_name = []
     for route in app.routes:
         if isinstance(route, APIRoute):
             app_endpoint_functions_name.append(route.endpoint.__name__.upper())
-    load_feature_flags(app_endpoint_functions_name)
+    await load_feature_flags(app_endpoint_functions_name)
     # Rate Limit
     if settings.RATE_LIMITER_ENABLED:
         redis_client = None
@@ -87,11 +88,18 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     # scheduler.add_job(remove_expired_transactions, 'cron', hour=0, minute=0)
     # scheduler.start()
     # Init Default User Database
-    init_default_user()
-    logger.info("Initialization completed.")
+    await init_default_user()
+    logger.success("Initialization completed.")
     yield  # This is when the application code will run
-    # scheduler.shutdown()
     logger.info("Shutting down...")
+    # DATABASE
+    if database.sessionmanager.engine is not None:
+        # Close the DB connection
+        await database.sessionmanager.close()
+    logger.info("Shutting down...")
+    # SCHEDULER
+    # scheduler.shutdown()
+    logger.info("Shutdown completed.")
 
 
 app = FastAPI(
@@ -161,27 +169,33 @@ app.mount(f"{settings.API_STR}/static",
 
 
 @app.exception_handler(IntegrityError)
-def _catch_integrity_error(request: Request, exc: IntegrityError):   # pragma: no cover   # pylint: disable=unused-argument
+async def _catch_integrity_error(request: Request, exc: IntegrityError):   # pragma: no cover   # pylint: disable=unused-argument
     # NOTE: Handle IntegrityError and pretty-up the error message
     exc = str(exc.orig)
     if exc.startswith("UNIQUE"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"This {
+        return JSONResponse(
+            status_code=500,
+            content=f"This {
                 exc.split(' ')[-1]} already exists.",  # pylint: disable=C0207
         )
-    raise HTTPException(status_code=400, detail=exc)
+    return JSONResponse(
+        status_code=400,
+        content=exc
+    )
 
 
 @app.exception_handler(Exception)
-def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no cover   # pylint: disable=unused-argument
+async def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no cover   # pylint: disable=unused-argument
     logger.critical(exc)
     if isinstance(exc, HTTPException):
         if exc.status_code != 500:
-            raise HTTPException(status_code=exc.status_code, detail=exc.detail)
-    raise HTTPException(
+            return JSONResponse(
+                status_code=exc.status_code,
+                content=jsonable_encoder(exc.detail),
+            )
+    return JSONResponse(
         status_code=500,
-        detail=jsonable_encoder({
+        content=jsonable_encoder({
             "error": str(exc),
             "support": f"{settings.FRONTEND_URL}/support",
             "contact": settings.CONTACT_EMAIL
@@ -192,18 +206,24 @@ def _debug_exception_handler(request: Request, exc: Exception):  # pragma: no co
 # ----- DOCS ----- #
 
 @app.get("/interactive-docs", tags=["DOCS"], include_in_schema=False)
-def _custom_swagger_ui_html(request: Request, token: str | None = None):
+async def _custom_swagger_ui_html(request: Request, token: str | None = None):
+    if not settings.PROTECTED_INTERACTIVE_DOCS:
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " - Interactive UI",
+            swagger_favicon_url=request.url_for("_favicon")
+        )
     if not token:
         uri_list = request.session.get("redirect_uri") or []
         uri_list.append(str(request.url_for("_custom_swagger_ui_html")))
         request.session.update({"redirect_uri": uri_list})
         return RedirectResponse(url=request.url_for("_login"))
-    current_user = get_current_user(token)
+    current_user = await get_current_user(token)
     if has_permission(current_user, "docs", "swagger", raise_error=False):
         return get_swagger_ui_html(
             openapi_url=app.openapi_url,
             title=app.title + " - Interactive UI",
-            swagger_favicon_url=request.url_for("_favicon")
+            swagger_favicon_url=request.url_for("_favicon"),
         )
     return RedirectResponse(url=request.url_for("_redoc_html"))
 
@@ -228,7 +248,7 @@ def _redoc_html(request: Request):
 @app.get("/ping", tags=["DEBUG"])
 # @feature_flag("_PING")
 def _ping():
-    logger.info("Pong!")
+    logger.debug("Pong!")
     return "pong"
 
 

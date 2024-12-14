@@ -17,8 +17,8 @@ router = APIRouter()
 
 
 @router.get("/404", include_in_schema=False, response_class=HTMLResponse)
-def _404(request: Request):
-    return render_html_response("page_404.html", request)
+async def _404(request: Request):
+    return await render_html_response("page_404.html", request, status_code=404)
 
 
 @router.get("/", include_in_schema=False, response_class=HTMLResponse)
@@ -45,49 +45,49 @@ def _support(request: Request):
 
 @router.get("/login", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 @router.get("/signin", tags=["PAGE"], include_in_schema=False, response_class=RedirectResponse)
-def _login(request: Request):
-    return render_html_response("page_login.html", request)
+async def _login(request: Request):
+    return await render_html_response("page_login.html", request)
 
 
 @router.get("/otp", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _otp(request: Request):
+async def _otp(request: Request):
     otp_token = request.session.get("otp_token")
     if not otp_token:
         return RedirectResponse(url=request.url_for("_login"))
     context = {
         "OTP_LENGTH": settings.OTP_LENGTH,
     }
-    return render_html_response("page_otp.html", request, context)
+    return await render_html_response("page_otp.html", request, context)
 
 
 @router.get("/register", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
 @router.get("/signup", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _signup(request: Request):
-    return render_html_response("page_signup.html", request)
+async def _signup(request: Request):
+    return await render_html_response("page_signup.html", request)
 
 
 @router.get("/logout", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _logout(request: Request):
-    return render_html_response("page_logout.html", request)
+async def _logout(request: Request):
+    return await render_html_response("page_logout.html", request)
 
 
 @router.get("/reset-password/request", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _reset_password_request(request: Request):
-    return render_html_response("page_reset-password-request.html", request)
+async def _reset_password_request(request: Request):
+    return await render_html_response("page_reset-password-request.html", request)
 
 
 @router.get("/reset-password/reset", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _reset_password_reset(request: Request, token: str | None = None):
+async def _reset_password_reset(request: Request, token: str | None = None):
     context = {"RESET_TOKEN": token}
-    return render_html_response("page_reset-password-reset.html", request, context)
+    return await render_html_response("page_reset-password-reset.html", request, context)
 
 
 @router.get("/forgot-password/request", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _forgot_password_request(request: Request):
-    return render_html_response("page_forgot-password-request.html", request)
+async def _forgot_password_request(request: Request):
+    return await render_html_response("page_forgot-password-request.html", request)
 
 
 @router.get("/forgot-password/reset", tags=["PAGE"], include_in_schema=False, response_class=HTMLResponse)
-def _forgot_password_reset(request: Request, token: str | None = None):
+async def _forgot_password_reset(request: Request, token: str | None = None):
     context = {"RESET_TOKEN": token}
-    return render_html_response("page_forgot-password-reset.html", request, context)
+    return await render_html_response("page_forgot-password-reset.html", request, context)

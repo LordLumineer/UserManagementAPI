@@ -5,13 +5,14 @@ This module contains the API endpoints related to the database (e.g. export, imp
 """
 from datetime import datetime, timezone
 import os
+import aiofiles
 from fastapi import APIRouter, BackgroundTasks, Response, UploadFile, Depends, File
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.db import get_db, handle_database_import, export_db
+from app.core.db import get_async_db, handle_database_import, export_db
 from app.core.permissions import has_permission
 from app.core.utils import app_path, remove_file
 from app.db_objects.user import get_current_user
@@ -22,10 +23,10 @@ router = APIRouter()
 
 
 @router.get("/export")
-def db_export(
+async def db_export(
     background_tasks: BackgroundTasks,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Export the current database to a file.
@@ -44,8 +45,8 @@ def db_export(
     FileResponse
         A response with a file attachment containing the database export.
     """
-    has_permission(current_user, "db", "export")
-    file_path = export_db(db)
+    has_permission(current_user, "database", "export")
+    file_path = await export_db(db)
     background_tasks.add_task(remove_file, file_path)
     return FileResponse(
         path=file_path,
@@ -56,7 +57,7 @@ def db_export(
 
 
 @router.post("/recover")
-def db_recover(
+async def db_recover(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user)
@@ -86,11 +87,11 @@ def db_recover(
     Response
         A response with a status code of 200 and a message indicating that the database recovery was successful.
     """
-    has_permission(current_user, "db", "recover")
+    has_permission(current_user, "database", "recover")
     # Save the uploaded file temporarily
     uploaded_db_path = app_path(os.path.join("data", f"temp_{file.filename}"))
-    with open(uploaded_db_path, "wb") as buffer:
-        buffer.write(file.file.read())
+    async with aiofiles.open(uploaded_db_path, "wb") as buffer:
+        await buffer.write(await file.read())
 
     # Call function to handle database import logic
     success = handle_database_import(uploaded_db_path, "recover")
@@ -106,7 +107,8 @@ def db_recover(
 
 
 @router.post("/import")
-def db_import(
+async def db_import(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -141,15 +143,19 @@ def db_import(
 
     The uploaded database file is removed after the import is complete.
     """
-    has_permission(current_user, "db", "import")
+    has_permission(current_user, "database", "import")
 
     # Save the uploaded file temporarily
     uploaded_db_path = app_path(f"temp_{file.filename}")
-    with open(uploaded_db_path, "wb") as buffer:
-        buffer.write(file.file.read())
+    async with aiofiles.open(uploaded_db_path, "wb") as buffer:
+        await buffer.write(await file.read())
 
     # Call function to handle database import logic
-    handle_database_import(uploaded_db_path, "import")
+    success = handle_database_import(uploaded_db_path, "import")
+    if not success:
+        raise HTTPException(
+            status_code=500, detail="Failed to recover database")
+    background_tasks.add_task(remove_file, uploaded_db_path)
 
     return Response(
         status_code=200,

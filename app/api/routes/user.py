@@ -4,19 +4,19 @@ from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Query
 from fastapi.responses import FileResponse, Response
 from PIL import Image
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.db_objects.file import create_file, delete_file, get_file, link_file_user
 from app.db_objects.user import (
-    create_user, get_user, update_user, delete_user,
+    create_user, get_nb_users, get_user, update_user, delete_user,
     get_users, get_users_list, get_current_user,
 )
 from app.core.permissions import has_permission
 from app.core.utils import extract_initials_from_text, generate_profile_picture
 from app.db_objects.db_models import User as User_DB
 from app.templates.schemas.file import FileCreate, FileReadDB
-from app.templates.schemas.user import UserCreate, UserRead, UserReadDB, UserUpdate, UserHistory
+from app.templates.schemas.user import UserCreate, UserRead, UserUpdate, UserHistory
 
 router = APIRouter()
 
@@ -25,9 +25,9 @@ router = APIRouter()
 
 
 @router.post("/", response_model=UserRead)
-def new_user(
+async def new_user(
     user: UserCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User_DB = Depends(get_current_user),
 ):
     """
@@ -50,16 +50,16 @@ def new_user(
         The newly created user object.
     """
     has_permission(current_user, "user", "create", user)
-    return create_user(db, user)
+    return await create_user(db, user)
 
 
 @router.put("/{uuid}/image", response_model=FileReadDB)
-def new_user_image(
+async def new_user_image(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload a new profile picture for the user with the given UUID.
@@ -102,7 +102,7 @@ def new_user_image(
             status_code=400, detail=f"Image must be below 512x512 px ({img.width}x{img.height}px)")
     file.file.seek(0)  # Reset pointer to the beginning of the file
 
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "user_image", "create", db_user)
 
     file.filename = f"pfp_{uuid}.{file.filename.split('.')[-1].lower()}"
@@ -112,13 +112,16 @@ def new_user_image(
         created_by_uuid=current_user.uuid
     )
     if db_user.profile_picture_id:
-        db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
+        db_file = await get_file(db, db_user.profile_picture_id, raise_error=False)
         if db_file:
-            delete_file(db, db_file)
-
-    file_db = create_file(db, new_file, file)
-    link_file_user(db, db_user, file_db)
-    update_user(db, db_user, UserUpdate(
+            raise HTTPException(
+                status_code=400,
+                detail="A profile picture already exists for this user. Please delete it before uploading a new one."
+            )
+            # await delete_file(db, db_file)
+    file_db = await create_file(db, new_file, file)
+    await link_file_user(db, db_user, file_db)
+    await update_user(db, db_user, UserUpdate(
         profile_picture_id=file_db.id,
         action=UserHistory(
             action="profile-picture-updated",
@@ -130,12 +133,12 @@ def new_user_image(
 
 
 @router.put("/{uuid}/file", response_model=FileReadDB)
-def new_user_file(
+async def new_user_file(
     uuid: str,
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Upload a new file for a user.
@@ -158,24 +161,24 @@ def new_user_file(
     FileReadDB
         The new file object.
     """
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "user_file", "create", db_user)
     new_file = FileCreate(
         description=description,
         file_name=file.filename,
         created_by_uuid=current_user.uuid
     )
-    file_db = create_file(db, new_file, file)
-    link_file_user(db, db_user, file_db)
+    file_db = await create_file(db, new_file, file)
+    await link_file_user(db, db_user, file_db)
     return file_db
 
 
 @router.put("{uuid}/blocked_users", response_model=list[str])
-def block_users(
+async def block_users(
     uuid: str,
     users_ids: list[str] = Query(default=[]),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Block a list of users by their UUIDs.
@@ -196,25 +199,25 @@ def block_users(
     UserRead
         The updated user object.
     """
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "blocked_users", "create", db_user)
     for blocked_uuid in users_ids:
         if blocked_uuid in db_user.blocked_uuids:
             continue
         db_user.blocked_uuids.append(blocked_uuid)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user.blocked_uuids
 
 
 # ------- Read ------- #
 
 
-@router.get("/", response_model=list[UserReadDB])
-def read_users(
+@router.get("/", response_model=list[UserRead])
+async def read_users(
     skip: int = Query(default=0), limit: int = Query(default=100),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a list of users
@@ -232,18 +235,18 @@ def read_users(
 
     Returns
     -------
-    list[UserReadDB]
+    list[UserRead]
         A list of user objects.
     """
     has_permission(current_user, "user", "read")
-    return get_users(db, skip=skip, limit=limit)
+    return await get_users(db, skip=skip, limit=limit)
 
 
 @router.get("/users", response_model=list[UserRead])
-def read_users_list(
+async def read_users_list(
     users_ids: list[str] = Query(default=[]),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a list of users by their UUIDs
@@ -259,15 +262,37 @@ def read_users_list(
 
     Returns
     -------
-    list[UserReadDB]
+    list[UserRead]
         A list of user objects
     """
     has_permission(current_user, "user", "read")
-    return get_users_list(db, users_ids)
+    users = await get_users_list(db, users_ids)
+    return users
+
+@router.get("/count", response_model=int)
+async def read_users_number(
+    current_user: User_DB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """
+    Get the number of users.
+
+    Parameters
+    ----------
+    db : Session
+        The current database session.
+
+    Returns
+    -------
+    int
+        The number of user.
+    """
+    has_permission(current_user, "user", "read")
+    return await get_nb_users(db)
 
 
 @router.get("/me", response_model=UserRead)
-def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
+async def read_users_me(current_user: User_DB = Depends(get_current_user)):
     """
     Get the current user.
 
@@ -298,10 +323,10 @@ def read_users_me(current_user: UserReadDB = Depends(get_current_user)):
         "is_external_only"
     }
 )
-def read_user(
+async def read_user(
     uuid: str,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a user by their UUID.
@@ -322,13 +347,13 @@ def read_user(
     UserRead
         The user object.
     """
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "user", "read", db_user)
     return db_user
 
 
 @router.get("/{uuid}/image", response_class=FileResponse)
-def read_user_image(uuid: str, db: Session = Depends(get_db)):
+async def read_user_image(uuid: str, db: AsyncSession = Depends(get_async_db)):
     """
     Get the profile picture of a user by its UUID.
 
@@ -348,8 +373,8 @@ def read_user_image(uuid: str, db: Session = Depends(get_db)):
     -----
     If the user does not have a profile picture, a default profile picture is generated.
     """
-    db_user = get_user(db, uuid)
-    db_file = get_file(db, db_user.profile_picture_id, raise_error=False)
+    db_user = await get_user(db, uuid)
+    db_file = await get_file(db, db_user.profile_picture_id, raise_error=False)
     if not db_file:
         letters = extract_initials_from_text(db_user.display_name)
         return generate_profile_picture(letters)
@@ -364,11 +389,11 @@ def read_user_image(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.patch("/{uuid}", response_model=UserRead)
-def patch_user(
+async def patch_user(
     uuid: str,
     user: UserUpdate,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Update a user by its UUID.
@@ -405,19 +430,19 @@ def patch_user(
             current_user.uuid == uuid):
         # NOTE: A User can't reactivate / deactivate their own account.
         user.is_active = None
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "user", "update", {
                    "db_user": db_user, "updates": user})
-    return update_user(db, db_user, user)
+    return await update_user(db, db_user, user)
 
 
 @router.patch("{uuid}/blocked_users", response_model=list[str])
-def update_blocked_users(
+async def update_blocked_users(
     uuid: str,
     remove: list[str] | None = Query(default=[]),
     add: list[str] | None = Query(default=[]),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Update the list of blocked users for a user by its UUID.
@@ -442,9 +467,8 @@ def update_blocked_users(
         401 Unauthorized if the user is not the same as the current user 
             and the current user does not have role "admin".
     """
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "blocked_users", "update", db_user)
-    db_user = get_user(db, uuid)
     for blocked_uuid in remove:
         if blocked_uuid not in db_user.blocked_uuids:
             continue
@@ -453,8 +477,8 @@ def update_blocked_users(
         if blocked_uuid in db_user.blocked_uuids:
             continue
         db_user.blocked_uuids.append(blocked_uuid)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user.blocked_uuids
 
 
@@ -462,10 +486,10 @@ def update_blocked_users(
 
 
 @router.delete("/{uuid}", response_class=Response)
-def remove_user(
+async def remove_user(
     uuid: str,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Delete a user by its UUID.
@@ -485,27 +509,27 @@ def remove_user(
         A response with a status code of 200 if the user is deleted successfully, 
         or a response with a status code of 400 or 401 if there is an error.
     """
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "user", "delete", db_user)
 
-    db_user = update_user(db, db_user, UserUpdate(
+    db_user = await update_user(db, db_user, UserUpdate(
         is_active=False,
         action=UserHistory(
             action="Deleted",
             description="The deletion of this user was requested.",
             by=current_user.uuid
         )))
-    if not delete_user(db, db_user):
+    if not await delete_user(db, db_user):
         raise HTTPException(status_code=400, detail="Failed to delete user")
     return Response(status_code=200)
 
 
 @router.delete("{uuid}/blocked_users", response_model=list[str])
-def delete_blocked_users(
+async def delete_blocked_users(
     uuid: str,
     users_ids: list[str] | None = Query(default=[]),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Delete a list of blocked users by their UUIDs.
@@ -526,12 +550,12 @@ def delete_blocked_users(
     list[str]
         The updated list of blocked users UUIDs.
     """
-    db_user = get_user(db, uuid)
+    db_user = await get_user(db, uuid)
     has_permission(current_user, "blocked_users", "update", db_user)
     for blocked_uuid in users_ids:
         if blocked_uuid not in db_user.blocked_uuids:
             continue
         db_user.blocked_uuids.remove(blocked_uuid)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user.blocked_uuids

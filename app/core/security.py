@@ -18,7 +18,8 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ValidationError, model_validator
 import pyotp
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings, logger
 from app.core.email import send_otp_email
@@ -208,8 +209,8 @@ def decode_access_token(token: str, strict: bool = True, key: str = SECRET_KEY) 
         ) from e
 
 
-def generate_otp(
-    db: Session,
+async def generate_otp(
+    db: AsyncSession,
     user_uuid: str,
     user_username: str,
     user_otp_secret: str | None = None
@@ -228,15 +229,14 @@ def generate_otp(
         from app.db_objects.db_models import User as User_DB  # pylint: disable=import-outside-toplevel
         user_otp_secret = generate_random_letters(
             length=32, seed=user_uuid)
-        user_db = (
-            db.query(User_DB)
-            .filter(User_DB.uuid == user_uuid)
-            .first()
-        )
+        result = await db.execute(select(User_DB).filter(
+            User_DB.uuid == user_uuid
+            ))
+        user_db = result.unique().scalars().first()
         user_db.otp_secret = user_otp_secret
         db.add(user_db)
-        db.commit()
-        db.refresh(user_db)
+        await db.commit()
+        await db.refresh(user_db)
     totp = pyotp.TOTP(
         s=user_otp_secret,
         name=user_username,
@@ -287,7 +287,7 @@ def validate_otp(user_username: str, user_otp_secret: str, otp: str, method: str
             )
 
 
-def authenticate_user(db: Session, username: str, password: str, request: Request = None):
+async def authenticate_user(db: AsyncSession, username: str, password: str, request: Request = None):
     """
     Authenticate a user using their username/email and password.
 
@@ -297,7 +297,7 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
     :param Request request: The Request object, defaults to None.
     :raises HTTPException: 401 Unauthorized if the user is not found or the password is incorrect.
     :raises HTTPException: 400 Bad Request if the user is inactive.
-    :return UserReadDB: The user object if the user is found and the password is correct.
+    :return User: The user object if the user is found and the password is correct.
     """
     from app.db_objects.user import get_user_by_email, get_user_by_username  # pylint: disable=import-outside-toplevel
 
@@ -315,10 +315,10 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
         username,
         check_deliverability=settings.EMAIL_METHOD != "none",
         raise_error=False
-    )
-    db_user = get_user_by_email(db=db, email=email, raise_error=False)
+        )
+    db_user = await get_user_by_email(db=db, email=email, raise_error=False)
     if not db_user:
-        db_user = get_user_by_username(
+        db_user = await get_user_by_username(
             db=db, username=username, raise_error=False)
     if not db_user:
         raise error_msg
@@ -340,7 +340,7 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
 
         if not db_user.otp_secret:
             logger.debug(f"Generating OTP for user {db_user.username}")
-            otp_secret = (generate_otp(db, user_uuid=db_user.uuid,
+            otp_secret = (await generate_otp(db, user_uuid=db_user.uuid,
                           user_username=db_user.username))[1]
         else:
             otp_secret = db_user.otp_secret
@@ -352,7 +352,7 @@ def authenticate_user(db: Session, username: str, password: str, request: Reques
                 issuer=settings.PROJECT_NAME,
                 digits=settings.OTP_LENGTH
             )
-            send_otp_email(
+            await send_otp_email(
                 recipient=db_user.email,
                 otp_code=totp.now(),
                 request=request

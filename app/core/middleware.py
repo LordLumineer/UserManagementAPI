@@ -77,7 +77,7 @@ class FeatureFlagMiddleware(BaseHTTPMiddleware):
             token = request.headers.get("Authorization")
             if token and token.startswith("Bearer "):
                 try:
-                    user = get_current_user(token)
+                    user = await get_current_user(token)
                 except HTTPException as e:
                     if e.detail != "Token expired":
                         return JSONResponse(

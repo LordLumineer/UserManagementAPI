@@ -8,10 +8,10 @@ from fastapi import APIRouter, Form, Response, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import logger
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.core.permissions import FeatureFlags, has_permission, save_feature_flags
 from app.db_objects.user import get_current_user, get_user, update_user
 from app.db_objects.db_models import User as User_DB
@@ -22,11 +22,11 @@ router = APIRouter()
 
 
 @router.post("/ban/{user_id}", response_class=Response)
-def ban_user(
+async def ban_user(
     user_id: str,
     reason: str = Form(...),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Ban a user by its UUID.
@@ -50,10 +50,10 @@ def ban_user(
     """
     if user_id == current_user.uuid:
         raise HTTPException(status_code=400, detail="You cannot ban yourself")
-    db_user = get_user(db, user_id)
+    db_user = await get_user(db, user_id)
     has_permission(current_user, "admin", "ban", db_user)
 
-    db_user = update_user(db, db_user, UserUpdate(is_active=False, action=UserHistory(
+    db_user = await update_user(db, db_user, UserUpdate(is_active=False, action=UserHistory(
         action="ban",
         description=reason,
         by=current_user.uuid
@@ -74,11 +74,11 @@ def ban_user(
 
 
 @router.post("/unban/{user_id}", response_class=Response)
-def unban_user(
+async def unban_user(
     user_id: str,
     reason: str = Form(...),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Unban a user
@@ -98,10 +98,10 @@ def unban_user(
         A response with a status code of 200 if the user is unbanned successfully, 
         or a response with a status code of 400 or 401 if there is an error
     """
-    db_user = get_user(db, user_id)
+    db_user = await get_user(db, user_id)
     has_permission(current_user, "admin", "unban", db_user)
 
-    db_user = update_user(db, db_user, UserUpdate(
+    db_user = await update_user(db, db_user, UserUpdate(
         is_active=True,
         action=UserHistory(
             action="Unbanned",
@@ -124,7 +124,7 @@ def unban_user(
 
 
 @router.patch("/feature_flags", response_model=dict)
-def update_feature_flags(
+async def update_feature_flags(
     remove: FeatureFlags | None = Form(default=None),
     add: FeatureFlags | None = Form(default=None),
     current_user: User_DB = Depends(get_current_user),
@@ -163,5 +163,5 @@ def update_feature_flags(
     for feature_name, feature_rule in add.items():
         FEATURE_FLAGS[feature_name] = jsonable_encoder(feature_rule)
     if add or remove:
-        save_feature_flags()
+        await save_feature_flags()
     return FEATURE_FLAGS

@@ -9,10 +9,10 @@ from fastapi import APIRouter, Form, Request
 from fastapi.exceptions import HTTPException
 from fastapi.params import Body, Depends, Query
 import pyotp
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.core.email import (
     send_email, send_otp_email, send_reset_password_email, send_test_email, send_validation_email
 )
@@ -96,12 +96,12 @@ def send_email_multiple(
 
 
 @router.post("/send-email-all")
-def send_email_all(
+async def send_email_all(
     confirm: bool = Query(default=False),
     subject: str = Query(),
     content: str = Body(),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Send an email to all users in the database.
@@ -125,13 +125,13 @@ def send_email_all(
     has_permission(current_user, "email", "all")
     if not confirm:
         raise HTTPException(status_code=400, detail="You must confirm the email")
-    users = get_users(db, skip=0, limit=get_nb_users(db))
+    users = await get_users(db, skip=0, limit=get_nb_users(db))
     recipients = [user.email for user in users]
     return send_email(recipients, subject, content)
 
 
 @router.post("/send-test-email")
-def test_email(
+async def test_email(
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -151,11 +151,11 @@ def test_email(
         401 Unauthorized if the user is not authorized to send the email.
     """
     has_permission(current_user, "email", "test")
-    return send_test_email(recipient)
+    return await send_test_email(recipient)
 
 
 @router.post("/send-otp-email")
-def otp_email(
+async def otp_email(
     request: Request,
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
@@ -188,7 +188,7 @@ def otp_email(
         issuer=settings.PROJECT_NAME,
         digits=settings.OTP_LENGTH
     )
-    return send_otp_email(
+    return await send_otp_email(
         recipient=recipient,
         otp_code=totp.now(),
         request=request
@@ -196,13 +196,13 @@ def otp_email(
 
 
 @router.post("/send-reset-password-email")
-def reset_password_email(
+async def reset_password_email(
     request: Request,
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     endpoint: Literal["/reset-password", "/forgot-password/reset-form"] = Form(...),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ): # pylint: disable=R0917, R0913
     """
     Send an email to a recipient with a link to reset their password.
@@ -237,22 +237,22 @@ def reset_password_email(
     has_permission(current_user, "email", "auth")
     if not confirm:
         raise HTTPException(status_code=400, detail="You must confirm the email")
-    user = get_user_by_email(db, recipient)
+    user = await get_user_by_email(db, recipient)
     token = create_access_token(
         sub=TokenData(
             purpose="reset-password",
             uuid=user.uuid,
             username=user.username
         ))
-    return send_reset_password_email(recipient, token, endpoint, request)
+    return await send_reset_password_email(recipient, token, endpoint, request)
 
 
 @router.post("/send-validation-email")
-def validation_email(
+async def validation_email(
     confirm: bool = Query(default=False),
     recipient: str = Query(default=settings.CONTACT_EMAIL),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Send an email to a single recipient to verify their email address.
@@ -274,11 +274,11 @@ def validation_email(
     has_permission(current_user, "email", "auth")
     if not confirm:
         raise HTTPException(status_code=400, detail="You must confirm the email")
-    user = get_user_by_email(db, recipient)
+    user = await get_user_by_email(db, recipient)
     token = create_access_token(
         sub=TokenData(
             purpose="email-verification",
             uuid=user.uuid,
             email=user.email
         ))
-    return send_validation_email(recipient, token)
+    return await send_validation_email(recipient, token)

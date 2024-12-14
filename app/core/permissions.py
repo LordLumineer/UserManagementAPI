@@ -24,6 +24,7 @@ import json
 import os
 from typing import Callable, Literal, Union
 
+import aiofiles
 from fastapi import HTTPException
 from pydantic import BaseModel
 
@@ -74,7 +75,7 @@ ROLES: RolesWithPermissions = {
         },
         "file": {
             "create": True,
-            "view": True,
+            "read": True,
             "update": True,
             "delete": True
         },
@@ -132,7 +133,7 @@ ROLES: RolesWithPermissions = {
         },
         "file": {
             "create": True,
-            "view": True,
+            "read": True,
             "update": True,
             "delete": False
         },
@@ -191,7 +192,7 @@ ROLES: RolesWithPermissions = {
         },
         "file": {
             "create": True,
-            "view": lambda user, file: (
+            "read": lambda user, file: (
                 user.uuid not in file.created_by.blocked_uuids and
                 file.created_by.uuid not in user.blocked_uuids
             ),
@@ -257,28 +258,29 @@ class FeatureFlagRule(BaseModel):
 FeatureFlags = dict[str, bool | list[FeatureFlagRule]]
 
 
-def load_feature_flags(app_endpoint_functions_name: list[str] = None):
+async def load_feature_flags(app_endpoint_functions_name: list[str] = None):
     """Load feature flags from a file into memory."""
     if app_endpoint_functions_name is None:
         app_endpoint_functions_name = []
     global FEATURE_FLAGS  # pylint: disable=global-statement
     if os.path.exists(settings.FEATURE_FLAGS_FILE):
-        with open(settings.FEATURE_FLAGS_FILE, "r", encoding="utf-8") as file:
-            FEATURE_FLAGS = json.load(file)
+        async with aiofiles.open(settings.FEATURE_FLAGS_FILE, "r", encoding="utf-8") as file:
+            content = await file.read()
+            FEATURE_FLAGS = json.loads(content)
     else:
         FEATURE_FLAGS = {}
     # Update the feature flags based on the app endpoint functions name
     for endpoint_function_name in app_endpoint_functions_name:
         if endpoint_function_name not in FEATURE_FLAGS:
             FEATURE_FLAGS[endpoint_function_name] = True
-    save_feature_flags()
+    await save_feature_flags()
     return FEATURE_FLAGS
 
 
-def save_feature_flags():
+async def save_feature_flags():
     """Save feature flags from memory to a file."""
-    with open(settings.FEATURE_FLAGS_FILE, "w", encoding="utf-8") as file:
-        json.dump(FEATURE_FLAGS, file, indent=4)
+    async with aiofiles.open(settings.FEATURE_FLAGS_PATH, mode="w", encoding="utf-8") as file:
+        await file.write(json.dumps(FEATURE_FLAGS, indent=4))
     return FEATURE_FLAGS
 
 

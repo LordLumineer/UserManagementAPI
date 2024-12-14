@@ -1,7 +1,7 @@
 """This module contains functions for CRUD operations on external accounts."""
 from fastapi.exceptions import HTTPException
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db_objects.db_models import ExternalAccount as ExternalAccount_DB
 from app.templates.schemas.external_account import ExternalAccountBase
@@ -13,7 +13,7 @@ from app.templates.schemas.external_account import ExternalAccountBase
 # ------- Create ------- #
 
 
-def create_external_account(db: Session, external_account: ExternalAccountBase) -> ExternalAccount_DB:
+async def create_external_account(db: AsyncSession, external_account: ExternalAccountBase) -> ExternalAccount_DB:
     """
     Create a new external account and link it to a user.
 
@@ -29,16 +29,16 @@ def create_external_account(db: Session, external_account: ExternalAccountBase) 
     db_external_account = ExternalAccount_DB(
         **external_account.model_dump())
     db.add(db_external_account)
-    db.commit()
-    db.refresh(db_external_account)
+    await db.commit()
+    await db.refresh(db_external_account)
     return db_external_account
 
 
 # ------- Read ------- #
 
 
-def get_external_account(
-    db: Session, provider: str,
+async def get_external_account(
+    db: AsyncSession, provider: str,
     external_account_id: str,
     raise_error: bool = True
 ) -> ExternalAccount_DB:
@@ -55,17 +55,17 @@ def get_external_account(
     :return ExternalAccount_DB: The external account model object.
     :raises HTTPException: If the external account is not found and raise_error is True.
     """
-    db_external_account = db.query(ExternalAccount_DB).filter(
+    result = await db.execute(select(ExternalAccount_DB).filter(
         ExternalAccount_DB.external_account_id == external_account_id,
-        ExternalAccount_DB.provider == provider
-    ).first()
+        ExternalAccount_DB.provider == provider))
+    db_external_account = result.unique().scalar()
     if not db_external_account and raise_error:
         raise HTTPException(
             status_code=404, detail="External account not found")
     return db_external_account
 
 
-def get_external_accounts(db: Session, skip: int = 0, limit: int = 100) -> list[ExternalAccount_DB]:
+async def get_external_accounts(db: AsyncSession, skip: int = 0, limit: int = 100) -> list[ExternalAccount_DB]:
     """
     Get a list of external accounts.
 
@@ -76,10 +76,11 @@ def get_external_accounts(db: Session, skip: int = 0, limit: int = 100) -> list[
     :param int limit: The maximum number of items to return (default is 100).
     :return list[ExternalAccount_DB]: A list of external account model objects.
     """
-    return db.query(ExternalAccount_DB).offset(skip).limit(limit).all()
+    result = await db.execute(select(ExternalAccount_DB).offset(skip).limit(limit))
+    return result.unique().scalars().all()
 
 
-def get_nb_external_accounts(db: Session) -> int:
+async def get_nb_external_accounts(db: AsyncSession) -> int:
     """
     Get the number of external accounts.
 
@@ -88,10 +89,12 @@ def get_nb_external_accounts(db: Session) -> int:
     :param Session db: The current database session.
     :return int: The number of external accounts.
     """
-    return db.query(ExternalAccount_DB).count()
+    result = await db.execute(text(f"SELECT COUNT(*) FROM {ExternalAccount_DB.__tablename__}"))
+    return int(result.unique().scalar())
 
 
-def get_external_accounts_list(db: Session, external_account_id_list: list[str]) -> list[ExternalAccount_DB]:
+async def get_external_accounts_list(db: AsyncSession,
+                                     external_account_id_list: list[str]) -> list[ExternalAccount_DB]:
     """
     Get a list of external accounts by their IDs.
 
@@ -101,16 +104,16 @@ def get_external_accounts_list(db: Session, external_account_id_list: list[str])
     :param list[str] external_account_id_list: The IDs of the external accounts to get.
     :return list[ExternalAccount_DB]: A list of external account model objects.
     """
-    return db.query(ExternalAccount_DB).filter(
-        ExternalAccount_DB.external_account_id.in_(external_account_id_list)
-    ).all()
+    result = await db.execute(select(ExternalAccount_DB).where(
+        ExternalAccount_DB.external_account_id.in_(external_account_id_list)))
+    return result.unique().scalars().all()
 
 
 # ------- Update ------- #
 
 
-def update_external_account(
-    db: Session,
+async def update_external_account(
+    db: AsyncSession,
     db_external_account: ExternalAccount_DB,
     external_account: ExternalAccountBase
 ) -> ExternalAccount_DB:
@@ -135,15 +138,15 @@ def update_external_account(
     for field, value in external_account_data.items():
         setattr(db_external_account, field, value)
     db.add(db_external_account)
-    db.commit()
-    db.refresh(db_external_account)
+    await db.commit()
+    await db.refresh(db_external_account)
     return db_external_account
 
 
 # ------- Delete ------- #
 
 
-def delete_external_account(db: Session, db_external_account: ExternalAccount_DB) -> bool:
+async def delete_external_account(db: AsyncSession, db_external_account: ExternalAccount_DB) -> bool:
     """
     Delete an external account from the database.
 
@@ -156,6 +159,6 @@ def delete_external_account(db: Session, db_external_account: ExternalAccount_DB
         object to delete.
     :return bool: True if the operation is successful.
     """
-    db.delete(db_external_account)
-    db.commit()
+    await db.delete(db_external_account)
+    await db.commit()
     return True

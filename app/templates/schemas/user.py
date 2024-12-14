@@ -1,6 +1,6 @@
 """
 This module contains the pydantic models for the users of the application.
-The models include the UserCreate, UserRead, UserReadDB, UserUpdate and UserReadWithFiles models.
+The models include the UserCreate, UserRead, UserUpdate and UserReadWithFiles models.
 """
 from datetime import datetime, timezone
 from typing import Literal, Self
@@ -8,7 +8,6 @@ from fastapi.exceptions import HTTPException
 from pydantic import BaseModel, ConfigDict, computed_field, Field, field_validator, model_validator
 
 from app.core.config import settings
-from app.core.db import get_db
 from app.core.permissions import UserRole
 from app.core.utils import generate_random_letters, validate_email, validate_password, validate_username
 from app.core.security import hash_password
@@ -88,7 +87,7 @@ class UserBase(BaseModel):
         return value
 
 
-class UserReadDB(UserBase):
+class UserRead(UserBase):
     """Model for a user in the database."""
     uuid: str
     email_verified: bool
@@ -99,36 +98,15 @@ class UserReadDB(UserBase):
     created_at: int
     updated_at: int
     user_history: list[UserHistory] = Field(default=[])
+    external_accounts: list[ExternalAccountBase]
+    files: list[FileReadDB]
 
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserRead(UserReadDB):
-    """Model for a user in the API."""
     @computed_field
     def picture_url(self) -> str:
         """The URL of the user's profile picture."""
         return f"{settings.BASE_URL}{settings.API_STR}/user/{self.uuid}/image"
 
-    @computed_field
-    def external_accounts(self) -> list[ExternalAccountBase]:
-        """A list of third-party accounts associated with the user."""
-        from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
-        db = next(get_db())
-        try:
-            return get_user(db, self.uuid, raise_error=False).external_accounts
-        finally:
-            db.close()
-
-    @computed_field
-    def files(self) -> list[FileReadDB]:
-        """A list of files associated with the user."""
-        from app.db_objects.user import get_user   # pylint: disable=import-outside-toplevel
-        db = next(get_db())
-        try:
-            return get_user(db, self.uuid, raise_error=False).files
-        finally:
-            db.close()
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCreate(UserBase):

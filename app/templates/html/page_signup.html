@@ -458,7 +458,7 @@
   }
 
   function toSignIn() {
-    redirect_uri("{{ FRONTEND_URL }}/login");
+    window.location.href = "{{ url_for('_login') }}";
   }
 </script>
 

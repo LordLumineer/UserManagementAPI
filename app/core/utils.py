@@ -15,6 +15,7 @@ import random
 import re
 import string
 import uuid
+import aiofiles
 from email_validator import EmailNotValidError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
@@ -60,7 +61,7 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
         if email == "admin@example.com":
             return email
         email_info = email_validation(
-            email, check_deliverability=check_deliverability)
+            email, check_deliverability=check_deliverability and settings.EMAIL_METHOD != "none")
     except EmailNotValidError as e:
         if not raise_error:
             logger.debug(f"Invalid email format: {email} | {e}")
@@ -235,7 +236,12 @@ base_context = {
 }
 
 
-def render_html_response(template_name: str, request: Request, context: dict = None) -> str:
+async def render_html_response(
+    template_name: str,
+    request: Request,
+    context: dict = None,
+    status_code: int = 200
+) -> str:
     """
     Renders an HTML template with the given name and context.
 
@@ -245,7 +251,12 @@ def render_html_response(template_name: str, request: Request, context: dict = N
     :return str: The rendered HTML as a string.
     """
     context = dict(base_context, **context or {})
-    return templates.TemplateResponse(request=request, name=template_name, context=context)
+    return templates.TemplateResponse(
+        request=request,
+        name=template_name,
+        context=context,
+        status_code=status_code
+    )
 
 
 def render_html_template(html_content: str, context: dict = None) -> str:
@@ -265,6 +276,7 @@ def app_path(path: str) -> str:
     return os.path.normpath(os.path.join(settings.APP_ROOT_DIR, path))
 
 # ----- UTILS ----- #
+
 
 def remove_file(file_path: str):
     """
@@ -376,7 +388,7 @@ def get_info_from_request(request: Request = None):
     }
 
 
-def detect_docker():
+async def detect_docker():
     """Detects if the code is currently running inside a docker container.
 
     Two methods are used to detect if the code is running inside a docker container:
@@ -388,16 +400,14 @@ def detect_docker():
     """
     if os.path.exists('/.dockerenv'):
         return True
-    try:
-        with open('/proc/self/cgroup', 'r', encoding='utf-8') as f:
-            if 'docker' in f.read():
+    if os.path.exists('/proc/self/cgroup'):
+        async with aiofiles.open('/proc/self/cgroup', 'r', encoding='utf-8') as f:
+            if 'docker' in await f.read():
                 return True
-    except FileNotFoundError:
-        pass
     return False
 
 
-def get_machine_info():
+async def get_machine_info():
     """
     Gets the information about the machine the application is running on.
 
@@ -433,7 +443,7 @@ def get_machine_info():
         "processor": platform.processor(),
         "cpu_count": os.cpu_count(),
         "python_version": platform.python_version(),
-        "is_docker": detect_docker(),
+        "is_docker": await detect_docker(),
         "uname": platform.uname()._asdict(),
     }
     match machine["system"]:

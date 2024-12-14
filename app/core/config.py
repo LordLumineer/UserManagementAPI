@@ -1,4 +1,5 @@
 """This module contains the settings for the application. It also sets up the logger."""
+import asyncio
 import sys
 import os
 from typing import Literal, Self
@@ -34,8 +35,9 @@ class _Settings(BaseSettings):
     LOG_LEVEL: Literal['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
         default='INFO'
     )
-    LOG_FILE_LEVEL: Literal['NONE', 'TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
-        default='NONE'
+    LOG_FILE_ENABLED: bool = Field(default=False)
+    LOG_FILE_LEVEL: Literal['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
+        default='WARNING'
     )
     LOG_FILE_ROTATION: int | str = Field(default=7)
     LOG_FILE_RETENTION: int | str = Field(default=30)
@@ -53,18 +55,32 @@ class _Settings(BaseSettings):
 
     APP_ROOT_DIR: str = app_root_dir
 
-    FEATURE_FLAGS_FILE: str = Field(
-        default=os.path.normpath(os.path.join(
-            app_root_dir, "data", "feature_flags.json"
-        )),
-    )
+    FEATURE_FLAGS_FILE: str = Field(default="feature_flags.json")
 
-    DATABASE_URI: str = f"sqlite:///{os.path.normpath(
+    DATABASE_URI: str = f"sqlite+aiosqlite:///{os.path.normpath(
         os.path.join(app_root_dir, "data", "Project.db"))}"
 
-    RATE_LIMITER_ENABLED: bool = Field(default=False)
-    RATE_LIMITER_MAX_REQUESTS: int = Field(default=5)
-    RATE_LIMITER_WINDOW_SECONDS: int = Field(default=10)
+    PROTECTED_INTERACTIVE_DOCS: bool = Field(default=True)
+
+    # pylint: disable=C0301
+    # NOTE: Do not reduce the amount too much as some edge cases cascade in multiple requests
+    # E.G: http://localhost/api/oauth/<provider>?redirect_uri=http://localhost/interactive-docs
+    #
+    # "GET /api/oauth/<provider> HTTP/1.1"                                                      302 Found
+    # "GET /api/oauth/<provider>/callback?code=<code>&scope=<scopes>&state=<state> HTTP/1.1"    200 OK
+    # "GET /interactive-docs HTTP/1.1"                                                          307 Temporary Redirect
+    # "GET /signin HTTP/1.1"                                                                    200 OK
+    # "GET /api/auth/token/validate HTTP/1.1"                                                   200 OK
+    # "GET /redirect_uri HTTP/1.1"                                                              307 Temporary Redirect
+    # "GET /interactive-docs?token=<TOKEN> HTTP/1.1"                                            307 Temporary Redirect
+    # "GET /docs HTTP/1.1"                                                                      200 OK
+    # "GET /docs HTTP/1.1"                                                                      200 OK
+    # "GET /openapi.json HTTP/1.1"                                                              200 OK
+    # pylint: enable=C0301
+
+    RATE_LIMITER_ENABLED: bool = Field(default=True)
+    RATE_LIMITER_MAX_REQUESTS: int = Field(default=300)
+    RATE_LIMITER_WINDOW_SECONDS: int = Field(default=900)
     REDIS_URL: str | None = None
 
     POSTGRES_SERVER: str | None = None
@@ -106,7 +122,7 @@ class _Settings(BaseSettings):
     def MACHINE(self) -> dict:  # pylint: disable=C0103
         """The machine the application is running on."""
         from app.core.utils import get_machine_info  # pylint: disable=C0415
-        return get_machine_info()
+        return asyncio.run(get_machine_info())
 
     @computed_field
     def REPOSITORY(self) -> dict:  # pylint: disable=C0103
@@ -145,6 +161,13 @@ class _Settings(BaseSettings):
         #         port=self.POSTGRES_PORT,
         #         path=self.POSTGRES_DB,
         #     )
+
+    @computed_field
+    def FEATURE_FLAGS_PATH(self) -> str:  # pylint: disable=C0103
+        """The path to the feature flags file."""
+        return os.path.normpath(os.path.join(
+            app_root_dir, "data", self.FEATURE_FLAGS_FILE
+        ))
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
@@ -227,7 +250,7 @@ logger.add(
     diagnose=True,
 )
 
-if settings.LOG_FILE_LEVEL != "NONE":
+if settings.LOG_FILE_ENABLED:
     logger.add(
         os.path.normpath(os.path.join(
             app_root_dir, "data", "logs",

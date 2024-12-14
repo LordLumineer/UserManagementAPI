@@ -1,10 +1,10 @@
 """This module contains functions for CRUD operations on OAuth tokens from external services."""
 from fastapi.exceptions import HTTPException
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import logger
-from app.core.db import get_db
+from app.core.db import sessionmanager
 from app.db_objects.db_models import OAuthToken as OAuthToken_DB
 from app.templates.schemas.oauth import OAuthTokenBase
 
@@ -15,7 +15,7 @@ from app.templates.schemas.oauth import OAuthTokenBase
 # ------- Create ------- #
 
 
-def create_oauth_token(db: Session, token: OAuthTokenBase) -> OAuthToken_DB:
+async def create_oauth_token(db: AsyncSession, token: OAuthTokenBase) -> OAuthToken_DB:
     """
     Create a new OAuth token and link it to a user.
 
@@ -30,15 +30,20 @@ def create_oauth_token(db: Session, token: OAuthTokenBase) -> OAuthToken_DB:
     """
     db_token = OAuthToken_DB(**token.model_dump())
     db.add(db_token)
-    db.commit()
-    db.refresh(db_token)
+    await db.commit()
+    await db.refresh(db_token)
     return db_token
 
 
 # ------- Read ------- #
 
 
-def get_oauth_token(db: Session, provider: str, user_uuid: str, raise_error: bool = True) -> OAuthToken_DB:
+async def get_oauth_token(
+    db: AsyncSession,
+    provider: str,
+    user_uuid: str,
+    raise_error: bool = True
+) -> OAuthToken_DB:
     """
     Get an OAuth token by provider name for a user.
 
@@ -49,10 +54,11 @@ def get_oauth_token(db: Session, provider: str, user_uuid: str, raise_error: boo
     :return OAuthToken_DB: The retrieved OAuth token model object.
     :raises HTTPException: If the token is not found and `raise_error` is `True`.
     """
-    db_token = db.query(OAuthToken_DB).filter(
+    result = await db.execute(select(OAuthToken_DB).filter(
         OAuthToken_DB.provider == provider,
         OAuthToken_DB.user_uuid == user_uuid
-    ).first()
+    ))
+    db_token = result.unique().scalars().first()
     if not db_token and raise_error:
         raise HTTPException(status_code=404, detail="Token not found")
     return db_token
@@ -61,7 +67,7 @@ def get_oauth_token(db: Session, provider: str, user_uuid: str, raise_error: boo
 # ------- Update ------- #
 
 
-def update_oauth_token(db: Session, db_token: OAuthToken_DB, token: OAuthTokenBase) -> OAuthToken_DB:
+async def update_oauth_token(db: AsyncSession, db_token: OAuthToken_DB, token: OAuthTokenBase) -> OAuthToken_DB:
     """
     Update an existing OAuth token in the database.
 
@@ -79,15 +85,15 @@ def update_oauth_token(db: Session, db_token: OAuthToken_DB, token: OAuthTokenBa
     for field, value in token_data.items():
         setattr(db_token, field, value)
     db.add(db_token)
-    db.commit()
-    db.refresh(db_token)
+    await db.commit()
+    await db.refresh(db_token)
     return db_token
 
 
 # ------- Delete ------- #
 
 
-def delete_oauth_token(db: Session, oauth_token: OAuthToken_DB) -> bool:
+async def delete_oauth_token(db: AsyncSession, oauth_token: OAuthToken_DB) -> bool:
     """
     Delete an OAuth token from the database.
 
@@ -99,15 +105,15 @@ def delete_oauth_token(db: Session, oauth_token: OAuthToken_DB) -> bool:
     :param OAuthToken_DB oauth_token: The OAuth token model object to delete.
     :return bool: True if the operation is successful.
     """
-    db.delete(oauth_token)
-    db.commit()
+    await db.delete(oauth_token)
+    await db.commit()
     return True
 
 
 # ----- authlib OAuth client functions ----- #
 
 
-def fetch_token(provider, request) -> dict:
+async def fetch_token(provider, request) -> dict:
     """
     Fetch an OAuth token from the database.
 
@@ -118,21 +124,22 @@ def fetch_token(provider, request) -> dict:
     :param request: The request object
     :return: The OAuth token as a dictionary
     """
-    db = next(get_db())
-    try:
-        item = db.query(OAuthToken_DB).filter(
+    async with sessionmanager.session() as db:
+        user_uuid = request.session.get("user_uuid")
+        if not user_uuid:
+            return None
+        result = await db.execute(select(OAuthToken_DB).filter(
             OAuthToken_DB.provider == provider,
-            OAuthToken_DB.user_uuid == request.session.get("user_uuid")
-        ).first()
+            OAuthToken_DB.user_uuid == user_uuid
+        ))
+        item = result.unique().scalar()
         if not item:
             return None
         token = OAuthTokenBase(**item)
-    finally:
-        db.close()
     return token.to_token()
 
 
-def update_token(provider, token, refresh_token=None, access_token=None):
+async def update_token(provider, token, refresh_token=None, access_token=None):
     """
     Update an OAuth token in the database.
 
@@ -146,18 +153,19 @@ def update_token(provider, token, refresh_token=None, access_token=None):
     :return: None
     """
     logger.debug(f"Updating token: {provider}")
-    db = next(get_db())
-    try:
+    async with sessionmanager.session() as db:
         if refresh_token:
-            item = db.query(OAuthToken_DB).filter(
+            result = await db.execute(select(OAuthToken_DB).filter(
                 OAuthToken_DB.provider == provider,
                 OAuthToken_DB.refresh_token == refresh_token
-            ).first()
+            ))
+            item = result.unique().scalar()
         elif access_token:
-            item = db.query(OAuthToken_DB).filter(
+            result = await db.execute(select(OAuthToken_DB).filter(
                 OAuthToken_DB.provider == provider,
                 OAuthToken_DB.access_token == access_token
-            ).first()
+            ))
+            item = result.unique().scalar()
         else:
             return
 
@@ -166,10 +174,5 @@ def update_token(provider, token, refresh_token=None, access_token=None):
         item.refresh_token = token.get('refresh_token')
         item.expires_at = token['expires_at']
         db.add(item)
-        db.commit()
-        db.refresh(item)
-    except IntegrityError as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
+        await db.commit()
+        await db.refresh(item)

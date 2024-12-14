@@ -9,11 +9,11 @@ from unittest.mock import MagicMock, patch
 import bcrypt
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.main import app
 from app.core.config import settings  # , logger
-# from app.core.db import get_db
+# from app.core.db import get_async_db
 
 
 @pytest.fixture(scope="module")
@@ -26,7 +26,7 @@ def client():
 @pytest.fixture
 def mock_db(mocker):
     """Mocks the database connection or operations if needed."""
-    db_mock = mocker.patch('app.core.db.get_db')
+    db_mock = mocker.patch('app.core.db.get_async_db')
     yield db_mock
 
 
@@ -50,7 +50,7 @@ def mock_logger():
 @pytest.fixture
 def mock_db_session():
     """Mock the SQLAlchemy database session."""
-    session = MagicMock(spec=Session)
+    session = MagicMock(spec=AsyncSession)
     return session
 
 

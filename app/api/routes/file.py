@@ -3,9 +3,9 @@ from fastapi import APIRouter, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends, File, Query
 from fastapi.responses import FileResponse, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.core.permissions import has_permission
 from app.db_objects.file import (
     create_file, update_file, delete_file,
@@ -23,11 +23,11 @@ router = APIRouter()
 
 
 @router.post("/", response_model=FileReadDB)
-def new_file(
+async def new_file(
     description: str | None = Query(default=None),
     file: UploadFile = File(...),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Create a new file.
@@ -49,7 +49,7 @@ def new_file(
         The new file object.
     """
     has_permission(current_user, "file", "create")
-    return create_file(
+    return await create_file(
         db,
         FileCreate(
             description=description,
@@ -63,10 +63,10 @@ def new_file(
 
 
 @router.get("/", response_model=list[FileReadDB])
-def read_files(
+async def read_files(
     skip: int = Query(default=0), limit: int = Query(default=100),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a list of files
@@ -88,14 +88,14 @@ def read_files(
         A list of file objects.
     """
     has_permission(current_user, "file", "read")
-    return get_files(db, skip=skip, limit=limit)
+    return await get_files(db, skip=skip, limit=limit)
 
 
 @router.get("/files", response_model=list[FileRead])
-def read_files_list(
+async def read_files_list(
     files_ids: list[int] = Query(default=[]),
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a list of files based on their IDs
@@ -115,13 +115,13 @@ def read_files_list(
         A list of file objects.
     """
     has_permission(current_user, "file", "read")
-    return get_files_list(db, files_ids)
+    return await get_files_list(db, files_ids)
 
 
 @router.get("/count", response_model=int)
-def read_files_number(
+async def read_files_number(
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get the number of files.
@@ -137,14 +137,14 @@ def read_files_number(
         The number of files.
     """
     has_permission(current_user, "file", "read")
-    return get_nb_files(db)
+    return await get_nb_files(db)
 
 
 @router.get("/{file_id}", response_model=FileRead)
-def read_file(
+async def read_file(
     file_id: int,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get a file by its ID.
@@ -161,17 +161,16 @@ def read_file(
     FileRead
         The file object.
     """
-    # return get_file(db, file_id)
-    file = get_file(db, file_id)
+    file = await get_file(db, file_id)
     has_permission(current_user, "file", "read", file)
     return file
 
 
 @router.get("/{file_id}/file", response_class=FileResponse)
-def read_file_file(
+async def read_file_file(
     file_id: int,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Get the file content by its ID.
@@ -188,7 +187,7 @@ def read_file_file(
     FileResponse
         The file content.
     """
-    db_file = get_file(db, file_id)
+    db_file = await get_file(db, file_id)
     has_permission(current_user, "file", "read", db_file)
     if db_file.file_type in ['png', 'jpg', 'jpeg', 'gif', 'bmp']:
         return FileResponse(
@@ -203,11 +202,11 @@ def read_file_file(
 # ------- Update ------- #
 
 @router.patch("/{file_id}", response_model=FileReadDB)
-def patch_file(
+async def patch_file(
     file_id: int,
     file: FileUpdate,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Update a file by its ID.
@@ -228,18 +227,18 @@ def patch_file(
     FileReadDB
         The updated file object.
     """
-    db_file = get_file(db, file_id)
+    db_file = await get_file(db, file_id)
     has_permission(current_user, "file", "update", db_file)
-    return update_file(db, db_file, file)
+    return await update_file(db, db_file, file)
 
 # ------- Delete ------- #
 
 
 @router.delete("/{file_id}", response_class=Response)
-def remove_file(
+async def remove_file(
     file_id: int,
     current_user: User_DB = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Delete a file by its ID.
@@ -259,8 +258,8 @@ def remove_file(
         A response with a status code of 200 if the file is deleted successfully, 
         or a response with a status code of 400 or 401 if there is an error.
     """
-    db_file = get_file(db, file_id)
+    db_file = await get_file(db, file_id)
     has_permission(current_user, "file", "delete", db_file)
-    if not delete_file(db, db_file):
+    if not await delete_file(db, db_file):
         raise HTTPException(status_code=400, detail="Failed to delete file")
     return Response(status_code=200)

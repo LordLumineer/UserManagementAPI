@@ -16,14 +16,28 @@
     "cSpell.words": [
         "APIKEY",
         "cachetools",
+        "changeme",
         "itsdangerous",
+        "joinedload",
+        "jsonable",
         "loguru",
         "mailjet",
         "psycopg",
         "pyotp",
         "qrcode",
         "repr",
+        "sessionmaker",
+        "sessionmanager",
         "Tesseract",
         "unban"
-    ]
+    ],
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "${workspaceFolder:UserManagementAPI_DEV}/data/Project.db",
+            "name": "Project"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
 }

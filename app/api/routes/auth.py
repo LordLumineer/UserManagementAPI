@@ -14,11 +14,10 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.security import OAuth2PasswordRequestFormStrict
 from pydantic import BaseModel
 import qrcode
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.db import get_db
+from app.core.db import get_async_db
 from app.core.email import send_reset_password_email
 from app.db_objects.user import (
     get_current_user, get_user, get_user_by_email, get_user_by_username,
@@ -38,10 +37,10 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
-def login(
+async def login(
     request: Request,
     form_data: OAuth2PasswordRequestFormStrict = Depends(),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Login user and return an access token.
@@ -56,7 +55,7 @@ def login(
     Token
         access token with user uuid and roles.
     """
-    user = authenticate_user(
+    user = await authenticate_user(
         db=db, username=form_data.username, password=form_data.password, request=request)
     return create_access_token(
         sub=TokenData(
@@ -94,9 +93,9 @@ class _SignupForm(BaseModel):
 
 
 @router.post("/register", response_model=Token)
-def register(
+async def register(
     signup_form: _SignupForm = Form(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Register a new user and return an access token.
@@ -123,12 +122,12 @@ def register(
     if signup_form.password != signup_form.confirm_password:
         raise HTTPException(
             status_code=400, detail="Passwords do not match")
-    user_new = create_user(db,
-                           UserCreate(
-                               username=signup_form.username,
-                               email=signup_form.email,
-                               password=signup_form.password
-                           ))
+    user_new = await create_user(db,
+                                 UserCreate(
+                                     username=signup_form.username,
+                                     email=signup_form.email,
+                                     password=signup_form.password
+                                 ))
     return create_access_token(
         sub=TokenData(
             purpose="login",
@@ -138,10 +137,10 @@ def register(
 
 
 @router.post("/OTP", response_model=Token)
-def login_otp(
+async def login_otp(
     request: Request,
     otp_code: str | int = Query(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Verify the OTP code and return an access token.
@@ -171,7 +170,7 @@ def login_otp(
     token_data = decode_access_token(otp_token)
     if token_data.purpose != "OTP":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    db_user = get_user(db, token_data.uuid)
+    db_user = await get_user(db, token_data.uuid)
     if db_user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
     if db_user.otp_method == "none":
@@ -192,10 +191,11 @@ def login_otp(
 
 
 @router.patch("/OTP/{method}", response_model=UserRead)
-def change_otp_method(
+async def change_otp_method(
     method: Literal['authenticator', 'email', 'none'],
     otp_code: str | int = Query(...),
-    current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: User_DB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Change the OTP method for the current user.
@@ -233,13 +233,14 @@ def change_otp_method(
         ):
             raise HTTPException(status_code=401, detail="Invalid OTP code")
     db.add(current_user)
-    db.commit()
-    db.refresh(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+
     return current_user
 
 
 @router.get("/QR", response_class=Response)
-def get_otp_qr(current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_otp_qr(current_user: User_DB = Depends(get_current_user), db: AsyncSession = Depends(get_async_db)):
     """
     Generate a QR code with the user's OTP URI and return it as an image.
 
@@ -253,7 +254,7 @@ def get_otp_qr(current_user: User_DB = Depends(get_current_user), db: Session = 
     Response
         An HTTP response with the QR code image.
     """
-    uri, secret = generate_otp(
+    uri, secret = await generate_otp(
         db, current_user.uuid, current_user.username, current_user.otp_secret)
     qr = qrcode.make(uri)
     img_io = BytesIO()
@@ -267,7 +268,7 @@ def get_otp_qr(current_user: User_DB = Depends(get_current_user), db: Session = 
 
 
 @router.get("/email/verify", response_class=RedirectResponse)
-def verify_email(token: str, db: Session = Depends(get_db)):
+async def verify_email(token: str, db: AsyncSession = Depends(get_async_db)):
     """
     Verify a user's email address by its verification token.
 
@@ -291,10 +292,10 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     token_data = decode_access_token(token)
     if token_data.purpose != "email-verification":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    db_user = get_user_by_email(db, token_data.email)
+    db_user = await get_user_by_email(db, token_data.email)
     if db_user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    update_user(db, db_user, UserUpdate(email_verified=True, action=UserHistory(
+    await update_user(db, db_user, UserUpdate(email_verified=True, action=UserHistory(
         action="email-verified",
         description=f"Email {db_user.email} verified",
         by=db_user.username
@@ -303,11 +304,11 @@ def verify_email(token: str, db: Session = Depends(get_db)):
 
 
 @router.get("/forgot-password/request", response_class=Response)
-def forgot_password_request(
+async def forgot_password_request(
     request: Request,
     username: str = Query(...),
     email: str = Query(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Request a password reset for the given username and email.
@@ -332,11 +333,11 @@ def forgot_password_request(
         401 Unauthorized if the user is not authorized to request a password reset.
     """
     email = validate_email(email)
-    db_user = get_user_by_username(db, username)
+    db_user = await get_user_by_username(db, username)
     if db_user.email != email or username != db_user.username or not db_user.is_active:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    db_user = update_user(db, db_user, UserUpdate(
+    db_user = await update_user(db, db_user, UserUpdate(
         is_active=False,
         action=UserHistory(
             action="Forgot password request",
@@ -351,15 +352,15 @@ def forgot_password_request(
             uuid=db_user.uuid,
             username=db_user.username
         ))
-    return send_reset_password_email(db_user.email, token, "/forgot-password/reset-form", request)
+    return await send_reset_password_email(db_user.email, token, "/forgot-password/reset-form", request)
 
 
 @router.get("/forgot-password/reset", response_class=Response)
-def forgot_password_reset(
+async def forgot_password_reset(
     new_password: str = Form(...),
     confirm_password: str = Form(...),
     authorization_header: str = Header(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Reset the user's password using a reset token.
@@ -391,7 +392,7 @@ def forgot_password_reset(
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "reset-password":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    db_user = get_user_by_username(db, token_data.username)
+    db_user = await get_user_by_username(db, token_data.username)
     if db_user.uuid != token_data.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
     validate_password(new_password)
@@ -402,13 +403,13 @@ def forgot_password_reset(
         raise HTTPException(
             status_code=400, detail="New password cannot be the same as old password")
 
-    db_user = update_user(db, db_user, UserUpdate(
+    db_user = await update_user(db, db_user, UserUpdate(
         password=new_password,
         is_active=True,
         action=UserHistory(
             action="Forgot password Reset",
             description=f"The user ({
-                                db_user.username}) has Successfully reset their forgotten password.",
+                db_user.username}) has Successfully reset their forgotten password.",
             by="<logged out user>"
         )))
     return Response(content="Password reset successful", status_code=200)
@@ -421,7 +422,7 @@ class _ResetPasswordForm(BaseModel):
 
 
 @router.get("/password/reset", response_class=Response)
-def request_password_request(
+async def request_password_request(
     request: Request,
     current_user: User_DB = Depends(get_current_user)
 ):
@@ -449,14 +450,15 @@ def request_password_request(
             uuid=current_user.uuid,
             username=current_user.username
         ))
-    return send_reset_password_email(current_user.email, token, "/reset-password", request)
+    return await send_reset_password_email(current_user.email, token, "/reset-password", request)
 
 
 @router.patch("/password/reset", response_class=Response)
-def reset_password_reset(
+async def reset_password_reset(
     reset_password_form: _ResetPasswordForm = Form(...),
     authorization_header: str = Header(...),
-    current_user: User_DB = Depends(get_current_user), db: Session = Depends(get_db)
+    current_user: User_DB = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
 ):
     """
     Reset the password of the current user.
@@ -489,7 +491,7 @@ def reset_password_reset(
     token_data = decode_access_token(authorization_header)
     if token_data.purpose != "reset-password":
         raise HTTPException(status_code=401, detail="Unauthorized")
-    db_user = get_user_by_username(db, token_data.username)
+    db_user = await get_user_by_username(db, token_data.username)
     if db_user.uuid != token_data.uuid or db_user.uuid != current_user.uuid:
         raise HTTPException(status_code=401, detail="Unauthorized")
     validate_password(reset_password_form.new_password)
@@ -501,7 +503,7 @@ def reset_password_reset(
             status_code=400, detail="New password cannot be the same as old password")
     if not verify_password(reset_password_form.old_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid password")
-    update_user(db, current_user.uuid, UserUpdate(
+    await update_user(db, current_user.uuid, UserUpdate(
         password=reset_password_form.new_password,
         action=UserHistory(
             action="Password Reset",
