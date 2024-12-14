@@ -292,7 +292,7 @@ async def read_users_number(
 
 
 @router.get("/me", response_model=UserRead)
-def read_users_me(current_user: User_DB = Depends(get_current_user)):
+async def read_users_me(current_user: User_DB = Depends(get_current_user)):
     """
     Get the current user.
 
