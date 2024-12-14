@@ -332,7 +332,7 @@ async def init_default_user() -> None:
     - Email verified: True
     - OTP secret: changeme
 
-    A warning is logged with the details of the default user, 
+    A warning is logged with the details of the default user,
     asking the user to change the default password and email after first login.
 
     If there are users in the database, do nothing.

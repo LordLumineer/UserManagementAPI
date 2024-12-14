@@ -235,6 +235,7 @@ async def change_otp_method(
     db.add(current_user)
     await db.commit()
     await db.refresh(current_user)
+
     return current_user
 
 

@@ -177,6 +177,7 @@ async def get_async_db():
         yield session
 
 
+
 async def run_migrations() -> None:
     """
     Run Alembic migrations to the latest version.
