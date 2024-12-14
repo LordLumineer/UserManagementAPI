@@ -227,9 +227,7 @@ async def oauth_callback(
             user_uuid=db_user.uuid
         )
     db_token = await get_oauth_token(db, provider, db_user.uuid, raise_error=False)
-    # NOTE: UUID and Roles have to be set here because the session gets closed with the update / create token
-    user_uuid = db_user.uuid
-    user_roles = db_user.roles
+
     if db_token:
         await update_oauth_token(db, db_token, oauth_token)
     else:
@@ -237,8 +235,8 @@ async def oauth_callback(
     auth_token = create_access_token(
         sub=TokenData(
             purpose="login",
-            uuid=user_uuid,
-            roles=user_roles
+            uuid=db_user.uuid,
+            roles=db_user.roles
         ))
     redirect_uri = "/"
     uri_list = request.session.get("redirect_uri")
