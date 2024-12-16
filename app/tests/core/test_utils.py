@@ -3,7 +3,7 @@ from collections import namedtuple
 from io import BytesIO
 import os
 import subprocess
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
 from warnings import warn
 # import os
 # import platform
@@ -382,36 +382,43 @@ def test_get_info_from_request(client_host, mock_location, expected_result):
         result = get_info_from_request(mock_request)
         assert result == expected_result
 
-
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "exists_return_value, open_side_effect, expected_result",
+    "dockerenv_exists,cgroup_exists,cgroup_content,expected_result",
     [
-        # Case 1: '/.dockerenv' exists, so it should return True
-        (True, None, True),
-
-        # Case 2: '/.dockerenv' does not exist, but '/proc/self/cgroup'
-        # contains 'docker', so it should return True
-        (False, "1:cpu:/docker", True),
-
-        # Case 3: Neither '/.dockerenv' exists, nor 'docker'
-        # is found in '/proc/self/cgroup', should return False
-        (False, "1:cpu:/some_other_group", False),
-
-        # Case 4: '/.dockerenv' does not exist, and '/proc/self/cgroup'
-        # cannot be opened (FileNotFoundError), should return False
-        (False, FileNotFoundError, False)
-    ]
+        (True, False, "", True),  # /.dockerenv exists
+        (False, True, "random content docker random", True),  # /proc/self/cgroup exists and contains "docker"
+        (False, True, "random content", False),  # /proc/self/cgroup exists but does not contain "docker"
+        (False, False, "", False),  # Neither /.dockerenv nor /proc/self/cgroup exist
+    ],
 )
-async def test_detect_docker(exists_return_value, open_side_effect, expected_result):
-    with patch("os.path.exists", return_value=exists_return_value):
-        if open_side_effect == FileNotFoundError:
-            with patch("builtins.open", side_effect=open_side_effect):
-                result = await detect_docker()
-                assert result == expected_result
+async def test_detect_docker(dockerenv_exists, cgroup_exists, cgroup_content, expected_result):
+    with patch("os.path.exists") as mock_exists, \
+         patch("aiofiles.open") as mock_aiofiles_open:
+
+        # Mock os.path.exists behavior
+        mock_exists.side_effect = lambda path: (
+            dockerenv_exists if path == "/.dockerenv" else cgroup_exists
+        )
+
+        # Mock aiofiles.open behavior as an async context manager
+        mock_file = MagicMock()
+        mock_file.read = AsyncMock(return_value=cgroup_content)
+        mock_aiofiles_open.return_value.__aenter__.return_value = mock_file
+        mock_aiofiles_open.return_value.__aexit__.return_value = AsyncMock()
+
+        # Call the function
+        result = await detect_docker()
+        assert result == expected_result
+
+        # Assertions on the mocks
+        if dockerenv_exists:
+            mock_exists.assert_any_call("/.dockerenv")
+        if cgroup_exists:
+            mock_exists.assert_any_call("/proc/self/cgroup")
+            mock_aiofiles_open.assert_called_once_with("/proc/self/cgroup", "r", encoding="utf-8")
         else:
-            with patch("builtins.open", mock_open(read_data=open_side_effect)):
-                result = await detect_docker()
-                assert result == expected_result
+            mock_aiofiles_open.assert_not_called()
 
 
 FakeNamedTuple = namedtuple("FakeNamedTuple", ["key"])
@@ -421,6 +428,7 @@ FakeDataInput = namedtuple(
      "cpu_count", "python_version", "is_docker", "uname", "details"]
 )
 
+@pytest.mark.asyncio
 
 @pytest.mark.parametrize(
     "fake_data_input, expected_machine_info",
