@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-
+from app.core.config import settings
 from app.core.db import get_async_db
 from app.core.oauth import (
     get_external_account_info, get_user_info, oauth, oauth_clients_names,
@@ -128,13 +128,25 @@ async def oauth_callback(
 
     # Link External Account to Logged In User
     if is_link:
-        if await get_external_account(db, provider, user_info["id"]):
-            raise HTTPException(
-                status_code=409,
-                detail=f"This {
-                    provider} account is already linked to another user"
-            )
         db_user = await get_user(db, request.session.get("user_uuid"))
+        external_account = await get_external_account(
+            db, provider, user_info["id"], raise_error=False
+        )
+        if external_account:
+            if external_account.user_uuid != db_user.uuid:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This {
+                        provider} account is already linked to another user"
+                )
+            for ext_acc in db_user.external_accounts:
+                if ext_acc.provider == provider and ext_acc.external_account_id == user_info["id"]:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"This {
+                            provider} account is already linked to this user"
+                    )
+
         # Create Third Party Account
         await create_external_account(
             db,
@@ -159,6 +171,11 @@ async def oauth_callback(
             for email in user_info["emails"]:
                 db_user = await get_user_by_email(db, email, raise_error=False)
                 if db_user:
+                    if not db_user.email_verified and settings.EMAIL_METHOD != "none":
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Email {email} is not verified"
+                        )
                     # Create Third Party Account
                     await create_external_account(
                         db,
