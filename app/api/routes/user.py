@@ -7,7 +7,7 @@ from PIL import Image
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_async_db
-from app.db_objects.file import create_file, delete_file, get_file, link_file_user
+from app.db_objects.file import create_file, get_file, link_file_user
 from app.db_objects.user import (
     create_user, get_nb_users, get_user, update_user, delete_user,
     get_users, get_users_list, get_current_user,
@@ -116,7 +116,7 @@ async def new_user_image(
         if db_file:
             raise HTTPException(
                 status_code=400,
-                detail="A profile picture already exists for this user. Please delete it before uploading a new one."
+                detail="Picture already exists. Please delete it before uploading a new one."
             )
             # await delete_file(db, db_file)
     file_db = await create_file(db, new_file, file)

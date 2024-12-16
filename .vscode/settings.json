@@ -14,7 +14,10 @@
     "todo-tree.tree.disableCompactFolders": true,
     "todo-tree.tree.showBadges": true,
     "cSpell.words": [
+        "ABAC",
         "APIKEY",
+        "Authy",
+        "Bluesky",
         "cachetools",
         "changeme",
         "itsdangerous",

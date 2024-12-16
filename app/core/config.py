@@ -39,9 +39,10 @@ class _Settings(BaseSettings):
     LOG_FILE_LEVEL: Literal['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
         default='WARNING'
     )
-    LOG_FILE_ROTATION: int | str = Field(default=7)
+    LOG_FILE_ROTATION: int | str = Field(default=24)
     LOG_FILE_RETENTION: int | str = Field(default=30)
 
+    # NOTE: Do not change JWT_ALGORITHM, this can cause issues
     JWT_ALGORITHM: str = Field(default="HS256")
     JWT_SECRET_KEY: str = Field(default="changethis")
     JWT_EXP: int = Field(default=30)
@@ -57,27 +58,12 @@ class _Settings(BaseSettings):
 
     FEATURE_FLAGS_FILE: str = Field(default="feature_flags.json")
 
+    PROTECTED_INTERACTIVE_DOCS: bool = Field(default=True)
+
     DATABASE_URI: str = f"sqlite+aiosqlite:///{os.path.normpath(
         os.path.join(app_root_dir, "data", "Project.db"))}"
 
-    PROTECTED_INTERACTIVE_DOCS: bool = Field(default=True)
-
-    # pylint: disable=C0301
-    # NOTE: Do not reduce the amount too much as some edge cases cascade in multiple requests
-    # E.G: http://localhost/api/oauth/<provider>?redirect_uri=http://localhost/interactive-docs
-    #
-    # "GET /api/oauth/<provider> HTTP/1.1"                                                      302 Found
-    # "GET /api/oauth/<provider>/callback?code=<code>&scope=<scopes>&state=<state> HTTP/1.1"    200 OK
-    # "GET /interactive-docs HTTP/1.1"                                                          307 Temporary Redirect
-    # "GET /signin HTTP/1.1"                                                                    200 OK
-    # "GET /api/auth/token/validate HTTP/1.1"                                                   200 OK
-    # "GET /redirect_uri HTTP/1.1"                                                              307 Temporary Redirect
-    # "GET /interactive-docs?token=<TOKEN> HTTP/1.1"                                            307 Temporary Redirect
-    # "GET /docs HTTP/1.1"                                                                      200 OK
-    # "GET /docs HTTP/1.1"                                                                      200 OK
-    # "GET /openapi.json HTTP/1.1"                                                              200 OK
-    # pylint: enable=C0301
-
+    # NOTE: Do not reduce the amount too much, this can cause issues
     RATE_LIMITER_ENABLED: bool = Field(default=True)
     RATE_LIMITER_MAX_REQUESTS: int = Field(default=300)
     RATE_LIMITER_WINDOW_SECONDS: int = Field(default=900)
