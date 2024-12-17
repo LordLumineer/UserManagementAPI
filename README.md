@@ -17,20 +17,22 @@ logo....
     - [File Uploads](#file-uploads)
     - [3rd Party login](#3rd-party-login)
       - [Supported Providers](#supported-providers)
-  - [Requirements](#requirements)
   - [Deployment](#deployment)
     - [Environment Variables](#environment-variables)
     - [Docker](#docker)
     - [Local](#local)
+      - [Requirements](#requirements)
   - [Usage](#usage)
   - [Development](#development)
     - [Testing](#testing)
+      - [Testing Requirements](#testing-requirements)
       - [Coverage](#coverage)
       - [Linting](#linting)
       - [Load Testing](#load-testing)
       - [Documentation](#documentation)
     - [Useful Commands](#useful-commands)
   - [Credits](#credits)
+    - [Third-Party Libraries](#third-party-libraries)
   - [Note from the Creator](#note-from-the-creator)
   - [License](#license)
   - [Changelog](#changelog)
@@ -90,17 +92,16 @@ For more information you can read the [associated code](./app/api/routes/oauth.p
 
 #### Supported Providers
 
-- Bluesky / AtProto *(NOT IMPLEMENTED YET)*
+- Bluesky / AtProto *(NOT SUPPORTED YET)*
 - Discord
 - GitHub
 - Google
+- Reddit *(NOT SUPPORTED YET)*
 - Twitch
-- Twitter / X *(NOT IMPLEMENTED YET)*
+- Twitter / X *(NOT SUPPORTED YET)*
 
 ***WARNING:*** *Twitter integration is limited, you can link a twitter account to a local one with no issues then login with it, however first time login will fail.*
 *furthermore it is limited by the Twitter API own limitations*
-
-## Requirements
 
 ## Deployment
 
@@ -166,11 +167,19 @@ For the supported providers, refer to [Supported Providers](#supported-providers
 
 ### Local
 
+#### Requirements
+
+The project requires [Python](https://www.python.org) [3.13](https://www.python.org/downloads/release/python-3131) or higher.
+
 ## Usage
 
 ## Development
 
 ### Testing
+
+#### Testing Requirements
+
+In addition to the [Requirements](#requirements) for the deployment alone, the following packages are required:
 
 #### Coverage
 
@@ -213,10 +222,51 @@ coverage report | tee reports/coverage.txt
 
 ## Credits
 
+### Third-Party Libraries
+
+This project uses open-source third-party libraries listed above. Each library is subject to its own license terms (MIT, Apache-2.0, BSD-3-Clause, etc.).
+Refer to the respective library's documentation or repository for detailed license information.
+
+The project is powered by [FastAPI](https://fastapi.tiangolo.com).
+The database(s) are handled by [SQLAlchemy](https://docs.sqlalchemy.org/en/20/intro.html).
+The authentication is handled by [Authlib](https://docs.authlib.org/en/latest) with [ATProto](https://atproto.blue/en/latest) for Bluesky integration.
+
+Here's the list of the other libraries used in the project:
+
+- [aiofiles](https://github.com/Tinche/aiofiles)
+- [aiosqlite](https://aiosqlite.omnilib.dev/en/stable)
+- [Alembic](https://alembic.sqlalchemy.org/en/latest)
+- [APScheduler](https://github.com/agronholm/apscheduler)
+- [bcrypt](https://github.com/pyca/bcrypt)
+- [cachetools](https://github.com/tkem/cachetools)
+- [itsdangerous](https://itsdangerous.palletsprojects.com/en/stable)
+- [loguru](https://github.com/Delgan/loguru)
+- [mailjet_rest](https://github.com/mailjet/mailjet-apiv3-python)
+- [pillow](https://pillow.readthedocs.io/en/stable)
+- [psycopg](https://www.psycopg.org)
+- [pydantic](https://docs.pydantic.dev/latest)
+- [pyotp](https://pyauth.github.io/pyotp)
+- [qrcode](https://github.com/lincolnloop/python-qrcode)
+- [redis](https://github.com/redis/redis-py)
+
 ## Note from the Creator
 
 Thank your for reading everything. I am just a random developer. I don't do dev for a living it is just a hobby. There might still be some bugs, if you find any please let me know.
 
 ## License
+
+Copyright 2024 LordLumineer
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 ## Changelog

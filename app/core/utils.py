@@ -463,11 +463,11 @@ async def get_machine_info():
             }
         case "iOS" | "iPadOS":
             machine["details"] = {
-                "ios_ver": platform.ios_ver()._asdict()  # pylint: disable=E1101
+                "ios_ver": platform.ios_ver()._asdict()  # pylint: disable=E1101 (available since Python 3.13)
             }
         case "Android":
             machine["details"] = {
-                "android_ver": platform.android_ver()._asdict()  # pylint: disable=E1101
+                "android_ver": platform.android_ver()._asdict()  # pylint: disable=E1101 (available since Python 3.13)
             }
         case _:
             machine["details"] = {

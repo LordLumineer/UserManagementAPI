@@ -15,7 +15,10 @@
     "todo-tree.tree.showBadges": true,
     "cSpell.words": [
         "ABAC",
+        "aiofiles",
+        "aiosqlite",
         "APIKEY",
+        "asyncio",
         "Authy",
         "Bluesky",
         "cachetools",
@@ -31,6 +34,7 @@
         "repr",
         "sessionmaker",
         "sessionmanager",
+        "sqlalchemy",
         "Tesseract",
         "unban"
     ],
