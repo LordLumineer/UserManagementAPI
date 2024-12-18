@@ -26,11 +26,9 @@ class _Settings(BaseSettings):
     )
 
     PROJECT_NAME: str = Field(default="Project Name")
-    # Field(default="http://127.0.0.1:8000")  # .env
-    BASE_URL: str = Field(default="http://localhost")
+    BASE_URL: str = Field(default="http://localhost:8000")
     API_STR: str = Field(default="/api")
-    # Field(default="http://127.0.0.1:8000")
-    FRONTEND_URL: str = Field(default="http://localhost")
+    FRONTEND_URL: str | None = None
 
     LOG_LEVEL: Literal['TRACE', 'DEBUG', 'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'CRITICAL'] = Field(
         default='INFO'
@@ -56,6 +54,7 @@ class _Settings(BaseSettings):
 
     APP_ROOT_DIR: str = app_root_dir
 
+    FEATURE_FLAGS_ENABLED: bool = Field(default=False)
     FEATURE_FLAGS_FILE: str = Field(default="feature_flags.json")
 
     PROTECTED_INTERACTIVE_DOCS: bool = Field(default=True)
@@ -63,17 +62,17 @@ class _Settings(BaseSettings):
     DATABASE_URI: str = f"sqlite+aiosqlite:///{os.path.normpath(
         os.path.join(app_root_dir, "data", "Project.db"))}"
 
-    # NOTE: Do not reduce the amount too much, this can cause issues
-    RATE_LIMITER_ENABLED: bool = Field(default=True)
-    RATE_LIMITER_MAX_REQUESTS: int = Field(default=300)
-    RATE_LIMITER_WINDOW_SECONDS: int = Field(default=900)
-    REDIS_URL: str | None = None
-
     POSTGRES_SERVER: str | None = None
     POSTGRES_PORT: int | None = None
     POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str | None = None
     POSTGRES_DB: str | None = None
+
+    # NOTE: Do not reduce the amount too much, this can cause issues
+    RATE_LIMITER_ENABLED: bool = Field(default=True)
+    RATE_LIMITER_MAX_REQUESTS: int = Field(default=300)
+    RATE_LIMITER_WINDOW_SECONDS: int = Field(default=900)
+    REDIS_URL: str | None = None
 
     CONTACT_EMAIL: str | None = None  # "<no-contact-email>@<domain>"
     EMAIL_METHOD: Literal["none", "smtp", "mj"] = Field(default="none")
@@ -205,6 +204,25 @@ class _Settings(BaseSettings):
             return self
         logger.warning("EMAIL_METHOD will is set to 'none'.")
         self.EMAIL_METHOD = "none"  # pylint: disable=C0103
+        return self
+
+    @model_validator(mode="after")
+    def _define_frontend_url(self) -> Self:
+        self.FRONTEND_URL = self.FRONTEND_URL or self.BASE_URL
+        return self
+
+    @model_validator(mode="after")
+    def _validate_database_url(self) -> Self:
+        if self.DATABASE_URI is not None:
+            protocol = self.DATABASE_URI.split('://')[0]
+            match protocol:
+                case str(proto) if "postgresql" in proto:
+                    self.DATABASE_URI = "postgresql+psycopg://" + ('://'.join(self.DATABASE_URI.split('://')[1:]))
+                case str(proto) if "sqlite" in proto:
+                    self.DATABASE_URI = "sqlite+aiosqlite://" + ('://'.join(self.DATABASE_URI.split('://')[1:]))
+                case _:
+                    # Not a valid or yet supported database URI
+                    self.DATABASE_URI = None
         return self
 
 

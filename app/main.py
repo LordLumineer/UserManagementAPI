@@ -65,7 +65,8 @@ async def lifespan(app: FastAPI):  # pragma: no cover   # pylint: disable=unused
     for route in app.routes:
         if isinstance(route, APIRoute):
             app_endpoint_functions_name.append(route.endpoint.__name__.upper())
-    await load_feature_flags(app_endpoint_functions_name)
+    if settings.FEATURE_FLAGS_ENABLED:
+        await load_feature_flags(app_endpoint_functions_name)
     # Rate Limit
     if settings.RATE_LIMITER_ENABLED:
         redis_client = None
@@ -141,7 +142,9 @@ app.include_router(pages.router, tags=["PAGES"])
 # NOTE: The order of the middlewares is important
 # It's in reverse order of execution (Session->CORS->RateLimiter->FeatureFlag->RedirectUri)
 app.add_middleware(RedirectUriMiddleware)
-app.add_middleware(FeatureFlagMiddleware)
+
+if settings.FEATURE_FLAGS_ENABLED:
+    app.add_middleware(FeatureFlagMiddleware)
 
 if settings.RATE_LIMITER_ENABLED:
     app.add_middleware(

@@ -175,8 +175,6 @@ ROLES: RolesWithPermissions = {
                 other_user.uuid not in user.blocked_uuids and
                 other_user.is_active
             ),
-            # "update": True,
-            # "delete": True
         },
         "user_file": {
             "create": lambda user, other_user: user.uuid == other_user.uuid,
@@ -185,8 +183,8 @@ ROLES: RolesWithPermissions = {
             # "delete": True
         },
         "blocked_users": {
+            # "read" not needed as your get them when you get yourself
             "create": lambda user, other_user: user.uuid == other_user.uuid,
-            # "read": lambda user, other_user: user.uuid == other_user.uuid,
             "update": lambda user, other_user: user.uuid == other_user.uuid,
             "delete": lambda user, other_user: user.uuid == other_user.uuid,
         },

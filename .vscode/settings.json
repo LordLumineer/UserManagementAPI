@@ -15,14 +15,18 @@
     "todo-tree.tree.showBadges": true,
     "cSpell.words": [
         "ABAC",
+        "adminer",
         "aiofiles",
         "aiosqlite",
         "APIKEY",
+        "ASGI",
         "asyncio",
         "Authy",
         "Bluesky",
         "cachetools",
         "changeme",
+        "healthcheck",
+        "isready",
         "itsdangerous",
         "joinedload",
         "jsonable",
@@ -36,7 +40,8 @@
         "sessionmanager",
         "sqlalchemy",
         "Tesseract",
-        "unban"
+        "unban",
+        "venv"
     ],
     "sqltools.connections": [
         {
