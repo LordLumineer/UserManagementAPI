@@ -133,6 +133,7 @@ def test_decode_access_token_invalid_sub():
         }):
             decode_access_token("Wrong Sub", False)
 
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "existing_secret, expect_db_write",
@@ -212,19 +213,37 @@ def test_validate_otp(otp_method, expected):
         # User not found
         ("nonexistent@example.com", "password", None, HTTPException),
         # Incorrect password
-        ("user@example.com", "wrongpassword", {"hashed_password": "correcthash", "is_active": True, "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174000"}, HTTPException),
+        ("user@example.com", "wrongpassword", {"hashed_password": "correcthash", "is_active": True,
+         "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174000"}, HTTPException),
         # Inactive user without history
-        ("inactive@example.com", "password", {"hashed_password": "correcthash", "is_active": False, "user_history": [], "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174001"}, HTTPException),
+        ("inactive@example.com", "password", {"hashed_password": "correcthash", "is_active": False, "user_history": [
+        ], "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174001"}, HTTPException),
         # Inactive user with history
-        ("inactive_with_history@example.com", "password", {"hashed_password": "correcthash", "is_active": False, "user_history": ["Deactivated"], "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174002"}, HTTPException),
+        ("inactive_with_history@example.com", "password", {"hashed_password": "correcthash", "is_active": False, "user_history": [
+         "Deactivated"], "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174002"}, HTTPException),
         # OTP required
-        ("otpuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True, "otp_method": "email", "otp_secret": None, "uuid": "123e4567-e89b-12d3-a456-426614174003"}, HTTPException),
+        ("otpuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True,
+         "otp_method": "email", "otp_secret": None, "uuid": "123e4567-e89b-12d3-a456-426614174003"}, HTTPException),
         # Successful authentication without OTP
-        ("simpleuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True, "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174004"}, None),
+        ("simpleuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True,
+         "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174004"}, None),
     ],
 )
 async def test_authenticate_user(username, password, user_data, expected_exception):
     # Mock dependencies
+    """
+    Test the authenticate_user function with various scenarios.
+
+    Scenarios:
+    1. User not found
+    2. Incorrect password
+    3. Inactive user without history
+    4. Inactive user with history
+    5. OTP required
+    6. Successful authentication without OTP
+
+    This test also verifies that the expected functions are called with the expected arguments.
+    """
     db = AsyncMock()
     request = MagicMock(spec=Request)
     mock_get_user_by_email = AsyncMock()
@@ -235,11 +254,11 @@ async def test_authenticate_user(username, password, user_data, expected_excepti
 
     # Patch imported dependencies
     with patch("app.db_objects.user.get_user_by_email", mock_get_user_by_email), \
-         patch("app.db_objects.user.get_user_by_username", mock_get_user_by_username), \
-         patch("app.core.security.verify_password", mock_verify_password), \
-         patch("app.core.security.generate_otp", mock_generate_otp), \
-         patch("app.core.email.send_otp_email", mock_send_otp_email), \
-         patch("app.core.config.settings", MagicMock(CONTACT_EMAIL="support@example.com", OTP_EMAIL_INTERVAL=30, OTP_LENGTH=6, PROJECT_NAME="TestProject")):
+            patch("app.db_objects.user.get_user_by_username", mock_get_user_by_username), \
+            patch("app.core.security.verify_password", mock_verify_password), \
+            patch("app.core.security.generate_otp", mock_generate_otp), \
+            patch("app.core.email.send_otp_email", mock_send_otp_email), \
+            patch("app.core.config.settings", MagicMock(CONTACT_EMAIL="support@example.com", OTP_EMAIL_INTERVAL=30, OTP_LENGTH=6, PROJECT_NAME="TestProject")):
 
         # Configure mocks
         if user_data:

@@ -6,7 +6,6 @@ the database connection. Additionally, it provides a fixture to temporarily over
 application settings for testing purposes.
 """
 from unittest.mock import MagicMock, patch
-import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession

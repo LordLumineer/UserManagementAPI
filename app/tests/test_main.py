@@ -1,6 +1,6 @@
+from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import AsyncMock, patch
 from fastapi import status
 from sqlalchemy.exc import IntegrityError
 
@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
     ],
 )
 async def test_routes(route, method, expected_status, auth_header, test_app):
+    """Test the application routes."""
     async with AsyncClient(transport=ASGITransport(app=test_app), base_url="http://testserver") as client:
         headers = {"Authorization": auth_header} if auth_header else {}
         response = await getattr(client, method.lower())(route, headers=headers)
@@ -29,9 +30,9 @@ async def test_startup_and_shutdown(test_app):
     Test application lifespan events (startup and shutdown).
     """
     with patch("app.core.db.run_migrations") as mock_run_migrations, \
-         patch("app.core.db.sessionmanager.init") as mock_db_init, \
-         patch("app.core.db.sessionmanager.close") as mock_db_close, \
-         patch("app.db_objects.user.init_default_user") as mock_init_user:
+            patch("app.core.db.sessionmanager.init") as mock_db_init, \
+            patch("app.core.db.sessionmanager.close") as mock_db_close, \
+            patch("app.db_objects.user.init_default_user") as mock_init_user:
 
         mock_run_migrations.return_value = AsyncMock()
         mock_db_init.return_value = AsyncMock()
@@ -54,18 +55,25 @@ async def test_startup_and_shutdown(test_app):
 @pytest.mark.parametrize(
     "exception,expected_status,expected_detail",
     [
-        (IntegrityError("UNIQUE constraint failed", orig=Exception("example"), params=None), 500, "already exists"),
-        (ValueError("Some value error"), 500, "Some value error"),
-        (KeyError("some_key"), 500, "some_key"),
+        (
+            IntegrityError("UNIQUE constraint failed",
+                           orig=Exception("example"), params=None),
+            400,
+            "already exists"
+        ),
+        (ValueError("Some value error"), 400, "Some value error"),
+        (KeyError("some_key"), 400, "some_key"),
     ],
 )
 async def test_exception_handlers(exception, expected_status, expected_detail, test_app):
+    """Test the application's exception handlers."""
     async def raise_exception():
         raise exception
 
-    test_app.add_api_route("/test-exception", raise_exception, methods=["GET"], tags=["test"])
+    test_app.add_api_route(
+        "/test-exception", raise_exception, methods=["GET"], tags=["test"])
 
     async with AsyncClient(transport=ASGITransport(app=test_app), base_url="http://testserver") as client:
         response = await client.get("/test-exception")
-        # assert response.status_code == expected_status
+        assert response.status_code == expected_status
         # assert expected_detail in response.text

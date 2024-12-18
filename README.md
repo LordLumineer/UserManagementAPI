@@ -1,7 +1,12 @@
-# UserManagementAPI_DEV
+# ![UserManagementLogo](/assets/favicon.png) UserManagementAPI
 
-Labels....
-logo....
+<!-- Badges -->
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Lint and Test](https://github.com/LordLumineer/UserManagementAPI/actions/workflows/lint_and_test.yml/badge.svg?branch=master)](https://github.com/LordLumineer/UserManagementAPI/actions/workflows/lint_and_test.yml)
+
+[![Pytest](./img/pytest_badge.svg)](./reports/pytest.md)
+[![Pylint Score](./img/pylint_badge.svg)](./reports/pylint.txt)
+[![Coverage](./img/coverage_badge.svg)](./reports/coverage.txt)
 
 ## Introduction
 
@@ -382,7 +387,7 @@ The simplest docker-compose configuration file is as follows:
 version: '3'
 services:
   app:
-    image: lordlumineer/UserManager:latest
+    image: lordlumineer/user-manager:latest
     ports:
       - "8000:8000"
     environment:
@@ -410,7 +415,7 @@ services:
   app:
     container_name: user-manager-api
     restart: unless-stopped
-    image: lordlumineer/UserManager:latest
+    image: lordlumineer/user-manager:latest
     ports:
       - "8000:8000"
     environment:
@@ -513,6 +518,12 @@ If you prefer to run the application locally, and not use docker, it will requir
 
 The project requires [Python](https://www.python.org) [3.13](https://www.python.org/downloads/release/python-3131) or higher.
 
+To install the [required packages](#third-party-libraries), run the following command in the root directory:
+
+```bash
+pip install -r app/requirements.txt
+```
+
 #### Configuration
 
 1. Clone the repository:
@@ -555,6 +566,8 @@ The project requires [Python](https://www.python.org) [3.13](https://www.python.
 
 ## Development
 
+For development I would recommend using the auto generated SQLite database (and not run a full database), this helps for resets as it is a single file.
+
 ### Docker in Development
 
 Here is an example of a docker-compose configuration file for development:
@@ -565,7 +578,7 @@ services:
     restart: unless-stopped
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile_dev
     ports:
       - "80:8000"
     environment:
@@ -573,39 +586,178 @@ services:
       - LOG_LEVEL=DEBUG
       - LOG_FILE_ENABLED=False
       - JWT_EXP=180 # in minutes
+    volumes:
+      - <YOUR_LOCAL_FOLDER>/userAPI/data:/data
     watch:
       # NOT YET TESTED
 ```
 
+### Local in Development
+
+If you prefer to manually run the application locally, and not use docker, the approach is really similar to the one to [deploy the application locally](#local). The main differance is in the run command:
+
+```bash
+fastapi dev app/main.py --host=localhost --port=80
+```
+
+This lets you access the application at `http://localhost`
+
 ### Database version
 
-FIXME: Alembic
+As database changes could be made in the future, from V[1.0.0](insert-link) of the project, at each release, the database the database version will be updated.
+Database migration is handled by [Alembic](https://alembic.sqlalchemy.org/en/latest).
+
+The command to generate the new version needs to be run manually from either the root folder of the project or the `app` folder.
+
+```bash
+alembic revision --autogenerate -m "V<VERSION>-<MAIN_CHANGES>"
+```
+
+No commands need to be run to upgrade the database, the application will automatically upgrade the database to the latest version.
 
 ### Testing
 
-FIXME: Pytest
+To ensure good practices the project implement various tests to ensure that the code is properly tested.
 
 #### Testing Requirements
 
 In addition to the [Requirements](#requirements) for the deployment alone, the following packages are required:
 
+- **[anybadge](https://github.com/jongracecox/anybadge)**: Generate badges for the README
+- **[coverage](https://coverage.readthedocs.io/en/latest/index.html)**: Test Code Coverage
+- **[pylint](https://pylint.readthedocs.io/en/latest)**: Test Code Quality
+- **[pytest](https://docs.pytest.org/en/stable)**: Unit Testing
+- **[pytest-asyncio](https://pytest-asyncio.readthedocs.io/en/latest)**: Enabling async code testing
+- **[pytest-md-report](https://github.com/thombashi/pytest-md-report)**: Generating Markdown reports for Pytest
+- **[pytesseract](https://github.com/madmaze/pytesseract)**: Enabling OCR testing (for the generation of profile pictures and other images (QR codes, etc.))
+
+In the root directory:
+
+```bash
+pip install -r app/test/requirements.txt
+```
+
+#### Unit Testing
+
+To enforce proper functionality of the code, the project needs to pass **ALL** of the [unit tests](https://docs.pytest.org/en/stable), this is coupled with [code coverage](#coverage) to ensure new code is also tested.
+
+Before any commit or pull request, it is recommended to manually check (and avoid the action to be failed), to do so:
+
+  ```bash
+  pytest app/ --tb=no --md-report --md-report-verbose=1
+  ```
+
+  The `--tb=no`, `--md-report` and `--md-report-verbose=1` are optional parameters and helps you to get a more readable report.
+
+In order to generate manually a report in the root folder of the project run:
+
+```bash
+pytest app/ --tb=no --md-report --md-report-output=reports/pytest.md
+```
+
 #### Coverage
 
-FIXME: Coverage
+New code needs to be tested, to ensure that it is requires the code [coverage](https://coverage.readthedocs.io/en/latest/index.html) to be at least <FIXME>%.
+
+Before any commit or pull request, it is recommended to manually check (and avoid the action to be failed), to do so:
+
+  ```bash
+  coverage run -m pytest app/ | coverage html
+  ```
+
+The `coverage html` can help you to get a more visual report to check exactly what is missing.
+
+In order to generate manually a report in the root folder of the project run:
+
+```bash
+coverage run -m pytest app/ | coverage report | tee reports/coverage.txt
+```
 
 #### Linting
 
-FIXME: pylint
+To ensure proper code quality, the project checks the code with [Pylint](https://pylint.readthedocs.io/en/latest).
+In order for the code to be successful, a code quality of <FIXME>/10 or higher is required.
+
+To run pylint manually (before committing code or doing a PR):
+
+- If you are in the root folder of the project:
+
+    ```bash
+    pylint app/ --rcfile=app/.pylintrc
+    ```
+
+- If you are in the `app` folder of the project:
+
+    ```bash
+    pylint .
+    ```
+
+In order to generate manually a report in the root folder of the project run:
+
+```bash
+pylint app/ --rcfile=app/.pylintrc --fail-under=<FIXME> --output-format=parseable | tee reports/pylint.txt
+```
 
 #### Load Testing
 
-FIXME: k6
+For load testing [k6](https://k6.io) is used, for more information please refer to [k6 documentation](https://grafana.com/docs/k6/latest) qnd the [k6 test file](/load-test/load-test.js).
 
-#### Documentation
+The goal is to have an average of at least FIXME requests per second and an average response time of FIXME ms.
 
-TODO: add more info to the endpoints decorators
+To run the load test:
+
+1. Have k6 installed
+
+    You can find the instructions here: [https://grafana.com/docs/k6/latest/set-up/install-k6](https://grafana.com/docs/k6/latest/set-up/install-k6)
+
+2. Run the load test:
+
+    ```bash
+    k6 run load-test/load-test.js
+    ```
+
+    The results should look something like this:
+
+    ```bash
+     execution: local
+        script: .\load-test\load-test.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 1m30s max duration (incl. graceful stop):
+              * default: Up to 1 looping VUs for 1m0s over 1 stages (gracefulRampDown: 30s, gracefulStop: 30s)
+
+
+     data_received..................: 1.1 MB 17 kB/s
+     data_sent......................: 1.1 MB 17 kB/s
+     http_req_blocked...............: avg=80.03µs  min=0s     med=0s       max=8.81ms   p(90)=0s       p(95)=0s
+     http_req_connecting............: avg=4.51µs   min=0s     med=0s       max=528.29µs p(90)=0s       p(95)=0s
+     http_req_duration..............: avg=442.07ms min=5.16ms med=44.63ms  max=1.94s    p(90)=1.46s    p(95)=1.59s
+       { expected_response:true }...: avg=494.21ms min=5.16ms med=243.77ms max=1.94s    p(90)=1.51s    p(95)=1.6s
+     http_req_failed................: 11.11% 13 out of 117
+     http_req_receiving.............: avg=1.67ms   min=0s     med=591.7µs  max=13.93ms  p(90)=8.41ms   p(95)=10.63ms
+     http_req_sending...............: avg=80.87µs  min=0s     med=0s       max=1.5ms    p(90)=509.41µs p(95)=544.08µs
+     http_req_tls_handshaking.......: avg=0s       min=0s     med=0s       max=0s       p(90)=0s       p(95)=0s
+     http_req_waiting...............: avg=440.31ms min=5.16ms med=43.99ms  max=1.94s    p(90)=1.46s    p(95)=1.59s
+     http_reqs......................: 117    1.8064/s
+     iteration_duration.............: avg=4.98s    min=4.32s  med=5.01s    max=5.68s    p(90)=5.48s    p(95)=5.58s
+     iterations.....................: 13     0.200711/s
+     vus............................: 1      min=1         max=1
+     vus_max........................: 1      min=1         max=1
+
+
+     running (1m04.8s), 0/1 VUs, 13 complete and 0 interrupted iterations
+     default ✓ [======================================] 0/1 VUs  1m0s
+    ```
+
+### Documentation
+
+If new endpoints are created please make sure to properly write their docstring following [numpydoc style](https://numpydoc.readthedocs.io/en/latest/example.html#example) as much as possible.
+
+Another important place to properly write information is in the decorators of the endpoints.
 
 ### Useful Commands
+
+These are a bunch of commands that have been used before grouped in a single place.
 
 ```bash
 pip install -r app/requirements.txt

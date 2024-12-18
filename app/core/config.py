@@ -208,7 +208,7 @@ class _Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _define_frontend_url(self) -> Self:
-        self.FRONTEND_URL = self.FRONTEND_URL or self.BASE_URL
+        self.FRONTEND_URL = self.FRONTEND_URL or self.BASE_URL  # pylint: disable=C0103
         return self
 
     @model_validator(mode="after")
@@ -217,9 +217,9 @@ class _Settings(BaseSettings):
             protocol = self.DATABASE_URI.split('://')[0]
             match protocol:
                 case str(proto) if "postgresql" in proto:
-                    self.DATABASE_URI = "postgresql+psycopg://" + ('://'.join(self.DATABASE_URI.split('://')[1:]))
+                    self.DATABASE_URI = "postgresql+psycopg://" + self.DATABASE_URI.split('://', maxsplit=1)[1]  # pylint: disable=C0103
                 case str(proto) if "sqlite" in proto:
-                    self.DATABASE_URI = "sqlite+aiosqlite://" + ('://'.join(self.DATABASE_URI.split('://')[1:]))
+                    self.DATABASE_URI = "sqlite+aiosqlite://" + self.DATABASE_URI.split('://', maxsplit=1)[1]  # pylint: disable=C0103
                 case _:
                     # Not a valid or yet supported database URI
                     self.DATABASE_URI = None

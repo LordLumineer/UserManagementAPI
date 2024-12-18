@@ -3,7 +3,7 @@ from collections import namedtuple
 from io import BytesIO
 import os
 import subprocess
-from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from warnings import warn
 # import os
 # import platform

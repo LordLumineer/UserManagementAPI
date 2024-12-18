@@ -1,0 +1,109 @@
+# THIS is the test run on pull request
+name: Lint and Test - Pull Request
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the code from the repository
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Step 2: Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    # Step 3: set thresholds for pylint and coverage
+    - name: Set up thresholds
+      id: thresholds
+      run: |
+        echo "pylint_threshold=9.95" >> $GITHUB_OUTPUT
+        echo "coverage_threshold=90" >> $GITHUB_OUTPUT
+        echo "ALL_CHECKS_PASSED=true" >> $GITHUB_ENV  # Initialize with true
+
+    # Step 4: Install dependencies (including Anybadge)
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install anybadge
+        pip install -r app/requirements.txt
+        pip install -r app/test/requirements.txt
+
+  # ---------- TESTS ---------- #
+    # Step 5: Run pylint and calculate the score
+    - name: Run pylint
+      id: pylint_run
+      run: |
+        pylint_score=$(pylint app --fail-under=${{ steps.thresholds.outputs.pylint_threshold }} --rcfile=app/.pylintrc --output-format=parseable | tee reports/pylint.txt | awk '/Your code has been rated at/ {print $7}' | sed 's/\/10//')
+        pylint_score=$(echo "$pylint_score" | xargs)  # Ensure no leading/trailing whitespace
+        echo "Pylint score is: $pylint_score/10"
+        echo "pylint_score=$pylint_score" >> $GITHUB_OUTPUT
+        if [ $(echo "$pylint_score < ${{ steps.thresholds.outputs.pylint_threshold }}" | bc -l) -eq 1 ]; then
+          exit 1
+        fi
+      continue-on-error: true  # Do not fail the job yet
+
+    # Step 6: Run Coverage and generate PyTest report
+    - name: Run PyTest with Coverage
+      id: pytest_run
+      run: |
+        coverage run -m pytest --tb=no --md-report --md-report-output=reports/pytest.md
+      continue-on-error: true  # Do not fail the job yet
+
+    # Step 7: Check coverage and generate Coverage report
+    - name: Check coverage
+      id: coverage_run
+      run: |
+        coverage_percentage=$(coverage report | tee reports/coverage.txt | grep 'TOTAL' | awk '{print $4}' | sed 's/%//')
+        echo "Coverage percentage is: $coverage_percentage"
+        echo "coverage_percentage=$coverage_percentage" >> $GITHUB_OUTPUT
+        coverage report --fail-under=${{ steps.thresholds.outputs.coverage_threshold }}
+      continue-on-error: true  # Do not fail the job yet
+
+  # ---------- Check Versions ---------- #
+		# Step 8: Get Current API Version
+    - name: Get Current API Version
+      id: api_version
+      run: |
+        NEW_API_VERSION=$(grep -oP "version=\"\K[0-9.]+" app/main.py || echo "0.0.0")
+        LIVE_API_VERSION=$(git show origin/master:app/main.py | grep -oP "version=\"\K[0-9.]+" app/main.py || echo "0.0.0")
+        echo "NEW_API_VERSION=$NEW_API_VERSION" >> $GITHUB_OUTPUT
+        echo "LIVE_API_VERSION=$API_VERSION" >> $GITHUB_OUTPUT
+
+    # Step 9: Compare Versions
+    - name: Compare Versions
+      id: compare_versions
+      run: |
+        pip install semantic_version
+        echo "Current Version: ${{ steps.api_version.outputs.NEW_API_VERSION }}"
+        echo "Previous Version: ${{ steps.api_version.outputs.LIVE_API_VERSION }}"
+        python -c "from semantic_version import Version; import sys; sys.exit(0 if Version('${{ steps.api_version.outputs.NEW_API_VERSION }}') > Version('${{ steps.api_version.outputs.LIVE_API_VERSION }}') else 1)"
+      continue-on-error: true
+
+  # ---------- FINAL CHECKS ---------- #
+    # Step 10: Fail if the tests Failed
+    - name: Check Test Result
+      if: steps.coverage_run.outcome == 'failure' || steps.pylint_run.outcome == 'failure' || steps.pytest_run.outcome == 'failure' || steps.compare_versions.outcome == 'failure'
+      run: |
+        if [ "${{ steps.pylint_run.outcome }}" == "failure" ]; then
+          echo "PyLint Failed"
+        fi
+        if [ "${{ steps.pytest_run.outcome }}" == "failure" ]; then
+          echo "PyTest Failed"
+        fi
+        if [ "${{ steps.coverage_run.outcome }}" == "failure" ]; then
+          echo "Coverage Failed"
+        fi
+        if [ "${{ steps.compare_versions.outcome }}" == "failure" ]; then
+          echo "API Version Failed"
+        fi
+        exit 1
