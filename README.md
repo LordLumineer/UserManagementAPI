@@ -164,18 +164,18 @@ Here a simple example of a feature flag file:
     "FEATURE_FLAG_1": true,
     "FEATURE_FLAG_2": false,
     "DANGEROUS_AB_TEST_FEATURE": [
-      { percentageOfUsers: 0.25 },
+      { "percentageOfUsers": 0.25 }
     ],
     "AB_TEST_FEATURE": [
-      { percentageOfUsers: 0.25 },
-      { userRoles: ["admin"] },
+      { "percentageOfUsers": 0.25 },
+      { "userRoles": ["admin"] }
     ],
     "ROLE_BASED_FEATURE": [
-      { userRoles: ["tester", "admin"] },
+      { "userRoles": ["tester", "admin"] }
     ],
     "MULTIPLE_ACCESS_FEATURE": [
-      { percentageOfUsers: 0.30, userRoles: ["user"] },
-      { userRoles: ["admin", "tester"] },
+      { "percentageOfUsers": 0.30, "userRoles": ["user"] },
+      { "userRoles": ["admin", "tester"] }
     ]
 }
 ```
