@@ -1,4 +1,6 @@
-# Run on commit to the master branch (After PR is merged)
+# Run on commit to the master branch (After PR is merged), It is used more as a final check once the PR is merged to ensure no issues were cause by the PR.
+# The tests are the same run in the PR_lint_test.yml file, but this time they are run on the master branch after the PR is merged.
+# The main difference is that here we generate the badges for the readme and commit them to the repo.
 name: Lint and Test
 
 on:

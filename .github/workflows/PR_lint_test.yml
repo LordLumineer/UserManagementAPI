@@ -75,7 +75,7 @@ jobs:
       id: api_version
       run: |
         NEW_API_VERSION=$(grep -oP "version=\"\K[0-9.]+" app/main.py || echo "0.0.0")
-        LIVE_API_VERSION=$(git show origin/master:app/main.py | grep -oP "version=\"\K[0-9.]+" app/main.py || echo "0.0.0")
+        LIVE_API_VERSION=$(git show origin/master:app/main.py | grep -oP "version=\"\K[0-9.]+" || echo "0.0.0")
         echo "NEW_API_VERSION=$NEW_API_VERSION" >> $GITHUB_OUTPUT
         echo "LIVE_API_VERSION=$API_VERSION" >> $GITHUB_OUTPUT
 
