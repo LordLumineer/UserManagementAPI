@@ -4,7 +4,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Lint and Test](https://github.com/LordLumineer/UserManagementAPI/actions/workflows/Commit_lint_test.yml/badge.svg?branch=master)](https://github.com/LordLumineer/UserManagementAPI/actions/workflows/Commit_lint_test.yml)
 
-[![Pytest](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/45b5f23657961c3d0fc2db18df0f0924feb0b665/img/coverage_badge.svg)](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/refs/heads/main/reports/pytest.md)
+[![Pytest](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/45b5f23657961c3d0fc2db18df0f0924feb0b665/img/pytest_badge.svg)](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/refs/heads/main/reports/pytest.md)
 [![Pylint Score](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/45b5f23657961c3d0fc2db18df0f0924feb0b665/img/pylint_badge.svg)](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/refs/heads/main/reports/pylint.txt)
 [![Coverage](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/45b5f23657961c3d0fc2db18df0f0924feb0b665/img/coverage_badge.svg)](https://raw.githubusercontent.com/LordLumineer/UserManagementAPI/refs/heads/main/reports/coverage.txt)
 
