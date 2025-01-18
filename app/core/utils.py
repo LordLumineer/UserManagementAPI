@@ -16,7 +16,7 @@ import re
 import string
 import uuid
 import aiofiles
-from email_validator import EmailNotValidError
+from email_validator import EmailNotValidError, EmailUndeliverableError
 from email_validator import validate_email as email_validation
 from fastapi import HTTPException, Request, Response
 from fastapi.routing import APIRoute
@@ -27,7 +27,10 @@ from jinja2 import DebugUndefined, Template
 from app.core.config import logger, settings, templates
 
 
-def validate_username(username: str) -> str:
+# ----- VALIDATORS ----- #
+
+
+def validate_username(username: str, raise_error: bool = True) -> str:
     """
     Validates the provided username.
 
@@ -38,9 +41,12 @@ def validate_username(username: str) -> str:
     username_pattern = r"^[a-z0-9_]{5,}$"
     if bool(re.match(username_pattern, username)):
         return username
-    if settings.ENVIRONMENT == "local":
-        logger.warning(f"Invalid username format: {username}")
+    if settings.ENVIRONMENT != "production":
+        logger.warning(f"Invalid username: {username}")
         return username
+    if not raise_error:
+        logger.debug(f"Invalid username: {username}")
+        return False
     raise HTTPException(
         status_code=400,
         detail="""
@@ -63,18 +69,19 @@ def validate_email(email: str, raise_error: bool = True, check_deliverability: b
         email_info = email_validation(
             email, check_deliverability=check_deliverability and settings.EMAIL_METHOD != "none")
     except EmailNotValidError as e:
-        if not raise_error:
-            logger.debug(f"Invalid email format: {email} | {e}")
-            return False
         if settings.ENVIRONMENT != "production":
-            logger.warning(f"Invalid email format: {email} | {e}")
-            return email
+            logger.warning(f"Invalid email: {email} | {e}")
+            if isinstance(e, EmailUndeliverableError):
+                return email
+        if not raise_error:
+            logger.debug(f"Invalid email: {email} | {e}")
+            return False
         raise HTTPException(
-            status_code=400, detail="Email is not valid. " + str(e)) from e
+            status_code=400, detail=f"Invalid email: {email} | {e}") from e
     return email_info.normalized
 
 
-def validate_password(password: str) -> str:
+def validate_password(password: str, raise_error: bool = True) -> str:
     """
     Validates the provided password.
 
@@ -85,13 +92,20 @@ def validate_password(password: str) -> str:
     regex = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{10,}$"
     if bool(re.match(regex, password)):
         return password
-    if settings.ENVIRONMENT == "local":
-        logger.warning(f"Invalid password format: {password}")
+    if settings.ENVIRONMENT != "production":
+        logger.warning(f"Invalid password: {password}")
         return password
+    if not raise_error:
+        logger.debug(f"Invalid password: {password}")
+        return False
     raise HTTPException(
         status_code=400,
-        detail="Password must be at least 10 characters long, contain at least one uppercase letter, \
-            one lowercase letter, one number, and one special character (@$!%*#?&)."
+        detail="Password must be: \n \
+            - At least 10 characters long, \n \
+            - Contain at least one uppercase letter, \n \
+            - At least one lowercase letter, \n \
+            - At least one number, \n \
+            - At least one special character (@$!%*#?&)."
     )
 
 
@@ -108,10 +122,8 @@ def generate_random_letters(length: int, seed: int | str = None) -> str:
     """
     if seed is None:
         seed = int(time.time())  # Use current time if no seed is provided
-    random.seed(str(seed)+str(int(time.time())))
-
-    letters = string.ascii_letters
-    return ''.join(random.choice(letters) for _ in range(length))
+    random.seed(str(seed))
+    return ''.join(random.choice(string.ascii_letters) for _ in range(length))
 
 
 def generate_random_digits(length: int, seed: int | str = None) -> str:
@@ -124,7 +136,7 @@ def generate_random_digits(length: int, seed: int | str = None) -> str:
     """
     if seed is None:
         seed = int(time.time())  # Use current time if no seed is provided
-    random.seed(str(seed)+str(int(time.time())))
+    random.seed(str(seed))
     return ''.join(str(random.randint(0, 9)) for _ in range(length))
 
 
@@ -271,11 +283,12 @@ def render_html_template(html_content: str, context: dict = None) -> str:
     return Template(html_content, undefined=DebugUndefined).render(base_context)
 
 
+# ----- UTILS ----- #
+
+
 def app_path(path: str) -> str:
     """Returns the absolute path of the given path relative to the app root directory."""
     return os.path.normpath(os.path.join(settings.APP_ROOT_DIR, path))
-
-# ----- UTILS ----- #
 
 
 def remove_file(file_path: str):
@@ -289,6 +302,7 @@ def remove_file(file_path: str):
 
 
 # ----- REQUEST ----- #
+
 
 def extract_info(user_agent: str):
     """
@@ -461,14 +475,11 @@ async def get_machine_info():
             machine["details"] = {
                 "mac_ver": platform.mac_ver()
             }
-        case "iOS" | "iPadOS":
-            machine["details"] = {
-                "ios_ver": platform.ios_ver()._asdict()  # pylint: disable=E1101 # (available since Python 3.13)
-            }
-        case "Android":
-            machine["details"] = {
-                "android_ver": platform.android_ver()._asdict()  # pylint: disable=E1101 # (available since Python 3.13)
-            }
+        # Note: The following cases require Python 3.13 or higher, and the application should not be running on these systems.
+        # case "iOS", "iPadOS":
+        #     ...
+        # case "Android":
+        #     ...
         case _:
             machine["details"] = {
                 "platform": "Unknown OS",

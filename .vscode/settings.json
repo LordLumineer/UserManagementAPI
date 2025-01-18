@@ -26,6 +26,7 @@
         "Bluesky",
         "cachetools",
         "changeme",
+        "decrby",
         "elif",
         "healthcheck",
         "isready",
@@ -46,6 +47,7 @@
         "repr",
         "sessionmaker",
         "sessionmanager",
+        "setnx",
         "sqlalchemy",
         "Tesseract",
         "unban",
@@ -59,5 +61,10 @@
             "name": "Project"
         }
     ],
-    "sqltools.useNodeRuntime": true
+    "sqltools.useNodeRuntime": true,
+    "python.testing.pytestArgs": [
+        "app"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

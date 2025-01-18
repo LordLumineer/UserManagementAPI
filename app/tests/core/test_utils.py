@@ -15,11 +15,12 @@ import pytesseract
 import pytest
 from PIL import Image
 
-# from app.core.config import settings, logger
+from app.core.config import settings, logger
 from app.core.utils import (
     app_path,
     generate_profile_picture,
     parse_remote_details,
+    render_html_response,
     validate_username,
     validate_email,
     validate_password,
@@ -45,65 +46,107 @@ from app.core.utils import (
 @pytest.mark.parametrize("username, expected", [
     ("valid_user", "valid_user"),
     ("user123", "user123"),
-    ("invalid user", pytest.raises(HTTPException)),
-    ("aB12", pytest.raises(HTTPException))
+    ("invalid user", HTTPException),
+    ("aB12", HTTPException)
+])
+@pytest.mark.parametrize("raise_error", [
+    (True),
+    (False)
 ])
 @pytest.mark.parametrize("mock_settings", [
     {"ENVIRONMENT": "local"},
     {"ENVIRONMENT": "production"}
 ], indirect=True)
-def test_validate_username(username, expected, mock_settings):
+def test_validate_username(username, expected, raise_error, mock_settings):
     if isinstance(expected, str):
-        assert validate_username(username) == expected
+        assert validate_username(username, raise_error) == expected
     else:
-        if mock_settings.ENVIRONMENT == "local":
-            assert validate_username(username) == username
-        else:
-            with expected:
-                validate_username(username)
+        with patch("app.core.utils.logger") as logger:
+            if mock_settings.ENVIRONMENT != "production":
+                assert validate_username(username, raise_error) == username
+                logger.warning.assert_called_once()
+            elif not raise_error:
+                assert validate_username(username, raise_error) is False
+                logger.debug.assert_called_once()
+            else:
+                with pytest.raises(expected):
+                    validate_username(username, raise_error)
 
 
-@pytest.mark.parametrize("email, raise_error, expected", [
-    ("admin@example.com", True, "admin@example.com"),
-    ("valid@example.com", True, "valid@example.com"),
-    ("invalid-email", True, pytest.raises(HTTPException)),
-    ("invalid-email", False, False)
+@pytest.mark.parametrize("email", [
+    ("admin@example.com"), # Admin email (first login (default user))
+    ("example@gmail.com"), # Valid email (Deliverable)
+    ("valid@example.com"), # Valid email (Not Deliverable)
+    ("invalid-email"), # Invalid email
+])
+@pytest.mark.parametrize("raise_error, check_deliverability", [
+    (True, True),
+    (True, False),
+    (False, True),
+    (False, False)
 ])
 @pytest.mark.parametrize("mock_settings", [
-    {"ENVIRONMENT": "local"},
-    {"ENVIRONMENT": "production"}
+    {"ENVIRONMENT": "local", "EMAIL_METHOD": "none"},
+    {"ENVIRONMENT": "production", "EMAIL_METHOD": "none"},
+    {"ENVIRONMENT": "local", "EMAIL_METHOD": "smtp"},
+    {"ENVIRONMENT": "production", "EMAIL_METHOD": "smtp"}
 ], indirect=True)
-def test_validate_email(email, raise_error, expected, mock_settings):
-    if isinstance(expected, str):
-        assert validate_email(email, raise_error, False) == expected
-    elif expected is False:
-        assert validate_email(email, raise_error, False) is False
-    else:
-        if mock_settings.ENVIRONMENT == "local":
-            assert validate_email(email, raise_error, False) == email
-        else:
-            with expected:
-                validate_email(email, raise_error, False)
+def test_validate_email(email, raise_error, check_deliverability, mock_settings):
+    with patch("app.core.utils.logger") as logger:
+        match email:
+            case "admin@example.com":
+                assert validate_email(email, raise_error, check_deliverability) == email
+            case "example@gmail.com":
+                assert validate_email(email, raise_error, check_deliverability) == email
+            case "valid@example.com":
+                if check_deliverability and mock_settings.EMAIL_METHOD != "none":
+                    if mock_settings.ENVIRONMENT != "production":
+                        assert validate_email(email, raise_error, check_deliverability) == email
+                        logger.warning.assert_called_once()
+                    elif not raise_error:
+                        assert validate_email(email, raise_error, check_deliverability) is False
+                        logger.debug.assert_called_once()
+                    else:
+                        with pytest.raises(HTTPException):
+                            validate_email(email, raise_error, check_deliverability)
+                else:
+                    assert validate_email(email, raise_error, check_deliverability) == email
+            case "invalid-email":
+                if not raise_error:
+                    assert validate_email(email, raise_error, check_deliverability) is False
+                    logger.debug.assert_called_once()
+                else:
+                    with pytest.raises(HTTPException):
+                        validate_email(email, raise_error, check_deliverability)
 
 
 @pytest.mark.parametrize("password, expected", [
     ("ValidPass1$", "ValidPass1$"),
-    ("short1$", pytest.raises(HTTPException)),
-    ("NoSpecialChar123", pytest.raises(HTTPException))
+    ("short1$", HTTPException),
+    ("NoSpecialChar123", HTTPException)
+])
+@pytest.mark.parametrize("raise_error", [
+    (True),
+    (False)
 ])
 @pytest.mark.parametrize("mock_settings", [
     {"ENVIRONMENT": "local"},
     {"ENVIRONMENT": "production"}
 ], indirect=True)
-def test_validate_password(password, expected, mock_settings):
+def test_validate_password(password, expected, raise_error, mock_settings):
     if isinstance(expected, str):
-        assert validate_password(password) == expected
+        assert validate_password(password, raise_error) == expected
     else:
-        if mock_settings.ENVIRONMENT == "local":
-            assert validate_password(password) == password
-        else:
-            with expected:
-                validate_password(password)
+        with patch("app.core.utils.logger") as logger:
+            if mock_settings.ENVIRONMENT != "production":
+                assert validate_password(password, raise_error) == password
+                logger.warning.assert_called_once()
+            elif not raise_error:
+                assert validate_password(password, raise_error) is False
+                logger.debug.assert_called_once()
+            else:
+                with pytest.raises(expected):
+                    validate_password(password, raise_error)
 
 
 @pytest.mark.parametrize("length, seed", [
@@ -114,9 +157,10 @@ def test_generate_random_letters(length, seed):
     with patch("time.time") as mock_time:
         result = generate_random_letters(length, seed)
         if seed is None:
-            assert mock_time.call_count == 2
-        else:
             mock_time.assert_called_once()
+        else:
+            assert result == generate_random_letters(length, seed)
+            mock_time.assert_not_called()
     assert result.isalpha()
     assert isinstance(result, str)
     assert len(result) == length
@@ -130,9 +174,10 @@ def test_generate_random_digits(length, seed):
     with patch("time.time") as mock_time:
         result = generate_random_digits(length, seed)
         if seed is None:
-            assert mock_time.call_count == 2
-        else:
             mock_time.assert_called_once()
+        else:
+            assert result == generate_random_digits(length, seed)
+            mock_time.assert_not_called()
     assert result.isnumeric()
     assert isinstance(result, str)
     assert len(result) == length
@@ -142,6 +187,7 @@ def test_generate_uuid():
     result = generate_uuid()
     assert isinstance(result, str)
     assert len(result) == 36  # UUID standard length
+    assert result[14] == '4' # UUID version 4
 
 
 def test_generate_timestamp():
@@ -204,6 +250,19 @@ def test_generate_profile_picture(test_letters, ocr, length_error):
         img.verify()  # Verifies the integrity of the image
     except (OSError, SyntaxError) as e:  # pragma: no cover
         pytest.fail(f"Image verification failed with error: {e}")
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("template_name, context, status_code", [
+    ("template.html", {"key": "value"}, 200),
+    ("template.html", None, 200),
+])
+async def test_render_html_response(template_name, context, status_code):
+    mock_request = MagicMock()
+    with patch("app.core.utils.templates") as mock_template:
+        response = await render_html_response(template_name, mock_request, context, status_code)
+        mock_template.TemplateResponse.assert_called_once()
+        assert response == mock_template.TemplateResponse.return_value
+
 
 
 def test_render_html_template():
@@ -502,51 +561,7 @@ FakeDataInput = namedtuple(
             }
         ),
 
-        # Case 4: iOS/iPadOS system
-        (
-            FakeDataInput(
-                "iOS", "iOS-name", "version", "release", "architecture", "processor", 4, "3.8.5", False,
-                FakeNamedTuple("iOSUnameDetails"),
-                {"ios_ver": FakeNamedTuple("iOSVerDetails")},
-            ),
-            {
-                "platform": "iOS-name",
-                "system": "iOS",
-                "version": "version",
-                "release": "release",
-                "architecture": "architecture",
-                "processor": "processor",
-                "cpu_count": 4,
-                "python_version": "3.8.5",
-                "is_docker": False,
-                "uname": {"key": "iOSUnameDetails"},
-                "details": {"ios_ver": {"key": "iOSVerDetails"}},
-            }
-        ),
-
-        # Case 5: Android system
-        (
-            FakeDataInput(
-                "Android", "Android-name", "version", "release", "architecture", "processor", 4, "3.8.5", False,
-                FakeNamedTuple("AndroidUnameDetails"),
-                {"android_ver": FakeNamedTuple("AndroidVerDetails")},
-            ),
-            {
-                "platform": "Android-name",
-                "system": "Android",
-                "version": "version",
-                "release": "release",
-                "architecture": "architecture",
-                "processor": "processor",
-                "cpu_count": 4,
-                "python_version": "3.8.5",
-                "is_docker": False,
-                "uname": {"key": "AndroidUnameDetails"},
-                "details": {"android_ver": {"key": "AndroidVerDetails"}},
-            }
-        ),
-
-        # Case 6: Unknown system
+        # Case 4: Unknown system
         (
             FakeDataInput(
                 "unknown", "unknown", "unknown", "unknown", "todo", "YoLo", 69420, "3.8.5", False,
@@ -599,14 +614,6 @@ async def test_get_machine_info(fake_data_input, expected_machine_info):
                     assert result == expected_machine_info
             case "Darwin":
                 with patch("platform.mac_ver", return_value=fake_data_input.details["mac_ver"]):
-                    result = await get_machine_info()
-                    assert result == expected_machine_info
-            case "iOS":
-                with patch("platform.ios_ver", return_value=fake_data_input.details["ios_ver"]):
-                    result = await get_machine_info()
-                    assert result == expected_machine_info
-            case "Android":
-                with patch("platform.android_ver", return_value=fake_data_input.details["android_ver"]):
                     result = await get_machine_info()
                     assert result == expected_machine_info
             case _:

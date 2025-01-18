@@ -11,7 +11,7 @@ import time
 from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.starlette_client import StarletteOAuth1App as OAuth1App
 from authlib.integrations.starlette_client import StarletteOAuth2App as OAuth2App
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile, params
 import httpx
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,6 +104,23 @@ if settings.API_CLIENT_ID_DISCORD and settings.API_CLIENT_SECRET_DISCORD:
         client_kwargs={'scope': 'identify email',
                        'code_challenge_method': 'S256'},
     )
+# NOTE: Issues with Twitter Mail requiring OAuth1, look into https://docs.tweepy.org/en/latest/authentication.html#introduction
+if settings.API_CLIENT_ID_TWITTER and settings.API_CLIENT_SECRET_TWITTER:
+    oauth.register(
+        'twitter',
+        client_id=settings.API_CLIENT_ID_TWITTER,
+        client_secret=settings.API_CLIENT_SECRET_TWITTER,
+        # server_metadata_url='.well-known/openid-configuration',
+        access_token_url='https://api.x.com/2/oauth2/token',
+        access_token_params=None,
+        authorize_url='https://twitter.com/i/oauth2/authorize',
+        authorize_params=None,
+        api_base_url='https://api.x.com',
+        userinfo_endpoint='https://api.x.com/2/users/me',
+        client_kwargs={'scope': 'offline.access users.read tweet.read',
+                       'code_challenge_method': 'S256'}
+    )
+
 
 oauth_clients_names = list(oauth._clients)  # pylint: disable=protected-access
 
@@ -124,14 +141,22 @@ async def get_user_info(provider_client: OAuth1App | OAuth2App, token) -> dict:
             emails.raise_for_status()
             user_info["emails"] = emails.json()
         case "twitter":
-            # url = "https://api.twitter.com/2/users/me"
-            # url += "?user.fields=id,name,profile_image_url,username"
-            # user_info = await provider_client.get(url, token=token)
-            # user_info.raise_for_status()
-            # user_info = user_info.json()
+            user_info = await provider_client.userinfo(
+                token=token,
+                params={"user.fields": "profile_image_url"}
+            )
+            logger.debug(f"\n{json.dumps(user_info, indent=4)}")
+            verify_credentials = await provider_client.get("https://api.x.com/1.1/account/verify_credentials.json", token=token, params={"skip_status": True})
+            logger.debug(
+                f"\n{json.dumps(verify_credentials.json(), indent=4)}")
             raise HTTPException(
                 status_code=400,
-                detail="Twitter is not supported yet due to lack of way to get user email."
+                detail="Twitter is not supported yet due to lack of way to get user email in the API V2 (OAuth2)."
+            )
+        case "bsky":
+            raise HTTPException(
+                status_code=400,
+                detail="BlueSky is not supported yet."
             )
         case _:
             user_info = await provider_client.userinfo(token=token)

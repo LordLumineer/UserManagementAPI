@@ -6,6 +6,7 @@ used with FastAPI but can be used with any other Python application. It
 can use SMTP or Mailjet to send emails, depending on the EMAIL_METHOD
 setting.
 """
+from copy import copy
 from datetime import datetime, timedelta, timezone
 import os
 import smtplib
@@ -16,7 +17,7 @@ import aiofiles
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import HTMLResponse
-from mailjet_rest import Client
+from mailjet_rest.client import Client, ApiError
 
 from app.core.config import settings, logger
 from app.core.utils import app_path, get_info_from_request, render_html_template
@@ -34,39 +35,45 @@ def send_mj_email(recipients: list[str] | str, subject: str, html_content: str):
     """
     if isinstance(recipients, str):
         recipients = [recipients]
-    mailjet = Client(auth=(settings.MJ_APIKEY_PUBLIC,
-                           settings.MJ_APIKEY_PRIVATE), version='v3.1')
-    data = {
-        'Messages': []
-    }
-    for recipient in recipients:
-        data["Messages"].append(
-            {
-                "From": {
-                    "Email": settings.MJ_SENDER_EMAIL,
-                    "Name": settings.PROJECT_NAME
-                },
-                "To": [
-                    {
-                        "Email": recipient
-                    }
-                ],
-                "Subject": subject,
-                "HTMLPart": html_content
-            }
-        )
-    result = mailjet.send.create(data=data)
-    if result.status_code == 200:
-        logger.info(
-            f"""Email Sent with MailJet API
-            - To {recipients}
-            - From {settings.MJ_SENDER_EMAIL}
-            - Subject: {subject}""")
-        return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
-    logger.error(f"Failed to send email to {recipients}")
-    logger.error(result.json())
-    raise HTTPException(
-        status_code=500, detail=f"Failed to send email. {result.json()}")
+    try:
+        mailjet = Client(auth=(settings.MJ_APIKEY_PUBLIC,
+                               settings.MJ_APIKEY_PRIVATE), version='v3.1')
+        data = {
+            'Messages': []
+        }
+        for recipient in recipients:
+            data["Messages"].append(
+                {
+                    "From": {
+                        "Email": settings.MJ_SENDER_EMAIL,
+                        "Name": settings.PROJECT_NAME
+                    },
+                    "To": [
+                        {
+                            "Email": recipient
+                        }
+                    ],
+                    "Subject": subject,
+                    "HTMLPart": html_content
+                }
+            )
+        result = mailjet.send.create(data=data)
+        if result.status_code == 200:
+            logger.info(
+                f"""Email Sent with MailJet API
+                - To {recipients}
+                - From {settings.MJ_SENDER_EMAIL}
+                - Subject: {subject}""")
+            return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
+        logger.error(f"Failed to send email to {recipients}")
+        logger.error(result.json())
+        raise HTTPException(
+            status_code=500, detail=f"Failed to send email. {result.json()}")
+    except ApiError as e:
+        logger.error(f"Failed to send email to {recipients}")
+        logger.critical(e)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to send email. {e}") from e
 
 
 def send_smtp_email(recipients: list[str] | str, subject: str, html_content: str):
@@ -89,14 +96,20 @@ def send_smtp_email(recipients: list[str] | str, subject: str, html_content: str
                 server.starttls(context=context)
                 server.ehlo()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            recipients = smtp_emails_verifications(server, settings.SMTP_SENDER_EMAIL, recipients)
             for recipient in recipients:
                 html_message = MIMEText(html_content, "html")
                 html_message["Subject"] = subject
                 html_message["From"] = f"{settings.PROJECT_NAME} <{
                     settings.SMTP_SENDER_EMAIL}>"
                 html_message["To"] = recipient
-                server.sendmail(settings.SMTP_USER, recipient,
-                                html_message.as_string())
+                error = server.sendmail(settings.SMTP_USER, recipient,
+                                        html_message.as_string())
+                if error:
+                    logger.error(f"Failed to send email to {recipients}")
+                    logger.error(error)
+                    raise HTTPException(
+                        status_code=500, detail=f"Failed to send email. {error}")
             server.quit()
         logger.info(
             f"""Email Sent with SMTP Server
@@ -105,12 +118,46 @@ def send_smtp_email(recipients: list[str] | str, subject: str, html_content: str
                 - From {settings.SMTP_SENDER_EMAIL}
                 - Subject: {subject}""")
         return HTMLResponse(content=f"Subject: {subject} - Email Sent", status_code=200)
-    except Exception as e:
+    except smtplib.SMTPException as e:
         logger.error(f"Failed to send email to {recipients}")
-        logger.error(e)
+        logger.critical(e)
         raise HTTPException(
             status_code=500, detail=f"Failed to send email. {e}") from e
 
+def smtp_emails_verifications(smtp_client: smtplib.SMTP, sender_email: str, recipients: list[str]):
+    """
+    Verify the sender and the recipients of an email using the SMTP server.
+
+    :param smtplib.SMTP smtp_client: the SMTP client to use to verify the emails.
+    :param str sender_email: the email of the sender.
+    :param list[str] recipients: the list of recipients.
+    :return: the list of valid recipients.
+    :raises HTTPException: if the sender email is invalid or if there are no valid recipients.
+    """
+    # Verify the sender email
+    resp_code, response = smtp_client.verify(sender_email)
+    if resp_code != 250:
+        logger.critical(f"Invalid Sender Email: {sender_email} | {response}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Invalid Sender Email: {sender_email} | {response}"
+        )
+    # Verify the recipients and remove invalid recipients
+    valid_recipients = copy(recipients)
+    for recipient in recipients:
+        resp_code, response = smtp_client.verify(recipient)
+        if resp_code != 250:
+            logger.error(f"Invalid Recipient Email: {recipient} | {response}")
+            valid_recipients.remove(recipient)
+    if not valid_recipients:
+        logger.error("No valid recipients")
+        raise HTTPException(
+            status_code=500, detail="No valid recipients")
+    elif valid_recipients != recipients:
+        logger.warning(
+            f"Invalid Recipients Removed: {recipients} -> {valid_recipients} |\
+                Invalid: {list(set(recipients) - set(valid_recipients))}")
+    return valid_recipients
 
 def send_email(recipients: list[str], subject: str, html_content: str):
     """

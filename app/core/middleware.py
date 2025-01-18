@@ -12,16 +12,18 @@ routes, to set the CSP header, and to log information about the requests.
 
 """
 import time
-from urllib.parse import urlencode
+
 from cachetools import TTLCache
 from fastapi import FastAPI, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
+from redis import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.routing import Route as StarletteAPIRoute
 
-from app.core.config import settings, logger
+from app.core.config import logger, settings
 
 
 class FeatureFlagMiddleware(BaseHTTPMiddleware):
@@ -69,7 +71,10 @@ class FeatureFlagMiddleware(BaseHTTPMiddleware):
             feature_name = endpoint_function.__name__.upper()
 
         # If the feature flag exists, enforce access rules
-        from app.core.permissions import FEATURE_FLAGS, can_view_feature  # pylint: disable=C0415
+        from app.core.permissions import (  # pylint: disable=C0415
+            FEATURE_FLAGS,
+            can_view_feature,
+        )
         from app.db_objects.user import get_current_user  # pylint: disable=C0415
 
         if feature_name in list(FEATURE_FLAGS.keys()):
@@ -115,16 +120,6 @@ class RedirectUriMiddleware(BaseHTTPMiddleware):
             uri_list = request.session.get("redirect_uri") or []
             uri_list.append(str(redirect_uri))
             request.session.update({"redirect_uri": uri_list})
-
-            # Create a new scope without the redirect_uri parameter
-            query_params = {
-                key: value
-                for key, value in request.query_params.items()
-                if key != "redirect_uri"
-            }
-            scope = request.scope
-            scope["query_string"] = urlencode(query_params).encode("utf-8")
-            request = Request(scope, receive=request.receive)
         return await call_next(request)
 
 
@@ -166,35 +161,36 @@ class GlobalRateLimiterMiddleware(BaseHTTPMiddleware):
         """Middleware to rate limit incoming requests."""
         client_ip = request.client.host
         current_time = time.time()
-        redis_client = request.app.state.redis_client
-
+        redis_client: Redis = request.app.state.redis_client
+        key = f"{client_ip}:rate-limit"
         if redis_client:
             # Redis-based rate limiting
-            key = f"rate-limit:{client_ip}"
             try:
-                pipe = redis_client.pipeline()
-                pipe.incr(key)
-                pipe.expire(key, self.window_seconds)
-                request_count, _ = pipe.execute()
+                if redis_client.setnx(key, self.max_requests):
+                    redis_client.expire(key, self.window_seconds)
 
-                if request_count > self.max_requests:
+                bucket_val = redis_client.get(key)
+                if bucket_val and int(bucket_val) > 0:
+                    redis_client.decrby(key, 1)
+                else:
                     logger.warning(
-                        f"Rate limit exceeded for IP: {client_ip}"
+                        f"Rate limit exceeded for IP: {
+                            client_ip} | Bucket Val: {int(bucket_val)}"
                     )
                     return Response(status_code=429, content="Too Many Requests")
 
-            except ConnectionError:
+            except RedisConnectionError:
                 # Fallback to in-memory cache if Redis connection fails
                 logger.error(
                     "Redis connection lost. Falling back to in-memory cache.")
-                redis_client = None  # Disable Redis for subsequent requests
+                request.app.state.redis_client = None  # Disable Redis for subsequent requests
         else:
             # Cache-based rate limiting
-            if client_ip not in self.cache:
-                self.cache[client_ip] = {
+            if key not in self.cache:
+                self.cache[key] = {
                     'tokens': self.max_requests, 'last_time': current_time}
 
-            client_data = self.cache[client_ip]
+            client_data = self.cache[key]
             elapsed = current_time - client_data['last_time']
             refill_tokens = min(
                 self.max_requests, client_data['tokens'] + elapsed * (self.max_requests / self.window_seconds))
@@ -203,10 +199,11 @@ class GlobalRateLimiterMiddleware(BaseHTTPMiddleware):
 
             if client_data['tokens'] < 1:
                 logger.warning(
-                    f"Rate limit exceeded for IP: {client_ip}"
+                    f"Rate limit exceeded for IP: {client_ip} | Tokens: {
+                        client_data['tokens']} | Last Time: {client_data['last_time']}"
                 )
                 return Response(status_code=429, content="Too Many Requests")
 
             client_data['tokens'] -= 1
-            self.cache[client_ip] = client_data
+            self.cache[key] = client_data
         return await call_next(request)

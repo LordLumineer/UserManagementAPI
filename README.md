@@ -759,6 +759,8 @@ Another important place to properly write information is in the decorators of th
 
 These are a bunch of commands that have been used before grouped in a single place.
 
+TODO: https://github.com/astral-sh/ruff
+
 ```bash
 pip install -r app/requirements.txt
 pip install -r app/test/requirements.txt
@@ -767,6 +769,7 @@ pip install -r app/test/requirements.txt
 fastapi dev app/main.py --host=localhost --port=80
 pylint app/ --rcfile=app/.pylintrc
 pytest app/ --tb=no --md-report --md-report-verbose=1
+pytest app/ --tb=no --md-report --md-report-verbose=1 --html=reports/pytest.html
 coverage run -m pytest app/ --tb=no --md-report --md-report-verbose=1
 coverage run -m pytest app/ | coverage html
 
@@ -827,4 +830,4 @@ This project is released under the [Apache-2.0](LICENSE).
 
 ## Changelog
 
-TODO
+The full change log is available in [CHANGES.md](CHANGES.md).

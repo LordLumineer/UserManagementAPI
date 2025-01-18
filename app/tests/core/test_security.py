@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from app.core.config import settings
 from app.core.utils import generate_random_letters
 from app.core.security import (
+    Token,
     TokenData,
     authenticate_user,
     create_access_token,
@@ -25,8 +26,10 @@ from app.core.security import (
 )
 from app.db_objects.db_models import User
 
-pytest_plugins = ('pytest_asyncio',)
-
+def test_token_class():
+    """Test TokenData class."""
+    token_data = Token(access_token="test_token", token_type="bearer")
+    assert str(token_data) == "bearer test_token"
 
 @pytest.mark.parametrize("purpose, data, should_raise", [
     ("login", {"uuid": "123", "roles": ["admin"]}, False),
@@ -224,8 +227,11 @@ def test_validate_otp(otp_method, expected):
         # OTP required
         ("otpuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True,
          "otp_method": "email", "otp_secret": None, "uuid": "123e4567-e89b-12d3-a456-426614174003"}, HTTPException),
-        # Successful authentication without OTP
-        ("simpleuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True,
+        # OTP required WITH secret
+        ("otpuser@example.com", "password", {"hashed_password": "correcthash", "is_active": True,
+         "otp_method": "email", "otp_secret": generate_random_letters(length=32), "uuid": "123e4567-e89b-12d3-a456-426614174003"}, HTTPException),
+        # Successful authentication without OTP / admin user
+        ("admin@example.com", "password", {"hashed_password": "correcthash", "is_active": True,
          "otp_method": "none", "uuid": "123e4567-e89b-12d3-a456-426614174004"}, None),
     ],
 )
@@ -253,11 +259,12 @@ async def test_authenticate_user(username, password, user_data, expected_excepti
     mock_send_otp_email = AsyncMock()
 
     # Patch imported dependencies
-    with patch("app.db_objects.user.get_user_by_email", mock_get_user_by_email), \
+    with patch("app.core.security.validate_email", return_value=username), \
+            patch("app.db_objects.user.get_user_by_email", mock_get_user_by_email), \
             patch("app.db_objects.user.get_user_by_username", mock_get_user_by_username), \
             patch("app.core.security.verify_password", mock_verify_password), \
             patch("app.core.security.generate_otp", mock_generate_otp), \
-            patch("app.core.email.send_otp_email", mock_send_otp_email), \
+            patch("app.core.security.send_otp_email", mock_send_otp_email), \
             patch("app.core.config.settings", MagicMock(CONTACT_EMAIL="support@example.com", OTP_EMAIL_INTERVAL=30, OTP_LENGTH=6, PROJECT_NAME="TestProject")):
 
         # Configure mocks

@@ -48,6 +48,8 @@ async def oauth_login(provider: str,  request: Request):
     Response
         The redirect response to the OAuth provider login page.
     """
+    if provider == "twitter":
+        raise HTTPException(status_code=400, detail=f"You can only link Twitter accounts (logged in). {request.url_for('oauth_link', provider='twitter')}")
     if provider not in oauth_clients_names:
         raise HTTPException(status_code=404, detail="Unsupported provider")
     provider_client = oauth.create_client(provider)

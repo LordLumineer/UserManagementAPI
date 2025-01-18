@@ -250,9 +250,6 @@ class FeatureFlagRule(BaseModel):
     userRoles: list[UserRole] | None = None
 
 
-# class FeatureFlag(BaseModel):
-#     name: str
-#     rule: bool | list[FeatureFlagRule]
 FeatureFlags = dict[str, bool | list[FeatureFlagRule]]
 
 
@@ -261,11 +258,15 @@ async def load_feature_flags(app_endpoint_functions_name: list[str] = None):
     if app_endpoint_functions_name is None:
         app_endpoint_functions_name = []
     global FEATURE_FLAGS  # pylint: disable=global-statement
-    if os.path.exists(settings.FEATURE_FLAGS_FILE):
-        async with aiofiles.open(settings.FEATURE_FLAGS_FILE, "r", encoding="utf-8") as file:
+    if os.path.exists(settings.FEATURE_FLAGS_PATH):
+        async with aiofiles.open(settings.FEATURE_FLAGS_PATH, "r", encoding="utf-8") as file:
             content = await file.read()
             FEATURE_FLAGS = json.loads(content)
+            logger.debug(f"Feature flags loaded from file: {
+                         settings.FEATURE_FLAGS_PATH}")
     else:
+        logger.debug(f"Feature flags file not found, creating new file: {
+                     settings.FEATURE_FLAGS_PATH}")
         FEATURE_FLAGS = {}
     # Update the feature flags based on the app endpoint functions name
     for endpoint_function_name in app_endpoint_functions_name:
@@ -279,6 +280,8 @@ async def save_feature_flags():
     """Save feature flags from memory to a file."""
     async with aiofiles.open(settings.FEATURE_FLAGS_PATH, mode="w", encoding="utf-8") as file:
         await file.write(json.dumps(FEATURE_FLAGS, indent=4))
+        logger.debug(f"Feature flags saved to file: {
+                     settings.FEATURE_FLAGS_PATH}")
     return FEATURE_FLAGS
 
 
@@ -318,7 +321,7 @@ def user_is_within_percentage(feature_name: str, allowed_percent: float | None, 
     return hashed_value / int(2**32 - 1) < allowed_percent
 
 
-def can_view_feature(feature_name: str, db_user: User | None) -> bool:
+def can_view_feature(feature_name: str, db_user: User | None = None) -> bool:
     """
     Check if the user can view a feature.
 
@@ -381,11 +384,11 @@ def feature_flag(feature_name: str):
 
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
-            return await func(*args, **kwargs)
+            return await func(*args, **kwargs)  # pragma: no cover
 
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
+            return func(*args, **kwargs)  # pragma: no cover
 
         # Determine if the function is async or sync
         if inspect.iscoroutinefunction(func):
